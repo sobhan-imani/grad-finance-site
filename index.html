@@ -244,6 +244,41 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
 .att-tools select{flex:1 1 180px;min-width:0;padding:6px 10px;font-size:13.5px}
 
 [hidden]{display:none!important}
+.claim-box{display:grid;gap:12px}
+.pay-app-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.pay-app-head h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,6vw,36px);margin:0;line-height:1.2}
+.pay-wrap{display:grid;gap:12px;max-width:560px}
+.pay-hello h2{margin:0;font-size:20px}
+.sub{color:var(--muted);font-size:13px;display:block}
+.sub.bad,.bad{color:var(--bad)}
+.num{font-variant-numeric:tabular-nums}
+.pay-status{padding:12px 14px;border-radius:var(--radius);background:var(--sunken);font-size:15px}
+.pay-status.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok);font-weight:700}
+.pay-status.warn{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn);font-weight:700}
+.pay-amount,.pay-card{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.pay-amount .k,.pay-card .k{grid-column:1;color:var(--muted);font-size:13px}
+.pay-amount b,.pay-card b{grid-column:1;font-size:20px;letter-spacing:.5px}
+.pay-amount .btn,.pay-card .btn{grid-column:2;grid-row:1 / span 2}
+.pay-amount .sub,.pay-card .sub{grid-column:1 / -1}
+.pay-note{margin:0;padding:10px 14px;background:var(--gold-soft);border-radius:var(--radius);font-size:14px}
+.pay-upload{display:grid;gap:6px;justify-items:start}
+.btn.big{padding:13px 26px;font-size:16px}
+.receipt-draft{display:grid;grid-template-columns:minmax(90px,140px) 1fr;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px;width:100%}
+.receipt-draft img{width:100%;border-radius:8px;object-fit:contain;max-height:240px;background:var(--sunken)}
+.rd-fields{display:grid;gap:10px;align-content:start}
+.row-btns{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:560px){.receipt-draft{grid-template-columns:1fr}.receipt-draft img{max-height:200px}}
+.pay-h{margin:10px 0 0;font-size:16px}
+.rcpt{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-inline-start:4px solid var(--c);border-radius:var(--radius);padding:8px 10px;width:100%;text-align:start;cursor:pointer}
+.rcpt .thumb{width:48px;height:48px}
+div.rcpt{cursor:default}
+.payinfo{display:grid;grid-template-columns:repeat(3,1fr) auto;gap:10px 14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px}
+.payinfo.warn{border-color:color-mix(in srgb,var(--bad) 50%,var(--line))}
+.payinfo .k{display:block;color:var(--muted);font-size:12.5px}
+@media(max-width:760px){.payinfo{grid-template-columns:1fr 1fr}.payinfo .btn{grid-column:1/-1;justify-self:start}}
+.people-sum{display:flex;gap:6px 14px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin:0 2px 10px}
+.rc-info{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.rc-info .sub{flex-basis:100%}
 body:not(.can-edit) .need-edit{display:none!important}
 body:not(.can-admin) .need-admin{display:none!important}
 .tg-box{min-height:44px;display:flex;justify-content:center}
@@ -276,6 +311,11 @@ body:not(.can-admin) .need-admin{display:none!important}
       <button class="btn primary" type="button" id="recheckBtn">بررسی دوباره</button>
       <button class="btn" type="button" id="gateLogout">خروج</button>
     </div>
+    <form id="claimForm" class="claim-box" hidden novalidate>
+      <label class="lbl">شماره دانشجویی<input class="field" name="no" inputmode="numeric" dir="ltr" autocomplete="off" maxlength="20"></label>
+      <label class="lbl" id="codeWrap" hidden>۴ رقم آخر شماره موبایلت <span class="hint">همونی که توی لیست ثبت‌نام دادی</span><input class="field" name="code" inputmode="numeric" dir="ltr" maxlength="4" autocomplete="off"></label>
+      <button class="btn primary" type="submit" id="claimBtn">ادامه</button>
+    </form>
     <details id="emailBox" class="email-box">
       <summary>ورود با ایمیل</summary>
       <form id="loginForm" novalidate>
@@ -321,6 +361,8 @@ body:not(.can-admin) .need-admin{display:none!important}
     <button class="tab" role="tab" aria-selected="true" data-tab="items">هزینه‌ها<span class="n" id="nItems">۰</span></button>
     <button class="tab" role="tab" aria-selected="false" data-tab="invoices">فاکتورها<span class="n" id="nInv">۰</span></button>
     <button class="tab" role="tab" aria-selected="false" data-tab="budget">بودجه</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="people">شرکت‌کننده‌ها<span class="n" id="nPeople">۰</span></button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="mypay" id="myPayTab" hidden>پرداخت من</button>
     <button class="tab" role="tab" aria-selected="false" data-tab="cats">بر اساس دسته</button>
     <button class="tab" role="tab" aria-selected="false" data-tab="settings">تنظیمات</button>
     <button class="tab" role="tab" aria-selected="false" data-tab="history">تاریخچه</button>
@@ -355,6 +397,22 @@ body:not(.can-admin) .need-admin{display:none!important}
 
   <section class="panel" id="panel-cats" hidden><div id="catList"></div></section>
 
+  <section class="panel" id="panel-people" hidden>
+    <div id="payInfoCard"></div>
+    <div class="toolbar">
+      <label class="sr" for="pq">جستجو</label>
+      <input type="search" id="pq" placeholder="جستجو در نام یا شماره دانشجویی…">
+      <select id="pFilter" aria-label="وضعیت"><option value="">همه</option><option value="review">فیش در انتظار بررسی</option><option value="unpaid">پرداخت نکرده</option><option value="partial">بخشی پرداخت شده</option><option value="settled">تسویه</option><option value="unclaimed">هنوز وارد نشده</option></select>
+      <button class="btn desk need-edit push" type="button" data-act="import-people">ورود از شیت</button>
+      <button class="btn primary desk need-edit" type="button" data-act="add-person">+ شرکت‌کننده</button>
+    </div>
+    <div class="people-sum" id="peopleSummary"></div>
+    <div id="reviewQueue"></div>
+    <div class="list" id="peopleList"></div>
+  </section>
+
+  <section class="panel" id="panel-mypay" hidden><div id="myPayStaff"></div></section>
+
   <section class="panel" id="panel-history" hidden><div class="list" id="historyList"></div></section>
 
   <section class="panel" id="panel-members" hidden>
@@ -373,6 +431,11 @@ body:not(.can-admin) .need-admin{display:none!important}
       <p class="hint" id="setMeta" style="color:var(--muted);font-size:13px;margin:0"></p>
     </div>
   </section>
+</div>
+
+<div class="wrap" id="payApp" hidden>
+  <header class="pay-app-head"><h1>پرداخت سهم جشن</h1><button class="btn small" type="button" data-act="logout">خروج</button></header>
+  <div id="myPayFull"></div>
 </div>
 
 <div class="bottom-bar" id="bottomBar" hidden></div>
@@ -461,6 +524,84 @@ body:not(.can-admin) .need-admin{display:none!important}
   </form>
 </dialog>
 
+<dialog id="personDlg">
+  <form method="dialog" id="personForm" novalidate>
+    <div class="dlg-head"><h2 id="personDlgTitle">شرکت‌کننده</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
+    <div class="dlg-body">
+      <div class="two">
+        <label class="lbl">شماره دانشجویی<input class="field" name="student_no" dir="ltr" required maxlength="20"></label>
+        <label class="lbl">نام و نام خانوادگی<input class="field" name="full_name" maxlength="80"></label>
+      </div>
+      <div class="two">
+        <label class="lbl">مبلغ سهم <span class="hint">خالی = پیش‌فرض</span><input class="field" name="amount" inputmode="numeric"></label>
+        <label class="lbl">کد تأیید <span class="hint">۴ رقم آخر موبایل؛ اختیاری</span><input class="field" name="verify_code" inputmode="numeric" dir="ltr" maxlength="11"></label>
+      </div>
+      <label class="lbl">یادداشت<input class="field" name="note" maxlength="140"></label>
+      <div id="personLink"></div>
+      <div id="personPays"></div>
+      <p class="hint" id="personMeta" style="color:var(--muted);font-size:12.5px;margin:0"></p>
+    </div>
+    <div class="dlg-foot">
+      <button class="btn danger need-admin" type="button" id="personDel" hidden>حذف</button>
+      <span class="spacer"></span>
+      <button class="btn" type="button" data-close>انصراف</button>
+      <button class="btn primary need-edit" type="submit">ذخیره</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="receiptDlg">
+  <form method="dialog" novalidate onsubmit="return false">
+    <div class="dlg-head"><h2 id="rcTitle">فیش</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
+    <div class="dlg-body">
+      <div class="preview" id="rcPreview"></div>
+      <div class="rc-info" id="rcInfo"></div>
+      <label class="lbl">مبلغ فیش<input class="field" id="rcAmount" inputmode="numeric"></label>
+      <label class="lbl">یادداشت بررسی <span class="hint">اگه رد می‌کنی، دلیلش برای خود شخص نمایش داده می‌شه</span><input class="field" id="rcNote" maxlength="200"></label>
+    </div>
+    <div class="dlg-foot need-edit">
+      <button class="btn" type="button" id="rcReset">برگرداندن به بررسی</button>
+      <span class="spacer"></span>
+      <button class="btn danger" type="button" id="rcReject">رد</button>
+      <button class="btn need-admin" type="button" id="rcAmountSave">اصلاح مبلغ</button>
+      <button class="btn primary" type="button" id="rcApprove">تأیید</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="payInfoDlg">
+  <form method="dialog" id="payInfoForm" novalidate>
+    <div class="dlg-head"><h2>اطلاعات پرداخت</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
+    <div class="dlg-body">
+      <p class="hint" style="color:var(--muted);font-size:13px;margin:0">این اطلاعات به شرکت‌کننده‌ها نمایش داده می‌شه تا کپی کنن و واریز کنن.</p>
+      <label class="lbl">شماره کارت<input class="field" name="card_number" inputmode="numeric" dir="ltr" maxlength="23" placeholder="6037 9900 0000 0000"></label>
+      <div class="two">
+        <label class="lbl">به نام<input class="field" name="card_holder" maxlength="60"></label>
+        <label class="lbl">بانک<input class="field" name="bank" maxlength="40"></label>
+      </div>
+      <label class="lbl">شبا <span class="hint">اختیاری</span><input class="field" name="sheba" dir="ltr" maxlength="34" placeholder="IR..."></label>
+      <div class="two">
+        <label class="lbl">مبلغ پیش‌فرض سهم<input class="field" name="default_amount" inputmode="numeric"></label>
+        <label class="lbl">مهلت پرداخت<input class="field" name="deadline" maxlength="40" placeholder="مثلاً ۱۵ آبان"></label>
+      </div>
+      <label class="lbl">توضیح برای شرکت‌کننده‌ها<textarea class="field" name="note" maxlength="400"></textarea></label>
+    </div>
+    <div class="dlg-foot"><span class="spacer"></span><button class="btn" type="button" data-close>انصراف</button><button class="btn primary need-edit" type="submit">ذخیره</button></div>
+  </form>
+</dialog>
+
+<dialog id="importDlg">
+  <form method="dialog" novalidate onsubmit="return false">
+    <div class="dlg-head"><h2>ورود لیست از شیت</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
+    <div class="dlg-body">
+      <p class="hint" style="color:var(--muted);font-size:13px;margin:0">فایل Excel یا CSV. سطر اول عنوان ستون‌ها باشه: «شماره دانشجویی» (لازم)، «نام و نام خانوادگی» یا «نام» + «نام خانوادگی»، و اختیاری «مبلغ»، «موبایل»، «توضیحات». شماره‌های تکراری به‌روزرسانی می‌شن و اتصال حساب‌ها دست نمی‌خوره.</p>
+      <input class="field" type="file" id="importFile" accept=".xlsx,.xls,.csv">
+      <div id="importInfo"></div>
+    </div>
+    <div class="dlg-foot"><span class="spacer"></span><button class="btn" type="button" data-close>انصراف</button><button class="btn primary" type="button" id="importGo" disabled>وارد کردن</button></div>
+  </form>
+</dialog>
+
 <div class="toast" id="toast" aria-live="polite"><div></div></div>
 
 <script src="config.js"></script>
@@ -479,14 +620,14 @@ const QUICK_FUNDS = ['پول نقد اولیه','کمک دانشگاه یا ان
 const FUND = 'صندوق';
 const BUCKET = 'invoices';
 const DEFAULT_SETTINGS = {id:1, title:'جشن فارغ‌التحصیلی', budget:0, headcount:0, currency:'تومان'};
-const TABLES = ['items','funds','invoices'];
+const TABLES = ['items','funds','invoices','participants','payments'];
 const UPLOAD_TYPES = ['image/jpeg','image/png','image/webp','image/gif','application/pdf'];
 const AUDIT = ['created_at','created_by','updated_at','updated_by'];
 
 const $ = s => document.querySelector(s);
 const cfg = window.APP_CONFIG || {};
 let sb = null, me = null, channel = null, ready = false;
-let S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[]};
+let S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[], participants:{}, payments:{}, payInfo:{}};
 const uploading = new Map();
 const urlCache = new Map(); // file_path -> {url, exp}
 const urlPending = new Set();
@@ -551,15 +692,16 @@ async function loadAll(){
   const { data: st, error } = await sb.from('settings').select('*').eq('id', 1).maybeSingle();
   if (error) throw error;
   S.settings = {...DEFAULT_SETTINGS, ...(st || {})};
-  await Promise.all([...TABLES.map(reload), loadMembers(), loadActivity()]);
+  await Promise.all([...TABLES.map(reload), loadMembers(), loadActivity(), loadPayInfo()]);
   ready = true; render(); fillSettings();
 }
 function subscribe(){
   if (channel) sb.removeChannel(channel);
   channel = sb.channel('party-finance');
-  [...TABLES, 'settings'].forEach(table => {
+  [...TABLES, 'settings', 'payment_info'].forEach(table => {
     channel.on('postgres_changes', {event:'*', schema:'public', table}, p => {
-      if (table === 'settings'){ if (p.new && p.new.id === 1){ S.settings = {...DEFAULT_SETTINGS, ...p.new}; fillSettings(); } }
+      if (table === 'payment_info'){ if (p.new && p.new.id === 1) S.payInfo = {...DEFAULT_PAYINFO, ...p.new}; }
+      else if (table === 'settings'){ if (p.new && p.new.id === 1){ S.settings = {...DEFAULT_SETTINGS, ...p.new}; fillSettings(); } }
       else if (p.eventType === 'DELETE'){ if (p.old && p.old.id) delete S[table][p.old.id]; }
       else if (p.new && p.new.id) S[table][p.new.id] = p.new;
       render();
@@ -567,7 +709,7 @@ function subscribe(){
   });
   channel.on('postgres_changes', {event:'*', schema:'public', table:'members'}, p => {
     const row = p.new && p.new.user_id ? p.new : null, oldId = p.old && p.old.user_id;
-    if (row && row.user_id === me.id){ me.member = row; if (row.role === 'pending'){ enter({user:me}); return; } if (row.role !== myRole){ applyRole(row.role); if (canAdmin) loadMembers().then(render); } }
+    if (row && row.user_id === me.id){ me.member = row; if (row.role !== myRole){ enter({user:me}); return; } }
     if ((p.eventType === 'DELETE' && oldId === me.id)){ enter({user:me}); return; }
     if (canAdmin){ if (p.eventType === 'DELETE'){ if (oldId) delete S.members[oldId]; } else if (row) S.members[row.user_id] = row; render(); }
   });
@@ -585,7 +727,7 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 /* ---------- roles ---------- */
-const ROLE_LABEL = {admin:'مدیر', editor:'ویرایشگر', viewer:'بیننده', pending:'در انتظار تأیید'};
+const ROLE_LABEL = {participant:'شرکت‌کننده', admin:'مدیر', editor:'ویرایشگر', viewer:'بیننده', pending:'در انتظار تأیید'};
 let myRole = null, canEdit = false, canAdmin = false;
 function applyRole(role){
   myRole = role; canEdit = role === 'admin' || role === 'editor'; canAdmin = role === 'admin';
@@ -614,7 +756,9 @@ function gateState(state, msg, err){
   $('#app').hidden = true; $('#bottomBar').hidden = true; $('#gate').hidden = false;
   $('#gateMsg').innerHTML = msg || '';
   $('#loginErr').textContent = err || '';
-  $('#waitBox').hidden = state !== 'wait';
+  $('#waitBox').hidden = state !== 'wait' && state !== 'claim';
+  $('#claimForm').hidden = state !== 'claim';
+  $('#payApp').hidden = true;
   $('#tgBox').hidden = state !== 'login';
   $('#emailBox').hidden = state !== 'login' || !!tgWA;
   if (state === 'login'){ mountTelegramWidget(); if (!cfg.telegramBot || /YOUR/.test(cfg.telegramBot)) $('#emailBox').open = true; }
@@ -651,17 +795,55 @@ let ownChannel = null;
 async function enter(session){
   me = session.user;
   const { data: row, error } = await sb.from('members').select('*').eq('user_id', me.id).maybeSingle();
-  if (error){ gateState('login', '', 'اتصال به دیتابیس برقرار نشد. آدرس و کلید config.js و اجرای schema.sql رو چک کن.'); return; }
+  if (error){
+    console.error('members', error);
+    const m = `${error.code || ''} ${error.message || ''}`;
+    const hint = /PGRST205|does not exist|schema cache/i.test(m) ? 'جدول‌ها پیدا نشدن؛ schema.sql اجرا نشده یا Data API جدول‌ها رو نمی‌بینه.'
+      : /42501|permission denied/i.test(m) ? 'دیتابیس اجازه‌ی دسترسی نمی‌ده؛ دستورهای grant رو در SQL Editor اجرا کن.'
+      : /infinite recursion/i.test(m) ? 'مشکل در قوانین دسترسی جدول members.'
+      : 'اتصال به دیتابیس برقرار نشد.';
+    gateState('wait', '', `${hint} (جزئیات: ${m.trim()})`); return;
+  }
   me.member = row;
-  if (!row || row.role === 'pending'){
+  const role0 = row ? row.role : 'pending';
+  if (role0 === 'pending' || role0 === 'participant'){
+    const { data: part } = await sb.from('participants').select('id').eq('user_id', me.id).maybeSingle();
+    if (part) return enterParticipant();
+    gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره دانشجویی‌ت رو بزن تا مبلغ و اطلاعات پرداخت رو ببینی.` + (role0 === 'pending' ? '<br><span class="sub">اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی.</span>' : ''));
+    watchOwnRow(); return;
+  }
+  if (!row){
     gateState('wait', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! درخواست دسترسی‌ت ثبت شد. وقتی مدیر نقشت رو تعیین کرد، همین‌جا خودکار وارد می‌شی.`);
     watchOwnRow(); return;
   }
-  $('#gate').hidden = true; $('#app').hidden = false; $('#bottomBar').hidden = false;
+  $('#gate').hidden = true; $('#payApp').hidden = true; $('#app').hidden = false; $('#bottomBar').hidden = false;
   $('#me').textContent = row.display_name || (me.email && !me.email.endsWith('@telegram.local') ? me.email : '');
   applyRole(row.role);
   try { await loadAll(); subscribe(); } catch(e){ fail(e, 'load'); setSync(false, 'بارگذاری ناموفق بود؛ صفحه رو تازه کن'); }
 }
+async function enterParticipant(){
+  $('#gate').hidden = true; $('#app').hidden = true; $('#payApp').hidden = false; $('#bottomBar').hidden = true;
+  applyRole('participant');
+  try { await Promise.all([reload('participants'), reload('payments'), loadPayInfo()]); ready = true; render(); subscribe(); }
+  catch(e){ fail(e, 'load'); }
+}
+$('#claimForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target.elements, btn = $('#claimBtn');
+  if (!toLatin(f.no.value).trim()){ f.no.focus(); return; }
+  btn.disabled = true; $('#loginErr').textContent = '';
+  const { data, error } = await sb.rpc('claim_student', {p_no:f.no.value, p_code:f.code.value || null});
+  btn.disabled = false;
+  if (error){ $('#loginErr').textContent = 'بررسی شماره انجام نشد؛ دوباره امتحان کن.'; return; }
+  if (data && data.ok){ const s = await sb.auth.getSession(); if (s.data.session) enter(s.data.session); return; }
+  const MSG = {not_found:'این شماره دانشجویی توی لیست نیست. اگه مطمئنی درسته، به مسئول مالی خبر بده.',
+    taken:'این شماره قبلاً به یه حساب تلگرام دیگه وصل شده. اگه مال خودته، به مسئول مالی خبر بده.',
+    already_linked:'حسابت قبلاً به یه شماره‌ی دیگه وصل شده.', need_code:'برای تأیید، ۴ رقم آخر شماره موبایلت رو هم بزن.',
+    bad_code:'۴ رقم آخر موبایل با لیست نمی‌خونه.', too_many:'تلاش‌ها زیاد شد؛ یک ساعت دیگه دوباره امتحان کن.'};
+  const code = data && data.error;
+  if (code === 'need_code' || code === 'bad_code'){ $('#codeWrap').hidden = false; f.code.focus(); }
+  $('#loginErr').textContent = MSG[code] || 'انجام نشد.';
+});
 function watchOwnRow(){
   if (ownChannel) sb.removeChannel(ownChannel);
   ownChannel = sb.channel('me-' + me.id).on('postgres_changes', {event:'*', schema:'public', table:'members', filter:`user_id=eq.${me.id}`}, async () => {
@@ -682,7 +864,7 @@ $('#loginForm').addEventListener('submit', async e => {
 async function logout(){
   [channel, ownChannel].forEach(c => c && sb.removeChannel(c)); channel = ownChannel = null;
   await sb.auth.signOut(); me = null; ready = false; myRole = null;
-  S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[]};
+  S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[], participants:{}, payments:{}, payInfo:{}};
   gateState('login', 'برای ورود، با تلگرام وارد شو.');
 }
 $('#logoutBtn').addEventListener('click', logout);
@@ -735,7 +917,7 @@ function renderMembers(){
       <div><input class="field" value="${esc(m.display_name)}" data-mem-name="${esc(m.user_id)}" aria-label="نام نمایشی" maxlength="60"><div class="id">${esc(ident(m))}</div></div>
       <div class="ctl">${m.role === 'pending'
         ? `<button class="btn small primary" type="button" data-mem-role="${esc(m.user_id)}:viewer">تأیید به‌عنوان بیننده</button><button class="btn small" type="button" data-mem-role="${esc(m.user_id)}:editor">ویرایشگر</button><button class="btn small danger" type="button" data-mem-del="${esc(m.user_id)}">رد</button>`
-        : `<select data-mem-select="${esc(m.user_id)}" aria-label="نقش">${['viewer','editor','admin'].map(r => `<option value="${r}"${r === m.role ? ' selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select>${m.user_id === me.id ? '<span class="tag">خودت</span>' : `<button class="btn small danger" type="button" data-mem-del="${esc(m.user_id)}">برداشتن دسترسی</button>`}`}</div>
+        : `<select data-mem-select="${esc(m.user_id)}" aria-label="نقش">${['participant','viewer','editor','admin'].map(r => `<option value="${r}"${r === m.role ? ' selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select>${m.user_id === me.id ? '<span class="tag">خودت</span>' : `<button class="btn small danger" type="button" data-mem-del="${esc(m.user_id)}">برداشتن دسترسی</button>`}`}</div>
     </div>`;
   box.innerHTML = (pending.length ? `<div class="group" style="--c:var(--warn)"><div class="group-head"><h4>درخواست‌های جدید</h4></div><div class="list">${pending.map(row).join('')}</div></div>` : '')
     + `<div class="group" style="--c:var(--ok)"><div class="group-head"><h4>اعضا</h4><span class="sum">${fmt(others.length)} نفر</span></div><div class="list">${others.map(row).join('')}</div></div>`;
@@ -743,11 +925,13 @@ function renderMembers(){
 const role_rank = r => ({admin:3, editor:2, viewer:1}[r] || 0);
 
 /* ---------- history ---------- */
-const FIELD_LABELS = {title:'عنوان', reason:'دلیل', type:'نوع', category:'دسته', vendor:'فروشنده', unit:'قیمت واحد', qty:'تعداد', paid:'وضعیت', actual:'مبلغ واقعی', payer:'پرداخت از',
+const FIELD_LABELS = {student_no:'شماره دانشجویی', full_name:'نام', status:'وضعیت فیش', review_note:'یادداشت بررسی', tracking_code:'کد پیگیری', card_number:'شماره کارت', card_holder:'به نام', default_amount:'مبلغ پیش‌فرض', deadline:'مهلت', user_id:'حساب متصل', verify_code:'کد تأیید', title:'عنوان', reason:'دلیل', type:'نوع', category:'دسته', vendor:'فروشنده', unit:'قیمت واحد', qty:'تعداد', paid:'وضعیت', actual:'مبلغ واقعی', payer:'پرداخت از',
   name:'نام', amount:'مبلغ', note:'یادداشت', item_id:'خرج مربوط', total:'مبلغ فاکتور', invoice_date:'تاریخ فاکتور', budget:'سقف بودجه', headcount:'تعداد نفرات', currency:'واحد پول'};
 function valText(k, v, tbl, kind){
   if (v === null || v === undefined || v === '') return '—';
-  if (['unit','actual','amount','total','budget','headcount','qty'].includes(k)) return fmt(v);
+  if (['unit','actual','amount','total','budget','headcount','qty','default_amount'].includes(k)) return fmt(v);
+  if (k === 'status') return PAY_STATUS[v] || v;
+  if (k === 'user_id') return 'متصل';
   if (k === 'paid') return v ? (tbl === 'funds' ? (kind === 'contrib' ? 'واریز کرده' : 'دریافت شد') : 'پرداخت شد') : (tbl === 'funds' ? 'در راه' : 'پرداخت‌نشده');
   if (k === 'type') return TYPES[v]?.l || v;
   if (k === 'item_id') return S.items[v]?.title || 'خرج حذف‌شده';
@@ -760,7 +944,7 @@ async function loadActivity(){
 function renderHistory(){
   const box = $('#historyList');
   if (!S.activity.length){ box.innerHTML = '<div class="empty">هنوز تغییری ثبت نشده.</div>'; return; }
-  const TBL = {items:'هزینه', invoices:'فاکتور', settings:'تنظیمات'};
+  const TBL = {items:'هزینه', invoices:'فاکتور', settings:'تنظیمات', participants:'شرکت‌کننده', payments:'', payment_info:''};
   const ACT = {insert:'اضافه کرد', update:'ویرایش کرد', delete:'حذف کرد'};
   const COL = {insert:'var(--ok)', update:'var(--gold)', delete:'var(--bad)'};
   const dt = new Intl.DateTimeFormat('fa-IR', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
@@ -776,7 +960,7 @@ function renderHistory(){
       chg = amt ? `مبلغ: ${fmt(amt)}` : '';
     }
     return `<div class="hist" style="--c:${COL[a.action] || 'var(--line)'}"><span class="who2">${esc(a.actor_name || '—')}</span><span class="when">${dt.format(new Date(a.at))}</span>
-      <span class="what">${what} «${esc(a.title || '')}» رو ${ACT[a.action] || a.action}${chg ? `<span class="chg">${chg}</span>` : ''}</span></div>`;
+      <span class="what">${what ? what + ' ' : ''}«${esc(a.title || '')}» رو ${ACT[a.action] || a.action}${chg ? `<span class="chg">${chg}</span>` : ''}</span></div>`;
   }).join('');
 }
 
@@ -802,6 +986,7 @@ function totals(){
 
 /* ---------- render ---------- */
 function render(){
+  if (myRole === 'participant'){ renderMyPay($('#myPayFull')); hydrateThumbs(); return; }
   const t = totals(), st = S.settings, head = Number(st.headcount)||0;
   const budget = Number(st.budget) || t.expected, budgetName = Number(st.budget) ? 'سقف بودجه' : 'کل بودجه';
   $('#title').textContent = st.title || DEFAULT_SETTINGS.title;
@@ -837,6 +1022,7 @@ function render(){
   const ni = $('#nInv'); ni.textContent = t.review ? fmt(t.review) + ' وصل‌نشده' : fmt(Object.keys(S.invoices).length); ni.classList.toggle('alert', !!t.review);
 
   renderItems(t); renderInvoices(); renderBudget(t); renderCats(t); renderPayers(); renderBottomBar(); renderMembers(); if (currentTab === 'history') renderHistory();
+  renderPeople(); $('#myPayTab').hidden = !myParticipant(); if (currentTab === 'mypay') renderMyPay($('#myPayStaff'));
   if ($('#itemDlg').open && editingItem) renderItemAtt(editingItem.id);
   hydrateThumbs();
 }
@@ -885,25 +1071,28 @@ function renderItems(t){
 /* ---------- invoices ---------- */
 function thumbHtml(v, small){
   if (v.file_type === 'application/pdf') return `<span class="thumb">PDF</span>`;
-  const c = urlCache.get(v.file_path), src = c && c.exp > Date.now() ? ` src="${esc(c.url)}"` : '';
+  const c = urlCache.get(BUCKET + ':' + v.file_path), src = c && c.exp > Date.now() ? ` src="${esc(c.url)}"` : '';
   return `<span class="thumb"><img data-path="${esc(v.file_path)}"${src} alt="" loading="lazy"></span>`;
 }
-async function signedUrls(paths){
-  const need = paths.filter(p => { const c = urlCache.get(p); return !(c && c.exp > Date.now() + 60000) && !urlPending.has(p); });
+async function signedUrls(paths, bucket = BUCKET){
+  const key = p => bucket + ':' + p;
+  const need = paths.filter(p => { const c = urlCache.get(key(p)); return !(c && c.exp > Date.now() + 60000) && !urlPending.has(key(p)); });
   if (need.length){
-    need.forEach(p => urlPending.add(p));
-    const { data, error } = await sb.storage.from(BUCKET).createSignedUrls(need, 3600);
-    need.forEach(p => urlPending.delete(p));
-    if (!error && data) data.forEach(d => { if (d.signedUrl) urlCache.set(d.path, {url:d.signedUrl, exp:Date.now() + 3500e3}); });
+    need.forEach(p => urlPending.add(key(p)));
+    const { data, error } = await sb.storage.from(bucket).createSignedUrls(need, 3600);
+    need.forEach(p => urlPending.delete(key(p)));
+    if (!error && data) data.forEach(d => { if (d.signedUrl) urlCache.set(key(d.path), {url:d.signedUrl, exp:Date.now() + 3500e3}); });
   }
-  return paths.map(p => urlCache.get(p)?.url);
+  return paths.map(p => urlCache.get(key(p))?.url);
 }
 async function hydrateThumbs(){
   if (!sb || !me) return;
   const imgs = [...document.querySelectorAll('img[data-path]:not([src])')];
   if (!imgs.length) return;
-  await signedUrls([...new Set(imgs.map(i => i.dataset.path))]);
-  document.querySelectorAll('img[data-path]:not([src])').forEach(i => { const c = urlCache.get(i.dataset.path); if (c) i.src = c.url; });
+  const groups = {};
+  imgs.forEach(i => (groups[i.dataset.bucket || BUCKET] = groups[i.dataset.bucket || BUCKET] || new Set()).add(i.dataset.path));
+  await Promise.all(Object.entries(groups).map(([b, set]) => signedUrls([...set], b)));
+  document.querySelectorAll('img[data-path]:not([src])').forEach(i => { const c = urlCache.get((i.dataset.bucket || BUCKET) + ':' + i.dataset.path); if (c) i.src = c.url; });
 }
 function itemOptions(selected){
   const items = Object.values(S.items).sort((a,b) => (TYPES[a.type]?.order??0) - (TYPES[b.type]?.order??0) || (a.title||'').localeCompare(b.title||'','fa'));
@@ -1089,6 +1278,347 @@ function fillSettings(){
   $('#setMeta').textContent = metaLine(st);
 }
 
+/* ---------- participants & receipts ---------- */
+const PAY_STATUS = {submitted:'در انتظار بررسی', approved:'تأیید شد', rejected:'رد شد'};
+const PAY_COLOR = {submitted:'var(--warn)', approved:'var(--ok)', rejected:'var(--bad)'};
+const DEFAULT_PAYINFO = {card_number:'', card_holder:'', bank:'', sheba:'', default_amount:0, deadline:'', note:''};
+const cardFmt = n => (toLatin(n).replace(/\D/g, '').match(/.{1,4}/g) || []).join(' ');
+const dueOf = p => (p.amount !== null && p.amount !== undefined) ? Number(p.amount) : Number(S.payInfo.default_amount || 0);
+const paysOf = pid => Object.values(S.payments).filter(x => x.participant_id === pid).sort((a,b) => ts(b.created_at) - ts(a.created_at));
+function payState(p){
+  const ps = paysOf(p.id), due = dueOf(p);
+  const approved = ps.filter(x => x.status === 'approved').reduce((a,x) => a + (Number(x.amount)||0), 0);
+  const pending = ps.filter(x => x.status === 'submitted').reduce((a,x) => a + (Number(x.amount)||0), 0);
+  const key = due > 0 && approved >= due ? 'settled' : pending ? 'review' : approved > 0 ? 'partial' : 'unpaid';
+  return {due, approved, pending, key, remaining:Math.max(0, due - approved - pending), count:ps.length};
+}
+const STATE_LABEL = {settled:'تسویه', review:'فیش در انتظار بررسی', partial:'بخشی پرداخت شده', unpaid:'پرداخت نکرده'};
+const STATE_COLOR = {settled:'var(--ok)', review:'var(--warn)', partial:'var(--gold)', unpaid:'var(--line)'};
+const myParticipant = () => me && Object.values(S.participants).find(p => p.user_id === me.id);
+
+async function loadPayInfo(){
+  const { data } = await sb.from('payment_info').select('*').eq('id', 1).maybeSingle();
+  S.payInfo = {...DEFAULT_PAYINFO, ...(data || {})};
+}
+async function copyText(text, label){
+  try { await navigator.clipboard.writeText(text); }
+  catch(e){ const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch(_){} ta.remove(); }
+  toast((label || 'متن') + ' کپی شد');
+}
+
+/* receipt compression: done on the device, so only a small WebP/JPEG ever reaches the server */
+function loadImage(file){
+  return createImageBitmap(file, {imageOrientation:'from-image'}).catch(() => new Promise((res, rej) => {
+    const img = new Image(); img.onload = () => res(img); img.onerror = () => rej(new Error('decode')); img.src = URL.createObjectURL(file);
+  }));
+}
+async function encodeImage(src, maxSide, q){
+  const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight, k = Math.min(1, maxSide / Math.max(w, h));
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w*k)); c.height = Math.max(1, Math.round(h*k));
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(src, 0, 0, c.width, c.height);
+  const toBlob = type => new Promise(r => c.toBlob(r, type, q));
+  let b = await toBlob('image/webp');
+  if (!b || b.type !== 'image/webp') b = await toBlob('image/jpeg');
+  return b;
+}
+async function compressReceipt(file){
+  const src = await loadImage(file);
+  let b = await encodeImage(src, 1400, 0.6);
+  if (b.size > 300e3) b = await encodeImage(src, 1100, 0.5);
+  if (b.size > 800e3) b = await encodeImage(src, 900, 0.4);
+  return b;
+}
+const kb = n => fmt(Math.max(1, Math.round(n / 1024))) + ' کیلوبایت';
+
+/* participant's own payment page (full page for participants, a tab for staff who are also participants) */
+let draftReceipt = null; // {blob, url, origSize}
+function renderMyPay(el){
+  const p = myParticipant(); if (!el) return;
+  const keepA = el.querySelector('#rdAmount')?.value, keepT = el.querySelector('#rdTrack')?.value;
+  queueMicrotask(() => { if (draftReceipt){ const a = el.querySelector('#rdAmount'), t = el.querySelector('#rdTrack'); if (a && keepA !== undefined) a.value = keepA; if (t && keepT !== undefined) t.value = keepT; } });
+  if (!p){ el.innerHTML = ''; return; }
+  const info = S.payInfo, st = payState(p), ps = paysOf(p.id), cur = S.settings.currency || 'تومان';
+  const m = n => fmt(n) + ' ' + cur;
+  const statusLine = st.key === 'settled' ? `<div class="pay-status ok">سهمت کامل پرداخت و تأیید شده. ممنون!</div>`
+    : st.pending ? `<div class="pay-status warn">فیشت رسید و در انتظار بررسیه.</div>`
+    : st.due ? `<div class="pay-status">مبلغ باقی‌مونده: <b>${m(st.remaining)}</b></div>` : `<div class="pay-status">مبلغ سهمت هنوز تعیین نشده.</div>`;
+  const cardRow = info.card_number ? `<div class="pay-card">
+      <span class="k">شماره کارت</span><b class="num" dir="ltr">${esc(cardFmt(info.card_number))}</b>
+      <button class="btn small" type="button" data-copy="${esc(toLatin(info.card_number).replace(/\D/g, ''))}" data-copy-label="شماره کارت">کپی</button>
+      ${info.card_holder ? `<span class="sub">به نام ${esc(info.card_holder)}${info.bank ? ' · ' + esc(info.bank) : ''}</span>` : ''}
+    </div>` : `<div class="pay-card"><span class="sub">شماره کارت هنوز توسط مسئول مالی وارد نشده.</span></div>`;
+  const shebaRow = info.sheba ? `<div class="pay-card"><span class="k">شبا</span><b class="num" dir="ltr">${esc(info.sheba)}</b><button class="btn small" type="button" data-copy="${esc(info.sheba.replace(/\s/g, ''))}" data-copy-label="شبا">کپی</button></div>` : '';
+  const upload = draftReceipt ? `<div class="receipt-draft">
+      <img src="${draftReceipt.url}" alt="پیش‌نمایش فیش">
+      <div class="rd-fields">
+        <span class="sub">حجم بعد از فشرده‌سازی: ${kb(draftReceipt.blob.size)} (اصل: ${kb(draftReceipt.origSize)})</span>
+        <label class="lbl">مبلغ واریزی<input class="field" id="rdAmount" inputmode="numeric" value="${fmt(st.remaining || st.due)}"></label>
+        <label class="lbl">کد پیگیری <span class="hint">اختیاری</span><input class="field" id="rdTrack" inputmode="numeric" dir="ltr" maxlength="40"></label>
+        <div class="row-btns"><button class="btn primary" type="button" data-act="send-receipt">ارسال فیش</button><button class="btn" type="button" data-act="cancel-receipt">انصراف</button></div>
+      </div></div>`
+    : (st.key !== 'settled' ? `<button class="btn primary big" type="button" data-act="pick-receipt">آپلود عکس فیش</button><p class="sub">اسکرین‌شات رسید بانکی کافیه؛ قبل از ارسال خودکار فشرده می‌شه.</p>` : '');
+  el.innerHTML = `<div class="pay-wrap">
+    <div class="pay-hello"><h2>سلام ${esc(p.full_name || '')}</h2><span class="sub">شماره دانشجویی <span dir="ltr">${esc(p.student_no)}</span></span></div>
+    ${statusLine}
+    <div class="pay-amount"><span class="k">مبلغ سهم</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${st.remaining || st.due}" data-copy-label="مبلغ">کپی مبلغ</button>` : ''}
+      ${st.approved || st.pending ? `<span class="sub">تأییدشده ${m(st.approved)}${st.pending ? ` · در انتظار بررسی ${m(st.pending)}` : ''}</span>` : ''}</div>
+    ${cardRow}${shebaRow}
+    ${info.deadline ? `<p class="sub">مهلت پرداخت: <b>${esc(info.deadline)}</b></p>` : ''}
+    ${info.note ? `<p class="pay-note">${esc(info.note)}</p>` : ''}
+    <div class="pay-upload">${upload}</div>
+    ${ps.length ? `<h3 class="pay-h">فیش‌های من</h3><div class="list">${ps.map(x => `<div class="rcpt" style="--c:${PAY_COLOR[x.status]}">
+        ${receiptThumb(x)}<div><b>${m(x.amount)}</b><span class="sub">${faDate(x.created_at)}${x.tracking_code ? ' · پیگیری ' + esc(x.tracking_code) : ''}</span>
+        ${x.status === 'rejected' && x.review_note ? `<span class="sub bad">دلیل: ${esc(x.review_note)}</span>` : ''}</div>
+        <span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span></div>`).join('')}</div>` : ''}
+  </div>`;
+}
+function receiptThumb(x){
+  const key = 'receipts:' + x.file_path, c = urlCache.get(key), src = c && c.exp > Date.now() ? ` src="${esc(c.url)}"` : '';
+  return `<span class="thumb"><img data-bucket="receipts" data-path="${esc(x.file_path)}"${src} alt="" loading="lazy"></span>`;
+}
+const receiptInput = document.createElement('input');
+receiptInput.type = 'file'; receiptInput.accept = 'image/*'; receiptInput.hidden = true; document.body.appendChild(receiptInput);
+receiptInput.addEventListener('change', async () => {
+  const f = receiptInput.files[0]; receiptInput.value = ''; if (!f) return;
+  if (!/^image\//.test(f.type) && !/\.(jpe?g|png|webp|heic|gif)$/i.test(f.name)){ toast('فقط عکس فیش قابل قبوله'); return; }
+  toast('در حال فشرده‌سازی…');
+  try {
+    const blob = await compressReceipt(f);
+    if (blob.size > 1024*1024){ toast('عکس خیلی بزرگه؛ یه اسکرین‌شات بگیر و اونو بفرست'); return; }
+    if (draftReceipt) URL.revokeObjectURL(draftReceipt.url);
+    draftReceipt = {blob, url:URL.createObjectURL(blob), origSize:f.size};
+    render();
+  } catch(e){ toast('این عکس خونده نشد؛ یه اسکرین‌شات بگیر و دوباره امتحان کن'); }
+});
+async function sendReceipt(btn){
+  const p = myParticipant(); if (!p || !draftReceipt) return;
+  const box = btn.closest('.receipt-draft'), amount = parseNum(box.querySelector('#rdAmount').value), track = toLatin(box.querySelector('#rdTrack').value).trim();
+  if (!amount){ toast('مبلغ واریزی رو بنویس'); box.querySelector('#rdAmount').focus(); return; }
+  btn.disabled = true; btn.textContent = 'در حال ارسال…';
+  const ext = draftReceipt.blob.type === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${me.id}/${newId()}.${ext}`;
+  const up = await sb.storage.from('receipts').upload(path, draftReceipt.blob, {contentType:draftReceipt.blob.type, upsert:false});
+  if (up.error){ btn.disabled = false; btn.textContent = 'ارسال فیش'; fail(up.error, 'receipt'); return; }
+  const row = {id:newId(), participant_id:p.id, file_path:path, amount, tracking_code:track};
+  const { error } = await sb.from('payments').insert(row);
+  if (error){ btn.disabled = false; btn.textContent = 'ارسال فیش'; fail(error, 'payment'); return; }
+  S.payments[row.id] = {...row, status:'submitted', created_at:new Date().toISOString()};
+  URL.revokeObjectURL(draftReceipt.url); draftReceipt = null;
+  render(); toast('فیش ارسال شد؛ بعد از بررسی تأیید می‌شه');
+}
+
+/* staff: participants panel */
+function renderPeople(){
+  const info = S.payInfo, all = Object.values(S.participants);
+  const cur = S.settings.currency || 'تومان';
+  $('#payInfoCard').innerHTML = `<div class="payinfo ${info.card_number ? '' : 'warn'}">
+    <div><span class="k">کارت مقصد</span><b dir="ltr" class="num">${info.card_number ? esc(cardFmt(info.card_number)) : '—'}</b>${info.card_holder ? `<span class="sub">${esc(info.card_holder)}</span>` : ''}</div>
+    <div><span class="k">مبلغ پیش‌فرض سهم</span><b>${info.default_amount ? fmt(info.default_amount) + ' ' + cur : '—'}</b></div>
+    <div><span class="k">مهلت</span><b>${esc(info.deadline) || '—'}</b></div>
+    <button class="btn small need-edit" type="button" data-act="edit-payinfo">ویرایش اطلاعات پرداخت</button>
+    ${info.card_number ? '' : '<p class="sub bad" style="grid-column:1/-1;margin:0">تا شماره کارت وارد نشه، شرکت‌کننده‌ها جایی برای واریز نمی‌بینن.</p>'}
+  </div>`;
+  const states = all.map(p => [p, payState(p)]);
+  const sum = k => states.reduce((a,[,s]) => a + s[k], 0);
+  const cnt = k => states.filter(([,s]) => s.key === k).length;
+  $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span><span>تسویه ${fmt(cnt('settled'))}</span><span>وصل‌شده ${fmt(all.filter(p => p.user_id).length)}</span><span>تأییدشده ${fmt(sum('approved'))}</span><span>مانده ${fmt(states.reduce((a,[,s]) => a + Math.max(0, s.due - s.approved), 0))}</span>` : '';
+
+  const queue = Object.values(S.payments).filter(x => x.status === 'submitted').sort((a,b) => ts(a.created_at) - ts(b.created_at));
+  const nPeople = $('#nPeople'); nPeople.textContent = queue.length ? fmt(queue.length) + ' فیش' : fmt(all.length); nPeople.classList.toggle('alert', !!queue.length);
+  $('#reviewQueue').innerHTML = queue.length ? `<div class="group" style="--c:var(--warn)"><div class="group-head"><h4>فیش‌های در انتظار بررسی</h4><span class="sum">${fmt(queue.length)}</span></div><div class="list">${queue.map(x => {
+      const p = S.participants[x.participant_id] || {};
+      return `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:var(--warn)">${receiptThumb(x)}<div><b>${esc(p.full_name || p.student_no || '')}</b><span class="sub"><span dir="ltr">${esc(p.student_no || '')}</span> · ${faDate(x.created_at)}</span></div><b class="num">${fmt(x.amount)}</b></button>`;
+    }).join('')}</div></div>` : '';
+
+  const q = toLatin($('#pq').value).trim().toLowerCase(), f = $('#pFilter').value;
+  const rows = states.filter(([p, s]) => {
+    if (f === 'unclaimed' ? p.user_id : f && s.key !== f) return false;
+    if (q && !toLatin([p.full_name, p.student_no, p.note].join(' ')).toLowerCase().includes(q)) return false;
+    return true;
+  }).sort(([a,sa],[b,sb2]) => ['review','unpaid','partial','settled'].indexOf(sa.key) - ['review','unpaid','partial','settled'].indexOf(sb2.key) || (a.full_name||'').localeCompare(b.full_name||'','fa'));
+  $('#peopleList').innerHTML = !all.length
+    ? `<div class="empty"><h3>هنوز شرکت‌کننده‌ای ثبت نشده</h3>فایل اکسل یا CSV لیست رو وارد کن؛ کافیه ستون «شماره دانشجویی» و «نام» داشته باشه. ستون‌های «مبلغ» و «موبایل» اختیاری‌ان.<div class="chips need-edit"><button class="chip" type="button" data-act="import-people">ورود از شیت</button><button class="chip" type="button" data-act="add-person">افزودن دستی</button></div></div>`
+    : rows.map(([p, s]) => `<button class="row" type="button" data-person="${esc(p.id)}" style="--c:${STATE_COLOR[s.key]}">
+        <span class="stripe"></span>
+        <span><span class="t">${esc(p.full_name || '—')}</span><span class="meta"><span class="tag" dir="ltr">${esc(p.student_no)}</span><span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${p.user_id ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}</span></span>
+        <span></span>
+        <span class="amt"><b>${fmt(s.approved)}</b><small>از ${fmt(s.due)}</small></span>
+      </button>`).join('') || '<div class="empty">موردی با این فیلتر پیدا نشد.</div>';
+}
+
+/* participant dialog */
+const personDlg = $('#personDlg'), personForm = $('#personForm'); let editingPerson = null;
+function openPerson(id){
+  if (!ready || (!id && !canEdit)) return;
+  editingPerson = id ? S.participants[id] : null;
+  const p = editingPerson || {student_no:'', full_name:'', amount:null, verify_code:'', note:''};
+  const f = personForm.elements;
+  f.student_no.value = p.student_no || ''; f.full_name.value = p.full_name || '';
+  f.amount.value = p.amount !== null && p.amount !== undefined ? fmt(p.amount) : '';
+  f.amount.placeholder = S.payInfo.default_amount ? `پیش‌فرض: ${fmt(S.payInfo.default_amount)}` : 'خالی = مبلغ پیش‌فرض';
+  f.verify_code.value = p.verify_code || ''; f.note.value = p.note || '';
+  $('#personDlgTitle').textContent = editingPerson ? (p.full_name || 'شرکت‌کننده') : 'شرکت‌کننده‌ی جدید';
+  $('#personDel').hidden = !editingPerson;
+  const linked = p.user_id ? (S.members[p.user_id]?.display_name || 'متصل') : '';
+  $('#personLink').innerHTML = editingPerson ? (p.user_id
+    ? `<span class="tag ok">حساب تلگرام: ${esc(linked)}</span> <button class="btn small danger need-admin" type="button" data-act="unlink-person">جدا کردن حساب</button>`
+    : '<span class="tag">هنوز با شماره دانشجویی‌ش وارد نشده</span>') : '';
+  const ps = editingPerson ? paysOf(p.id) : [];
+  $('#personPays').innerHTML = ps.length ? `<div class="lbl">فیش‌ها<div class="list">${ps.map(x => `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:${PAY_COLOR[x.status]}">${receiptThumb(x)}<div><b>${fmt(x.amount)}</b><span class="sub">${faDate(x.created_at)}</span></div><span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span></button>`).join('')}</div></div>` : '';
+  $('#personMeta').textContent = metaLine(editingPerson);
+  lockForm(personForm);
+  if (!personDlg.open) personDlg.showModal();
+  hydrateThumbs();
+}
+personForm.addEventListener('input', liveFormat);
+personForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = personForm.elements, no = toLatin(f.student_no.value).replace(/[\s\-_/.]/g, '').toUpperCase();
+  if (!no){ f.student_no.focus(); toast('شماره دانشجویی رو بنویس'); return; }
+  const dup = Object.values(S.participants).find(x => x.student_no === no && (!editingPerson || x.id !== editingPerson.id));
+  if (dup){ toast('این شماره دانشجویی قبلاً ثبت شده'); return; }
+  const amt = f.amount.value.trim() ? parseNum(f.amount.value) : null;
+  const obj = {id: editingPerson ? editingPerson.id : newId(), student_no:no, full_name:f.full_name.value.trim(), amount:amt,
+    verify_code: toLatin(f.verify_code.value).replace(/\D/g, '').slice(-4) || null, note:f.note.value.trim()};
+  if (editingPerson) obj.user_id = editingPerson.user_id ?? null;
+  personDlg.close(); await upsert('participants', obj); toast('ذخیره شد');
+});
+$('#personDel').addEventListener('click', () => {
+  const p = editingPerson; if (!p) return;
+  const n = paysOf(p.id).length;
+  if (!confirm(`«${p.full_name || p.student_no}» حذف بشه؟` + (n ? `\n${fmt(n)} فیش ثبت‌شده‌ش هم حذف می‌شه (سهم‌های تأییدشده در بودجه می‌مونن).` : ''))) return;
+  personDlg.close(); paysOf(p.id).forEach(x => delete S.payments[x.id]); del('participants', p.id); toast('حذف شد');
+});
+async function unlinkPerson(){
+  const p = editingPerson; if (!p || !confirm('حساب تلگرام از این شماره دانشجویی جدا بشه؟ بعدش هر کسی می‌تونه دوباره با این شماره وارد بشه.')) return;
+  await upsert('participants', {...p, user_id:null}); personDlg.close(); toast('حساب جدا شد');
+}
+
+/* receipt review dialog */
+const receiptDlg = $('#receiptDlg'); let reviewing = null;
+async function openReceipt(id){
+  const x = S.payments[id]; if (!x) return; reviewing = x;
+  const p = S.participants[x.participant_id] || {}, st = payState(p.id ? p : {id:null});
+  $('#rcTitle').textContent = `فیش ${p.full_name || p.student_no || ''}`;
+  $('#rcInfo').innerHTML = `<span dir="ltr" class="tag">${esc(p.student_no || '')}</span> <span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span>
+    <span class="sub">سهم ${fmt(p.id ? dueOf(p) : 0)} · تأییدشده قبلی ${fmt(st.approved)}${x.tracking_code ? ` · پیگیری <span dir="ltr">${esc(x.tracking_code)}</span>` : ''} · ارسال ${faDate(x.created_at)}</span>
+    ${x.reviewed_by ? `<span class="sub">بررسی: ${esc(x.reviewed_by)}</span>` : ''}`;
+  $('#rcAmount').value = fmt(x.amount); $('#rcAmount').disabled = !canEdit || (x.status === 'approved' && !canAdmin);
+  $('#rcNote').value = x.review_note || ''; $('#rcNote').disabled = !canEdit;
+  $('#rcApprove').hidden = x.status === 'approved';
+  $('#rcReject').hidden = x.status !== 'submitted';
+  $('#rcReset').hidden = x.status === 'submitted';
+  $('#rcReset').classList.toggle('need-admin', x.status === 'approved');
+  $('#rcAmountSave').hidden = x.status !== 'approved';
+  const pv = $('#rcPreview'); pv.innerHTML = '<span style="padding:24px;color:var(--muted)">در حال بارگذاری…</span>';
+  if (!receiptDlg.open) receiptDlg.showModal();
+  const [url] = await signedUrls([x.file_path], 'receipts');
+  if (reviewing !== x) return;
+  pv.innerHTML = url ? `<a href="${esc(url)}" target="_blank" rel="noopener" style="padding:0"><img src="${esc(url)}" alt="فیش"></a>` : '<span style="padding:24px;color:var(--bad)">فایل پیدا نشد</span>';
+}
+async function review(status){
+  const x = reviewing; if (!x) return;
+  const amount = parseNum($('#rcAmount').value), note = $('#rcNote').value.trim();
+  if (status === 'rejected' && !note && !confirm('بدون نوشتن دلیل رد بشه؟ (دلیل برای خود شخص نمایش داده می‌شه)')) return;
+  const { error } = await sb.rpc('review_payment', {p_id:x.id, p_status:status, p_note:note, p_amount:amount || null});
+  if (error){
+    const m = error.message || '';
+    toast(/ADMIN_ONLY/.test(m) ? 'برگرداندن فیش تأییدشده فقط کار مدیره' : /NO_AMOUNT/.test(m) ? 'مبلغ فیش رو وارد کن' : /FORBIDDEN/.test(m) ? 'دسترسی بررسی فیش رو نداری' : 'ثبت نشد؛ دوباره امتحان کن');
+    return;
+  }
+  receiptDlg.close();
+  await Promise.all([reload('payments'), reload('funds')]); render();
+  toast(status === 'approved' ? 'تأیید شد و به سهم نفرات اضافه شد' : status === 'rejected' ? 'فیش رد شد' : 'به حالت بررسی برگشت');
+}
+$('#rcApprove').addEventListener('click', () => review('approved'));
+$('#rcReject').addEventListener('click', () => review('rejected'));
+$('#rcReset').addEventListener('click', () => review('submitted'));
+$('#rcAmountSave').addEventListener('click', () => review('approved'));
+$('#rcAmount').addEventListener('input', liveFormat);
+
+/* payment info dialog */
+const payInfoDlg = $('#payInfoDlg'), payInfoForm = $('#payInfoForm');
+function openPayInfo(){
+  const i = S.payInfo, f = payInfoForm.elements;
+  f.card_number.value = cardFmt(i.card_number); f.card_holder.value = i.card_holder; f.bank.value = i.bank; f.sheba.value = i.sheba;
+  f.default_amount.value = i.default_amount ? fmt(i.default_amount) : ''; f.deadline.value = i.deadline; f.note.value = i.note;
+  lockForm(payInfoForm); payInfoDlg.showModal();
+}
+payInfoForm.addEventListener('input', liveFormat);
+payInfoForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = payInfoForm.elements, card = toLatin(f.card_number.value).replace(/\D/g, '');
+  if (card && card.length !== 16){ toast('شماره کارت باید ۱۶ رقم باشه'); f.card_number.focus(); return; }
+  const patch = {card_number:card, card_holder:f.card_holder.value.trim(), bank:f.bank.value.trim(),
+    sheba:toLatin(f.sheba.value).replace(/\s/g, '').toUpperCase(), default_amount:parseNum(f.default_amount.value), deadline:f.deadline.value.trim(), note:f.note.value.trim()};
+  payInfoDlg.close(); S.payInfo = {...S.payInfo, ...patch}; render();
+  const { error } = await sb.from('payment_info').update(patch).eq('id', 1);
+  if (error) fail(error, 'payment_info'); else toast('اطلاعات پرداخت ذخیره شد');
+});
+
+/* import from sheet */
+const importDlg = $('#importDlg'); let importRows = null;
+const normHead = h => String(h ?? '').replace(/[\s\u200c_\-]/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').toLowerCase();
+const HEADS = {
+  student_no:['شمارهدانشجویی','شمارهدانشجوئی','شدانشجویی','کددانشجویی','شمارهیدانشجویی','studentno','studentid','student','stdno'],
+  full_name:['نامونامخانوادگی','نامکامل','نامونامخانوادگي','fullname','name'],
+  first:['نام','firstname','first'], last:['نامخانوادگی','فامیلی','lastname','last','family'],
+  amount:['مبلغ','سهم','مبلغسهم','amount','share'],
+  phone:['موبایل','شمارهموبایل','تلفن','شمارهتماس','همراه','تلفنهمراه','phone','mobile'],
+  note:['توضیحات','یادداشت','note','notes']
+};
+async function readSheet(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array'});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
+  const hi = aoa.findIndex(r => r.some(c => HEADS.student_no.includes(normHead(c))));
+  if (hi < 0) throw new Error('ستون «شماره دانشجویی» پیدا نشد.');
+  const heads = aoa[hi].map(normHead), col = {};
+  Object.entries(HEADS).forEach(([k, names]) => { const i = heads.findIndex(h => names.includes(h)); if (i >= 0) col[k] = i; });
+  const seen = new Map();
+  aoa.slice(hi + 1).forEach(r => {
+    const no = toLatin(r[col.student_no]).replace(/[\s\-_/.]/g, '').toUpperCase(); if (!no) return;
+    const name = col.full_name !== undefined ? String(r[col.full_name]).trim() : [col.first, col.last].filter(i => i !== undefined).map(i => String(r[i]).trim()).filter(Boolean).join(' ');
+    const row = {student_no:no, full_name:name};
+    if (col.amount !== undefined){ const a = parseNum(r[col.amount]); row.amount = a || null; }
+    if (col.phone !== undefined){ row.verify_code = toLatin(r[col.phone]).replace(/\D/g, '').slice(-4) || null; }
+    if (col.note !== undefined) row.note = String(r[col.note]).trim();
+    seen.set(no, row);
+  });
+  return {rows:[...seen.values()], col};
+}
+function openImport(){ importRows = null; $('#importInfo').innerHTML = ''; $('#importGo').disabled = true; $('#importFile').value = ''; importDlg.showModal(); }
+$('#importFile').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const {rows, col} = await readSheet(file); importRows = rows;
+    const existing = rows.filter(r => Object.values(S.participants).some(p => p.student_no === r.student_no)).length;
+    const colNames = {full_name:'نام', first:'نام', last:'نام خانوادگی', amount:'مبلغ', phone:'موبایل (برای ۴ رقم تأیید)', note:'توضیحات'};
+    $('#importInfo').innerHTML = `<p><b>${fmt(rows.length)}</b> ردیف پیدا شد: ${fmt(rows.length - existing)} جدید، ${fmt(existing)} به‌روزرسانی.</p>
+      <p class="sub">ستون‌های شناسایی‌شده: شماره دانشجویی${Object.keys(col).filter(k => k !== 'student_no').map(k => '، ' + colNames[k]).join('')}</p>
+      ${col.phone !== undefined ? '<p class="sub">چون ستون موبایل هست، هر نفر موقع ورود باید ۴ رقم آخر موبایلش رو هم بزنه.</p>' : '<p class="sub">ستون موبایل نیست؛ ورود فقط با شماره دانشجویی انجام می‌شه.</p>'}
+      ${col.amount === undefined ? '<p class="sub">ستون مبلغ نیست؛ برای همه مبلغ پیش‌فرض (از «اطلاعات پرداخت») حساب می‌شه.</p>' : ''}
+      <ul class="lines">${rows.slice(0, 4).map(r => `<li><span>${esc(r.full_name || '—')}</span><span dir="ltr">${esc(r.student_no)}</span></li>`).join('')}</ul>`;
+    $('#importGo').disabled = !rows.length;
+  } catch(err){ $('#importInfo').innerHTML = `<p class="sub bad">${esc(err.message || 'فایل خونده نشد')}</p>`; }
+});
+$('#importGo').addEventListener('click', async () => {
+  if (!importRows || !importRows.length) return;
+  const btn = $('#importGo'); btn.disabled = true; btn.textContent = 'در حال ورود…';
+  let okCount = 0;
+  for (let i = 0; i < importRows.length; i += 200){
+    const chunk = importRows.slice(i, i + 200);
+    const { error } = await sb.from('participants').upsert(chunk, {onConflict:'student_no'});
+    if (error){ fail(error, 'import'); break; }
+    okCount += chunk.length;
+  }
+  btn.textContent = 'وارد کردن'; importDlg.close();
+  await reload('participants'); render();
+  if (okCount) toast(`${fmt(okCount)} نفر وارد شد`);
+});
+
+
 /* ---------- tabs & bottom bar ---------- */
 let currentTab = 'items';
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
@@ -1096,6 +1626,7 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
   document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x === b));
   document.querySelectorAll('.panel').forEach(p => p.hidden = p.id !== 'panel-' + currentTab);
   if (currentTab === 'history') renderHistory();
+  if (currentTab === 'mypay'){ renderMyPay($('#myPayStaff')); hydrateThumbs(); }
   renderBottomBar();
 }));
 function renderBottomBar(){
@@ -1104,9 +1635,11 @@ function renderBottomBar(){
   if (!canEdit){ bar.innerHTML = btn('export','خروجی اکسل',1); return; }
   bar.innerHTML = currentTab === 'items' ? btn('add-item','+ هزینه جدید',1)
     : currentTab === 'invoices' ? btn('upload','+ آپلود فاکتور',1)
-    : currentTab === 'budget' ? btn('add-fund','+ واریزی',1) + btn('add-contrib','+ سهم نفر') : '';
+    : currentTab === 'budget' ? btn('add-fund','+ واریزی',1) + btn('add-contrib','+ سهم نفر')
+    : currentTab === 'people' ? btn('add-person','+ شرکت‌کننده',1) + btn('import-people','ورود از شیت') : '';
 }
 ['#q','#fType','#fStatus','#fSort'].forEach(s => $(s).addEventListener('input', () => renderItems(totals())));
+['#pq','#pFilter'].forEach(s => $(s).addEventListener('input', () => { renderPeople(); hydrateThumbs(); }));
 
 /* ---------- item dialog ---------- */
 $('#catSelect').innerHTML = CATS.map(c => `<option>${c}</option>`).join('');
@@ -1203,7 +1736,7 @@ $('#entryDel').addEventListener('click', () => {
 });
 
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
-[itemDlg, entryDlg, invDlg].forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
+[itemDlg, entryDlg, invDlg, personDlg, receiptDlg, payInfoDlg, importDlg].forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
 
 /* ---------- delegation ---------- */
 const fileInput = $('#invFile');
@@ -1213,7 +1746,18 @@ document.addEventListener('click', e => {
   if ((el = g('[data-act]'))){ const a = el.dataset.act;
     if (a === 'add-item') return openItem(); if (a === 'add-fund') return openEntry('fund'); if (a === 'add-contrib') return openEntry('contrib');
     if (a === 'upload'){ uploadTarget = null; return fileInput.click(); }
-    if (a === 'export') return exportXlsx(); }
+    if (a === 'export') return exportXlsx();
+    if (a === 'logout') return logout();
+    if (a === 'pick-receipt') return receiptInput.click();
+    if (a === 'send-receipt') return sendReceipt(el);
+    if (a === 'cancel-receipt'){ if (draftReceipt) URL.revokeObjectURL(draftReceipt.url); draftReceipt = null; return render(); }
+    if (a === 'edit-payinfo') return openPayInfo();
+    if (a === 'import-people') return openImport();
+    if (a === 'add-person') return openPerson();
+    if (a === 'unlink-person') return unlinkPerson(); }
+  if ((el = g('[data-copy]'))) return copyText(el.dataset.copy, el.dataset.copyLabel);
+  if ((el = g('[data-receipt]'))) return openReceipt(el.dataset.receipt);
+  if ((el = g('[data-person]'))) return openPerson(el.dataset.person);
   if ((el = g('#drop'))){ uploadTarget = null; return fileInput.click(); }
   if ((el = g('[data-attach]'))){ uploadTarget = el.dataset.attach; itemDlg.close(); return fileInput.click(); }
   if ((el = g('[data-inv]'))) return openInvoice(el.dataset.inv);
@@ -1291,6 +1835,13 @@ function exportXlsx(){
   contribs().forEach(c => a5.push([++r, 'سهم نفر', c.name, Number(c.amount)||0, c.paid ? 'واریز کرده' : 'هنوز نداده', c.note||'', faDay(c.created_at), who(c.created_by)]));
   a5.push([]); a5.push(['','','دریافت‌شده', t.income]); a5.push(['','','در راه', t.incoming]);
   XLSX.utils.book_append_sheet(wb, sheetFrom(a5, [6,14,24,16,14,34,12,14], [3]), 'بودجه و سهم‌ها');
+  const parts = Object.values(S.participants).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||'','fa'));
+  if (parts.length){
+    const a6 = [['ردیف','شماره دانشجویی','نام','مبلغ سهم','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت']];
+    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, p.student_no, p.full_name||'', s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'']); });
+    a6.push([]); a6.push(['','','جمع', parts.reduce((a,p) => a + dueOf(p), 0), parts.reduce((a,p) => a + payState(p).approved, 0)]);
+    XLSX.utils.book_append_sheet(wb, sheetFrom(a6, [6,16,24,14,14,14,14,18,10,10,30], [3,4,5,6]), 'شرکت‌کننده‌ها');
+  }
 
   const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
   const ds = ['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-');
