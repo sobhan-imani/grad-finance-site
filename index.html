@@ -244,19 +244,47 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
 .att-tools select{flex:1 1 180px;min-width:0;padding:6px 10px;font-size:13.5px}
 
 [hidden]{display:none!important}
+body:not(.can-edit) .need-edit{display:none!important}
+body:not(.can-admin) .need-admin{display:none!important}
+.tg-box{min-height:44px;display:flex;justify-content:center}
+.email-box summary{cursor:pointer;color:var(--muted);font-size:13.5px}
+.email-box form{display:grid;gap:12px;margin-top:12px}
+.wait-box{display:flex;gap:8px}
+.role-tag{font-weight:700}
+.hist{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);border-inline-start:4px solid var(--c)}
+.hist .who2{font-weight:700;white-space:nowrap}
+.hist .when{grid-column:1;color:var(--muted);font-size:12px;white-space:nowrap}
+.hist .what{grid-column:2;grid-row:1 / span 2;font-size:14px}
+.hist .chg{display:block;color:var(--muted);font-size:13px}
+.mem{display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px}
+.mem input{max-width:260px}
+.mem .id{color:var(--muted);font-size:12.5px;direction:ltr;text-align:start}
+.mem .ctl{display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+.mem select{padding:6px 10px}
+@media(max-width:560px){.mem{grid-template-columns:1fr}.mem .ctl{justify-content:flex-start}}
 
 </style>
 </head>
 <body>
 <div class="gate" id="gate">
-  <form class="gate-card" id="loginForm" novalidate>
+  <div class="gate-card">
     <h1>دخل و خرج جشن</h1>
-    <p id="gateMsg">با ایمیل و رمزی که در Supabase برات ساخته شده وارد شو.</p>
-    <label class="lbl">ایمیل<input class="field" name="email" type="email" autocomplete="username" dir="ltr" required></label>
-    <label class="lbl">رمز<input class="field" name="password" type="password" autocomplete="current-password" dir="ltr" required></label>
+    <p id="gateMsg">برای ورود، با تلگرام وارد شو.</p>
+    <div id="tgBox" class="tg-box"></div>
     <div class="err" id="loginErr" aria-live="polite"></div>
-    <button class="btn primary" type="submit" id="loginBtn">ورود</button>
-  </form>
+    <div id="waitBox" class="wait-box" hidden>
+      <button class="btn primary" type="button" id="recheckBtn">بررسی دوباره</button>
+      <button class="btn" type="button" id="gateLogout">خروج</button>
+    </div>
+    <details id="emailBox" class="email-box">
+      <summary>ورود با ایمیل</summary>
+      <form id="loginForm" novalidate>
+        <label class="lbl">ایمیل<input class="field" name="email" type="email" autocomplete="username" dir="ltr" required></label>
+        <label class="lbl">رمز<input class="field" name="password" type="password" autocomplete="current-password" dir="ltr" required></label>
+        <button class="btn primary" type="submit" id="loginBtn">ورود</button>
+      </form>
+    </details>
+  </div>
 </div>
 
 <div class="wrap" id="app" hidden>
@@ -265,7 +293,7 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
       <h1 id="title">جشن فارغ‌التحصیلی</h1>
       <p class="sub"><span class="dot" id="syncDot"></span><span id="syncText">در حال اتصال…</span></p>
     </div>
-    <div class="who"><span class="me" id="me"></span><button class="btn small" type="button" id="logoutBtn">خروج</button><button class="btn primary" id="exportBtn" type="button">خروجی اکسل</button></div>
+    <div class="who"><span class="me" id="me"></span><span class="tag role-tag" id="roleTag"></span><button class="btn small" type="button" id="logoutBtn">خروج</button><button class="btn primary" id="exportBtn" type="button">خروجی اکسل</button></div>
   </header>
 
   <section class="ledger" aria-label="برآورد کل">
@@ -295,6 +323,8 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
     <button class="tab" role="tab" aria-selected="false" data-tab="budget">بودجه</button>
     <button class="tab" role="tab" aria-selected="false" data-tab="cats">بر اساس دسته</button>
     <button class="tab" role="tab" aria-selected="false" data-tab="settings">تنظیمات</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="history">تاریخچه</button>
+    <button class="tab need-admin" role="tab" aria-selected="false" data-tab="members">اعضا<span class="n" id="nMembers">۰</span></button>
   </nav>
 
   <section class="panel" id="panel-items">
@@ -304,26 +334,33 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
       <select id="fType" aria-label="نوع"><option value="">همه نوع‌ها</option><option value="must">قطعی</option><option value="maybe">احتمالی</option><option value="optional">انتخابی</option></select>
       <select id="fStatus" aria-label="وضعیت"><option value="">همه وضعیت‌ها</option><option value="open">پرداخت‌نشده</option><option value="paid">پرداخت‌شده</option><option value="noinv">پرداخت‌شده بدون فاکتور</option></select>
       <select id="fSort" aria-label="مرتب‌سازی"><option value="type">به ترتیب اولویت</option><option value="amtDesc">گران‌ترین اول</option><option value="amtAsc">ارزان‌ترین اول</option><option value="new">جدیدترین</option></select>
-      <button class="btn primary desk push" type="button" data-act="add-item">+ هزینه جدید</button>
+      <button class="btn primary desk push need-edit" type="button" data-act="add-item">+ هزینه جدید</button>
     </div>
     <div class="list" id="itemList"></div>
     <div id="owedBox"></div>
   </section>
 
   <section class="panel" id="panel-invoices" hidden>
-    <div class="drop" id="drop" role="button" tabindex="0"><b>عکس یا PDF فاکتور رو اینجا بنداز یا بزن تا انتخاب کنی</b>
+    <div class="drop need-edit" id="drop" role="button" tabindex="0"><b>عکس یا PDF فاکتور رو اینجا بنداز یا بزن تا انتخاب کنی</b>
       <span>بعد از آپلود، مبلغ رو بنویس و به خرج مربوطش وصلش کن.</span></div>
     <div id="invList"></div>
   </section>
 
   <section class="panel" id="panel-budget" hidden>
-    <div class="sec-head"><h3>واریزی‌ها و منابع</h3><span class="hint">پول نقد اولیه، کمک دانشگاه، اسپانسر و…</span><button class="btn primary small desk" type="button" data-act="add-fund">+ واریزی</button></div>
+    <div class="sec-head"><h3>واریزی‌ها و منابع</h3><span class="hint">پول نقد اولیه، کمک دانشگاه، اسپانسر و…</span><button class="btn primary small desk need-edit" type="button" data-act="add-fund">+ واریزی</button></div>
     <div class="list" id="fundList"></div>
-    <div class="sec-head"><h3>سهم نفرات</h3><span class="hint" id="shareHint"></span><button class="btn primary small desk" type="button" data-act="add-contrib">+ سهم</button></div>
+    <div class="sec-head"><h3>سهم نفرات</h3><span class="hint" id="shareHint"></span><button class="btn primary small desk need-edit" type="button" data-act="add-contrib">+ سهم</button></div>
     <div class="list" id="contribList"></div>
   </section>
 
   <section class="panel" id="panel-cats" hidden><div id="catList"></div></section>
+
+  <section class="panel" id="panel-history" hidden><div class="list" id="historyList"></div></section>
+
+  <section class="panel" id="panel-members" hidden>
+    <p class="hint" style="color:var(--muted);font-size:13.5px;margin:0 0 12px">هر کس با تلگرام وارد بشه، اینجا «در انتظار» ظاهر می‌شه تا نقشش رو تعیین کنی. بیننده فقط می‌بینه و خروجی می‌گیره؛ ویرایشگر اضافه و ویرایش می‌کنه ولی حذف نمی‌تونه.</p>
+    <div id="memberList"></div>
+  </section>
 
   <section class="panel" id="panel-settings" hidden>
     <div class="settings">
@@ -373,10 +410,10 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
       <p class="hint" id="itemMeta" style="color:var(--muted);font-size:12.5px;margin:0"></p>
     </div>
     <div class="dlg-foot">
-      <button class="btn danger" type="button" id="itemDel" hidden>حذف</button>
+      <button class="btn danger need-admin" type="button" id="itemDel" hidden>حذف</button>
       <span class="spacer"></span>
       <button class="btn" type="button" data-close>انصراف</button>
-      <button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn primary need-edit" type="submit">ذخیره</button>
     </div>
   </form>
 </dialog>
@@ -393,10 +430,10 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
       <p class="hint" id="entryMeta" style="color:var(--muted);font-size:12.5px;margin:0"></p>
     </div>
     <div class="dlg-foot">
-      <button class="btn danger" type="button" id="entryDel" hidden>حذف</button>
+      <button class="btn danger need-admin" type="button" id="entryDel" hidden>حذف</button>
       <span class="spacer"></span>
       <button class="btn" type="button" data-close>انصراف</button>
-      <button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn primary need-edit" type="submit">ذخیره</button>
     </div>
   </form>
 </dialog>
@@ -416,10 +453,10 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
       <p class="hint" id="invMeta" style="color:var(--muted);font-size:12.5px;margin:0"></p>
     </div>
     <div class="dlg-foot">
-      <button class="btn danger" type="button" id="invDel">حذف فاکتور</button>
+      <button class="btn danger need-admin" type="button" id="invDel">حذف فاکتور</button>
       <span class="spacer"></span>
       <button class="btn" type="button" data-close>انصراف</button>
-      <button class="btn primary" type="submit">ذخیره</button>
+      <button class="btn primary need-edit" type="submit">ذخیره</button>
     </div>
   </form>
 </dialog>
@@ -449,7 +486,7 @@ const AUDIT = ['created_at','created_by','updated_at','updated_by'];
 const $ = s => document.querySelector(s);
 const cfg = window.APP_CONFIG || {};
 let sb = null, me = null, channel = null, ready = false;
-let S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}};
+let S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[]};
 const uploading = new Map();
 const urlCache = new Map(); // file_path -> {url, exp}
 const urlPending = new Set();
@@ -471,7 +508,7 @@ const invOf = itemId => Object.values(S.invoices).filter(v => v.item_id === item
 const invSum = itemId => invOf(itemId).reduce((a,v) => a + (Number(v.total)||0), 0);
 const ts = v => v ? new Date(v).getTime() : 0;
 const faDate = v => v ? new Intl.DateTimeFormat('fa-IR', {month:'short', day:'numeric'}).format(new Date(v)) : '';
-const who = e => e ? String(e).split('@')[0] : '';
+const who = e => e ? String(e) : '';
 const metaLine = r => r && r.updated_by ? `آخرین تغییر: ${who(r.updated_by)}، ${new Intl.DateTimeFormat('fa-IR', {month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'}).format(new Date(r.updated_at))}` + (r.created_by && r.created_by !== r.updated_by ? ` · ثبت اولیه: ${who(r.created_by)}` : '') : '';
 
 function toast(msg){
@@ -481,7 +518,8 @@ function toast(msg){
 function fail(error, what){
   console.error(what, error);
   const m = String(error && (error.message || error) || '');
-  if (/row-level security|permission|not authorized|JWT/i.test(m)) toast('دسترسی نداری یا نشستت تموم شده؛ دوباره وارد شو');
+  if (/row-level security|permission|not authorized/i.test(m)) toast('برای این کار دسترسی لازم رو نداری');
+  else if (/JWT|expired/i.test(m)) toast('نشستت تموم شده؛ دوباره وارد شو');
   else if (/Failed to fetch|NetworkError|network/i.test(m)) toast('اتصال اینترنت برقرار نیست');
   else if (/exceeded|too large|Payload/i.test(m)) toast('حجم فایل بیشتر از حد مجازه');
   else toast('ذخیره نشد؛ دوباره امتحان کن');
@@ -513,7 +551,7 @@ async function loadAll(){
   const { data: st, error } = await sb.from('settings').select('*').eq('id', 1).maybeSingle();
   if (error) throw error;
   S.settings = {...DEFAULT_SETTINGS, ...(st || {})};
-  await Promise.all(TABLES.map(reload));
+  await Promise.all([...TABLES.map(reload), loadMembers(), loadActivity()]);
   ready = true; render(); fillSettings();
 }
 function subscribe(){
@@ -527,6 +565,15 @@ function subscribe(){
       render();
     });
   });
+  channel.on('postgres_changes', {event:'*', schema:'public', table:'members'}, p => {
+    const row = p.new && p.new.user_id ? p.new : null, oldId = p.old && p.old.user_id;
+    if (row && row.user_id === me.id){ me.member = row; if (row.role === 'pending'){ enter({user:me}); return; } if (row.role !== myRole){ applyRole(row.role); if (canAdmin) loadMembers().then(render); } }
+    if ((p.eventType === 'DELETE' && oldId === me.id)){ enter({user:me}); return; }
+    if (canAdmin){ if (p.eventType === 'DELETE'){ if (oldId) delete S.members[oldId]; } else if (row) S.members[row.user_id] = row; render(); }
+  });
+  channel.on('postgres_changes', {event:'INSERT', schema:'public', table:'activity'}, p => {
+    if (p.new){ S.activity.unshift(p.new); S.activity.length = Math.min(S.activity.length, 300); if (currentTab === 'history') renderHistory(); }
+  });
   channel.subscribe(status => {
     if (status === 'SUBSCRIBED') setSync(true, 'همگام؛ تغییرات هر دو نفر همون لحظه دیده می‌شه');
     else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setSync(false, 'همگام‌سازی زنده قطعه؛ تغییرات بعد از تازه‌سازی دیده می‌شن');
@@ -534,24 +581,94 @@ function subscribe(){
 }
 function setSync(on, text){ $('#syncDot').classList.toggle('on', on); $('#syncText').textContent = text; }
 document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && ready && me){ try { await Promise.all(TABLES.map(reload)); const { data } = await sb.from('settings').select('*').eq('id',1).maybeSingle(); if (data) S.settings = {...DEFAULT_SETTINGS, ...data}; render(); fillSettings(); } catch(e){} }
+  if (document.visibilityState === 'visible' && ready && me){ try { await Promise.all([...TABLES.map(reload), loadMembers(), loadActivity()]); const { data } = await sb.from('settings').select('*').eq('id',1).maybeSingle(); if (data) S.settings = {...DEFAULT_SETTINGS, ...data}; render(); fillSettings(); } catch(e){} }
 });
 
-/* ---------- auth ---------- */
-function showGate(msg, err){
-  $('#app').hidden = true; $('#bottomBar').hidden = true; $('#gate').hidden = false;
-  if (msg) $('#gateMsg').innerHTML = msg;
-  $('#loginErr').textContent = err || '';
+/* ---------- roles ---------- */
+const ROLE_LABEL = {admin:'مدیر', editor:'ویرایشگر', viewer:'بیننده', pending:'در انتظار تأیید'};
+let myRole = null, canEdit = false, canAdmin = false;
+function applyRole(role){
+  myRole = role; canEdit = role === 'admin' || role === 'editor'; canAdmin = role === 'admin';
+  document.body.classList.toggle('can-edit', canEdit);
+  document.body.classList.toggle('can-admin', canAdmin);
+  $('#roleTag').textContent = ROLE_LABEL[role] || '';
+  ['#setTitle','#setBudget','#setHead','#setCur'].forEach(s => $(s).disabled = !canEdit);
+  if (!canAdmin && currentTab === 'members') document.querySelector('.tab[data-tab="items"]').click();
+  $('#bottomBar').dataset.key = ''; render();
 }
+function lockForm(form){ form.querySelectorAll('input,select,textarea').forEach(el => { el.disabled = !canEdit; }); }
+
+/* ---------- auth ---------- */
+// Mini App: Telegram passes the signed login data in the URL hash (tgWebAppData)
+const tgWA = (() => {
+  let init = '';
+  try { init = new URLSearchParams(location.hash.slice(1)).get('tgWebAppData') || ''; } catch(e){}
+  if (!init) return null;
+  let user = null; try { user = JSON.parse(new URLSearchParams(init).get('user')); } catch(e){}
+  const s = document.createElement('script'); s.async = true; s.src = 'https://telegram.org/js/telegram-web-app.js';
+  s.onload = () => { try { const W = window.Telegram.WebApp; W.ready(); W.expand(); document.documentElement.dataset.theme = W.colorScheme === 'dark' ? 'dark' : 'light'; } catch(e){} };
+  document.head.appendChild(s);
+  return {initData:init, user};
+})();
+function gateState(state, msg, err){
+  $('#app').hidden = true; $('#bottomBar').hidden = true; $('#gate').hidden = false;
+  $('#gateMsg').innerHTML = msg || '';
+  $('#loginErr').textContent = err || '';
+  $('#waitBox').hidden = state !== 'wait';
+  $('#tgBox').hidden = state !== 'login';
+  $('#emailBox').hidden = state !== 'login' || !!tgWA;
+  if (state === 'login'){ mountTelegramWidget(); if (!cfg.telegramBot || /YOUR/.test(cfg.telegramBot)) $('#emailBox').open = true; }
+}
+let widgetMounted = false;
+function mountTelegramWidget(){
+  if (widgetMounted || tgWA || !cfg.telegramBot || /YOUR/.test(cfg.telegramBot)) return;
+  widgetMounted = true;
+  const s = document.createElement('script');
+  s.async = true; s.src = 'https://telegram.org/js/telegram-widget.js?22';
+  s.setAttribute('data-telegram-login', cfg.telegramBot.replace(/^@/, ''));
+  s.setAttribute('data-size', 'large'); s.setAttribute('data-radius', '10');
+  s.setAttribute('data-userpic', 'false'); s.setAttribute('data-onauth', 'onTelegramAuth(user)');
+  s.onerror = () => { $('#loginErr').textContent = 'دکمه‌ی تلگرام بارگذاری نشد؛ اتصال به telegram.org رو چک کن.'; };
+  $('#tgBox').appendChild(s);
+}
+window.onTelegramAuth = user => telegramLogin({widget:user});
+async function telegramLogin(payload){
+  gateState('busy', 'در حال ورود با تلگرام…');
+  try {
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:payload});
+    if (error){
+      let code = ''; try { code = (await error.context.json()).error; } catch(e){}
+      throw new Error(code === 'invalid_signature' ? 'تأیید تلگرام ناموفق بود؛ دوباره امتحان کن.' : code === 'bot_token_missing' ? 'توکن ربات در Supabase تنظیم نشده.' : 'تابع ورود تلگرام در دسترس نیست (Edge Function رو چک کن).');
+    }
+    const v = await sb.auth.verifyOtp({token_hash:data.token_hash, type:'magiclink'});
+    if (v.error) throw new Error('ساختن نشست ناموفق بود: ' + v.error.message);
+    await enter(v.data.session);
+  } catch(e){
+    gateState('login', tgWA ? 'ورود خودکار از داخل تلگرام انجام نشد.' : 'برای ورود، با تلگرام وارد شو.', e.message || 'ورود ناموفق بود.');
+  }
+}
+let ownChannel = null;
 async function enter(session){
   me = session.user;
-  const { data: ok, error } = await sb.rpc('is_member');
-  if (error){ showGate(null, 'اتصال به دیتابیس برقرار نشد. آدرس و کلید config.js و اجرای schema.sql رو چک کن.'); return; }
-  if (!ok){ await sb.auth.signOut(); showGate(null, 'این ایمیل در لیست اعضای مجاز (جدول members) نیست.'); return; }
+  const { data: row, error } = await sb.from('members').select('*').eq('user_id', me.id).maybeSingle();
+  if (error){ gateState('login', '', 'اتصال به دیتابیس برقرار نشد. آدرس و کلید config.js و اجرای schema.sql رو چک کن.'); return; }
+  me.member = row;
+  if (!row || row.role === 'pending'){
+    gateState('wait', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! درخواست دسترسی‌ت ثبت شد. وقتی مدیر نقشت رو تعیین کرد، همین‌جا خودکار وارد می‌شی.`);
+    watchOwnRow(); return;
+  }
   $('#gate').hidden = true; $('#app').hidden = false; $('#bottomBar').hidden = false;
-  $('#me').textContent = me.email;
+  $('#me').textContent = row.display_name || (me.email && !me.email.endsWith('@telegram.local') ? me.email : '');
+  applyRole(row.role);
   try { await loadAll(); subscribe(); } catch(e){ fail(e, 'load'); setSync(false, 'بارگذاری ناموفق بود؛ صفحه رو تازه کن'); }
 }
+function watchOwnRow(){
+  if (ownChannel) sb.removeChannel(ownChannel);
+  ownChannel = sb.channel('me-' + me.id).on('postgres_changes', {event:'*', schema:'public', table:'members', filter:`user_id=eq.${me.id}`}, async () => {
+    const { data } = await sb.auth.getSession(); if (data.session) enter(data.session);
+  }).subscribe();
+}
+$('#recheckBtn').addEventListener('click', async () => { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session); else gateState('login', 'برای ورود، با تلگرام وارد شو.'); });
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.target.elements, btn = $('#loginBtn');
@@ -562,21 +679,105 @@ $('#loginForm').addEventListener('submit', async e => {
   if (error){ $('#loginErr').textContent = /Invalid login/i.test(error.message) ? 'ایمیل یا رمز اشتباهه.' : /fetch/i.test(error.message) ? 'به Supabase وصل نمی‌شه؛ اینترنت رو چک کن.' : error.message; return; }
   await enter(data.session);
 });
-$('#logoutBtn').addEventListener('click', async () => {
-  if (channel) sb.removeChannel(channel); channel = null;
-  await sb.auth.signOut(); me = null; ready = false; S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}};
-  showGate('با ایمیل و رمزی که در Supabase برات ساخته شده وارد شو.');
-});
+async function logout(){
+  [channel, ownChannel].forEach(c => c && sb.removeChannel(c)); channel = ownChannel = null;
+  await sb.auth.signOut(); me = null; ready = false; myRole = null;
+  S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[]};
+  gateState('login', 'برای ورود، با تلگرام وارد شو.');
+}
+$('#logoutBtn').addEventListener('click', logout);
+$('#gateLogout').addEventListener('click', logout);
 
 async function boot(){
   if (!cfg.supabaseUrl || /YOUR/.test(cfg.supabaseUrl + cfg.supabaseAnonKey) || !window.supabase){
-    showGate('هنوز تنظیم نشده. آدرس پروژه و کلید anon رو در فایل <code>config.js</code> بنویس (راهنما در README).');
-    $('#loginBtn').disabled = true; return;
+    gateState('setup', 'هنوز تنظیم نشده. آدرس پروژه و کلید anon رو در فایل <code>config.js</code> بنویس (راهنما در README).');
+    return;
   }
   sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
   const { data } = await sb.auth.getSession();
-  if (data.session) await enter(data.session); else showGate();
-  sb.auth.onAuthStateChange((ev, session) => { if (ev === 'SIGNED_OUT' && me){ me = null; showGate(null, 'از حساب خارج شدی.'); } });
+  const tgIdOfSession = data.session && /^tg(\d+)@telegram\.local$/.exec(data.session.user.email || '');
+  const tgIdHere = tgWA && tgWA.user && String(tgWA.user.id);
+  if (data.session && (!tgIdHere || (tgIdOfSession && tgIdOfSession[1] === tgIdHere))) await enter(data.session);
+  else if (tgWA) await telegramLogin({initData: tgWA.initData});
+  else gateState('login', 'برای ورود، با تلگرام وارد شو.');
+  sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && me){ me = null; gateState('login', 'از حساب خارج شدی.'); } });
+}
+
+/* ---------- members (admin) ---------- */
+async function loadMembers(){
+  if (!canAdmin) { S.members = {}; return; }
+  const { data, error } = await sb.from('members').select('*');
+  if (error) throw error;
+  S.members = {}; data.forEach(m => S.members[m.user_id] = m);
+}
+async function setMember(uid, patch){
+  const old = S.members[uid]; S.members[uid] = {...old, ...patch}; render();
+  const { error } = await sb.from('members').update(patch).eq('user_id', uid);
+  if (error){ S.members[uid] = old; render(); toast(/LAST_ADMIN/.test(error.message) ? 'حداقل یک مدیر باید بمونه' : 'تغییر نقش ذخیره نشد'); }
+  else if (patch.role) toast(`نقش ${old.display_name || ''}: ${ROLE_LABEL[patch.role]}`);
+}
+async function removeMember(uid){
+  const m = S.members[uid]; if (!m) return;
+  if (!confirm(`دسترسی «${m.display_name}» برداشته بشه؟ اگه دوباره وارد بشه، به‌عنوان درخواست جدید ظاهر می‌شه.`)) return;
+  delete S.members[uid]; render();
+  const { error } = await sb.from('members').delete().eq('user_id', uid);
+  if (error){ S.members[uid] = m; render(); toast(/LAST_ADMIN/.test(error.message) ? 'حداقل یک مدیر باید بمونه' : 'حذف ناموفق بود'); }
+}
+function renderMembers(){
+  const box = $('#memberList'), all = Object.values(S.members);
+  const pending = all.filter(m => m.role === 'pending').sort((a,b) => ts(b.created_at) - ts(a.created_at));
+  const others = all.filter(m => m.role !== 'pending').sort((a,b) => role_rank(b.role) - role_rank(a.role) || (a.display_name||'').localeCompare(b.display_name||'','fa'));
+  $('#nMembers').textContent = pending.length ? fmt(pending.length) + ' جدید' : fmt(others.length);
+  $('#nMembers').classList.toggle('alert', !!pending.length);
+  if (!canAdmin){ box.innerHTML = ''; return; }
+  const ident = m => m.telegram_username ? '@' + m.telegram_username : (m.telegram_id ? 'tg ' + m.telegram_id : (m.email || ''));
+  const row = m => `<div class="mem">
+      <div><input class="field" value="${esc(m.display_name)}" data-mem-name="${esc(m.user_id)}" aria-label="نام نمایشی" maxlength="60"><div class="id">${esc(ident(m))}</div></div>
+      <div class="ctl">${m.role === 'pending'
+        ? `<button class="btn small primary" type="button" data-mem-role="${esc(m.user_id)}:viewer">تأیید به‌عنوان بیننده</button><button class="btn small" type="button" data-mem-role="${esc(m.user_id)}:editor">ویرایشگر</button><button class="btn small danger" type="button" data-mem-del="${esc(m.user_id)}">رد</button>`
+        : `<select data-mem-select="${esc(m.user_id)}" aria-label="نقش">${['viewer','editor','admin'].map(r => `<option value="${r}"${r === m.role ? ' selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select>${m.user_id === me.id ? '<span class="tag">خودت</span>' : `<button class="btn small danger" type="button" data-mem-del="${esc(m.user_id)}">برداشتن دسترسی</button>`}`}</div>
+    </div>`;
+  box.innerHTML = (pending.length ? `<div class="group" style="--c:var(--warn)"><div class="group-head"><h4>درخواست‌های جدید</h4></div><div class="list">${pending.map(row).join('')}</div></div>` : '')
+    + `<div class="group" style="--c:var(--ok)"><div class="group-head"><h4>اعضا</h4><span class="sum">${fmt(others.length)} نفر</span></div><div class="list">${others.map(row).join('')}</div></div>`;
+}
+const role_rank = r => ({admin:3, editor:2, viewer:1}[r] || 0);
+
+/* ---------- history ---------- */
+const FIELD_LABELS = {title:'عنوان', reason:'دلیل', type:'نوع', category:'دسته', vendor:'فروشنده', unit:'قیمت واحد', qty:'تعداد', paid:'وضعیت', actual:'مبلغ واقعی', payer:'پرداخت از',
+  name:'نام', amount:'مبلغ', note:'یادداشت', item_id:'خرج مربوط', total:'مبلغ فاکتور', invoice_date:'تاریخ فاکتور', budget:'سقف بودجه', headcount:'تعداد نفرات', currency:'واحد پول'};
+function valText(k, v, tbl, kind){
+  if (v === null || v === undefined || v === '') return '—';
+  if (['unit','actual','amount','total','budget','headcount','qty'].includes(k)) return fmt(v);
+  if (k === 'paid') return v ? (tbl === 'funds' ? (kind === 'contrib' ? 'واریز کرده' : 'دریافت شد') : 'پرداخت شد') : (tbl === 'funds' ? 'در راه' : 'پرداخت‌نشده');
+  if (k === 'type') return TYPES[v]?.l || v;
+  if (k === 'item_id') return S.items[v]?.title || 'خرج حذف‌شده';
+  return String(v).slice(0, 60);
+}
+async function loadActivity(){
+  const { data, error } = await sb.from('activity').select('*').order('id', {ascending:false}).limit(200);
+  if (!error) S.activity = data;
+}
+function renderHistory(){
+  const box = $('#historyList');
+  if (!S.activity.length){ box.innerHTML = '<div class="empty">هنوز تغییری ثبت نشده.</div>'; return; }
+  const TBL = {items:'هزینه', invoices:'فاکتور', settings:'تنظیمات'};
+  const ACT = {insert:'اضافه کرد', update:'ویرایش کرد', delete:'حذف کرد'};
+  const COL = {insert:'var(--ok)', update:'var(--gold)', delete:'var(--bad)'};
+  const dt = new Intl.DateTimeFormat('fa-IR', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+  box.innerHTML = S.activity.map(a => {
+    const r = a.new_row || a.old_row || {}, kind = r.kind;
+    const what = a.tbl === 'funds' ? (kind === 'contrib' ? 'سهم' : 'واریزی') : (TBL[a.tbl] || a.tbl);
+    let chg = '';
+    if (a.action === 'update' && a.old_row && a.new_row){
+      chg = Object.keys(FIELD_LABELS).filter(k => k in a.new_row && JSON.stringify(a.old_row[k]) !== JSON.stringify(a.new_row[k]))
+        .map(k => `${FIELD_LABELS[k]}: ${esc(valText(k, a.old_row[k], a.tbl, kind))} ← ${esc(valText(k, a.new_row[k], a.tbl, kind))}`).join('، ');
+    } else if (a.action !== 'update'){
+      const amt = r.total || r.amount || r.actual || estimate(r);
+      chg = amt ? `مبلغ: ${fmt(amt)}` : '';
+    }
+    return `<div class="hist" style="--c:${COL[a.action] || 'var(--line)'}"><span class="who2">${esc(a.actor_name || '—')}</span><span class="when">${dt.format(new Date(a.at))}</span>
+      <span class="what">${what} «${esc(a.title || '')}» رو ${ACT[a.action] || a.action}${chg ? `<span class="chg">${chg}</span>` : ''}</span></div>`;
+  }).join('');
 }
 
 /* ---------- computations ---------- */
@@ -635,7 +836,7 @@ function render(){
   $('#nItems').textContent = fmt(Object.keys(S.items).length);
   const ni = $('#nInv'); ni.textContent = t.review ? fmt(t.review) + ' وصل‌نشده' : fmt(Object.keys(S.invoices).length); ni.classList.toggle('alert', !!t.review);
 
-  renderItems(t); renderInvoices(); renderBudget(t); renderCats(t); renderPayers(); renderBottomBar();
+  renderItems(t); renderInvoices(); renderBudget(t); renderCats(t); renderPayers(); renderBottomBar(); renderMembers(); if (currentTab === 'history') renderHistory();
   if ($('#itemDlg').open && editingItem) renderItemAtt(editingItem.id);
   hydrateThumbs();
 }
@@ -646,7 +847,7 @@ function renderItems(t){
   const all = Object.values(S.items);
   if (!all.length){
     list.innerHTML = `<div class="empty"><h3>اولین هزینه رو اضافه کن</h3>با یکی از این‌ها شروع کن یا دکمه «هزینه جدید» رو بزن.
-      <div class="chips">${QUICK.map((q,i) => `<button class="chip" type="button" data-quick="${i}">${esc(q[0])}</button>`).join('')}</div></div>`;
+      <div class="chips need-edit">${QUICK.map((q,i) => `<button class="chip" type="button" data-quick="${i}">${esc(q[0])}</button>`).join('')}</div></div>`;
     $('#owedBox').innerHTML = ''; return;
   }
   const q = toLatin($('#q').value).trim().toLowerCase(), ft = $('#fType').value, fs = $('#fStatus').value, so = $('#fSort').value;
@@ -716,7 +917,7 @@ function invCard(v){
   return `<div class="inv ${linked ? '' : 'review'}">
     ${thumbHtml(v)}
     <button class="inv-open" type="button" data-inv="${esc(v.id)}"><span class="t">${esc(v.vendor || v.file_name || 'فاکتور')}</span><span class="amt"><b>${v.total ? fmt(v.total) : '—'}</b><small>${faDate(v.created_at)}</small></span><span class="s">${esc(sub)}</span></button>
-    <div class="inv-actions">${linked ? '' : '<span class="tag warn">وصل‌نشده</span>'}${!v.total ? '<span class="tag warn">مبلغ ثبت نشده</span>' : ''}<select aria-label="مربوط به خرج" data-inv-map="${esc(v.id)}">${itemOptions(v.item_id)}</select>${v.updated_by ? `<span class="tag">${esc(who(v.updated_by))}</span>` : ''}</div>
+    <div class="inv-actions">${linked ? '' : '<span class="tag warn">وصل‌نشده</span>'}${!v.total ? '<span class="tag warn">مبلغ ثبت نشده</span>' : ''}<select aria-label="مربوط به خرج" data-inv-map="${esc(v.id)}"${canEdit ? '' : ' disabled'}>${itemOptions(v.item_id)}</select>${v.updated_by ? `<span class="tag">${esc(who(v.updated_by))}</span>` : ''}</div>
   </div>`;
 }
 function renderInvoices(){
@@ -733,7 +934,7 @@ function renderInvoices(){
     const recorded = it.paid ? cost(it) : 0, differs = s && (!it.paid || s !== recorded);
     html += `<div class="group" style="--c:${(TYPES[it.type]||TYPES.must).c}"><div class="group-head"><h4>${esc(it.title)}</h4><span class="tag type">${(TYPES[it.type]||TYPES.must).l}</span>
       <span class="sum">جمع فاکتورها <b>${fmt(s)}</b>${it.paid ? ` · ثبت‌شده <b>${fmt(recorded)}</b>` : ' · هنوز پرداخت ثبت نشده'}</span>
-      ${differs ? `<button class="btn small" type="button" data-apply="${esc(it.id)}">${it.paid ? 'اصلاح پرداخت با جمع فاکتورها' : 'ثبت پرداخت با جمع فاکتورها'}</button>` : ''}</div>
+      ${differs ? `<button class="btn small need-edit" type="button" data-apply="${esc(it.id)}">${it.paid ? 'اصلاح پرداخت با جمع فاکتورها' : 'ثبت پرداخت با جمع فاکتورها'}</button>` : ''}</div>
       <div class="list">${invs.map(invCard).join('')}</div></div>`;
   });
   list.innerHTML = html;
@@ -751,6 +952,7 @@ async function shrink(file){
 }
 let uploadTarget = null; // item id when uploading from the expense dialog
 async function handleFiles(files){
+  if (!canEdit){ toast('برای آپلود فاکتور دسترسی ویرایش لازمه'); return; }
   const target = uploadTarget; uploadTarget = null;
   const created = [];
   for (const f of files){
@@ -776,6 +978,7 @@ async function handleFiles(files){
   else if (created.length > 1) toast(`${fmt(created.length)} فاکتور آپلود شد؛ مبلغ و خرج هر کدوم رو مشخص کن`);
 }
 function mapInvoice(id, itemId){
+  if (!canEdit) return;
   const v = S.invoices[id]; if (!v) return;
   if (itemId === '__new') return createFromInvoice(id);
   upsert('invoices', {...v, item_id: itemId || null});
@@ -804,11 +1007,11 @@ async function openInvoice(id){
   const f = invForm.elements;
   $('#invItemSel').innerHTML = itemOptions(v.item_id);
   f.total.value = v.total ? fmt(v.total) : ''; f.vendor.value = v.vendor || ''; f.invoice_date.value = v.invoice_date || ''; f.note.value = v.note || '';
-  $('#invCurHint').textContent = S.settings.currency;
+  $('#invCurHint').textContent = S.settings.currency; lockForm(invForm);
   $('#invMeta').textContent = [v.file_name, metaLine(v)].filter(Boolean).join(' · ');
   const pv = $('#invPreview'); pv.innerHTML = '<span style="padding:24px;color:var(--muted)">در حال بارگذاری فایل…</span>';
   if (!invDlg.open) invDlg.showModal();
-  if (!v.total) setTimeout(() => f.total.focus(), 30);
+  if (!v.total && canEdit) setTimeout(() => f.total.focus(), 30);
   const [url] = await signedUrls([v.file_path]);
   if (editingInv !== v) return;
   if (!url){ pv.innerHTML = '<span style="padding:24px;color:var(--bad)">فایل پیدا نشد</span>'; return; }
@@ -853,7 +1056,7 @@ function renderBudget(t){
   $('#fundList').innerHTML = fs.length
     ? moneyRows(fs, 'fund') + `<div class="foot-total"><span>دریافت‌شده ${money(t.fundIn)}</span><span>کل ${money(t.fundAll)}</span></div>`
     : `<div class="empty"><h3>بودجه‌ای که الان دارید رو ثبت کن</h3>هر پولی که غیر از سهم نفرات دستته یا قراره برسه.
-       <div class="chips">${QUICK_FUNDS.map((q,i) => `<button class="chip" type="button" data-quick-fund="${i}">${esc(q)}</button>`).join('')}</div></div>`;
+       <div class="chips need-edit">${QUICK_FUNDS.map((q,i) => `<button class="chip" type="button" data-quick-fund="${i}">${esc(q)}</button>`).join('')}</div></div>`;
   $('#contribList').innerHTML = cs.length
     ? moneyRows(cs, 'contrib') + `<div class="foot-total"><span>واریزشده ${money(t.contribIn)}</span><span>کل تعهدها ${money(t.contribAll)}</span></div>`
     : `<div class="empty">اسم هر کسی که قراره سهم بده و مبلغش رو ثبت کن؛ وقتی واریز کرد، تیکش رو بزن.</div>`;
@@ -892,11 +1095,13 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
   currentTab = b.dataset.tab;
   document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x === b));
   document.querySelectorAll('.panel').forEach(p => p.hidden = p.id !== 'panel-' + currentTab);
+  if (currentTab === 'history') renderHistory();
   renderBottomBar();
 }));
 function renderBottomBar(){
-  const bar = $('#bottomBar'); if (bar.dataset.key === currentTab) return; bar.dataset.key = currentTab;
+  const bar = $('#bottomBar'), key = currentTab + ':' + myRole; if (bar.dataset.key === key) return; bar.dataset.key = key;
   const btn = (act, l, p) => `<button class="btn ${p ? 'primary' : ''}" type="button" data-act="${act}">${l}</button>`;
+  if (!canEdit){ bar.innerHTML = btn('export','خروجی اکسل',1); return; }
   bar.innerHTML = currentTab === 'items' ? btn('add-item','+ هزینه جدید',1)
     : currentTab === 'invoices' ? btn('upload','+ آپلود فاکتور',1)
     : currentTab === 'budget' ? btn('add-fund','+ واریزی',1) + btn('add-contrib','+ سهم نفر') : '';
@@ -917,12 +1122,12 @@ function renderItemAtt(itemId){
   const invs = invOf(itemId), free = Object.values(S.invoices).filter(v => !v.item_id || !S.items[v.item_id]);
   box.innerHTML = `<div class="lbl">فاکتورهای این خرج${invs.length ? ` <span class="hint">جمع ${money(invSum(itemId))}</span>` : ''}
     <div class="att">${invs.map(v => `<button class="att-row" type="button" data-inv="${esc(v.id)}">${thumbHtml(v)}<span>${esc(v.vendor || v.file_name)}</span><b>${v.total ? fmt(v.total) : '—'}</b></button>`).join('')}</div>
-    <div class="att-tools"><button class="btn small" type="button" data-attach="${esc(itemId)}">+ آپلود فاکتور برای این خرج</button>
+    <div class="att-tools need-edit"><button class="btn small" type="button" data-attach="${esc(itemId)}">+ آپلود فاکتور برای این خرج</button>
     ${free.length ? `<select data-link-free="${esc(itemId)}" aria-label="وصل کردن فاکتور موجود"><option value="">وصل کردن یکی از فاکتورهای وصل‌نشده…</option>${free.map(v => `<option value="${esc(v.id)}">${esc(v.vendor || v.file_name)}${v.total ? ' — ' + fmt(v.total) : ''}</option>`).join('')}</select>` : ''}</div></div>`;
   hydrateThumbs();
 }
 function openItem(id, preset){
-  if (!ready) return;
+  if (!ready || (!id && !canEdit)) return;
   editingItem = id ? S.items[id] : null;
   const it = editingItem ? {...editingItem} : {title:'', reason:'', type:'must', category:CATS[0], vendor:'', unit:0, qty:1, paid:false, actual:0, payer:''};
   if (preset){ it.title = preset[0]; it.category = preset[1]; it.type = preset[2]; }
@@ -937,6 +1142,7 @@ function openItem(id, preset){
   $('#itemDel').hidden = !editingItem;
   $('#itemMeta').textContent = metaLine(editingItem);
   renderItemAtt(editingItem && editingItem.id);
+  lockForm(itemForm); if (!canEdit) $('#itemDlgTitle').textContent = 'جزئیات هزینه';
   updateCalc(); if (!itemDlg.open) itemDlg.showModal();
   if (!editingItem) setTimeout(() => (preset ? f.unit : f.title).focus(), 30);
 }
@@ -965,7 +1171,7 @@ $('#itemDel').addEventListener('click', () => {
 /* ---------- money entry dialog ---------- */
 const entryDlg = $('#entryDlg'), entryForm = $('#entryForm'); let entryKind = 'fund', editingEntry = null;
 function openEntry(kind, id, presetName){
-  if (!ready) return;
+  if (!ready || (!id && !canEdit)) return;
   editingEntry = id ? S.funds[id] : null; entryKind = editingEntry ? editingEntry.kind : kind;
   const t = totals(), head = Number(S.settings.headcount)||0;
   const defAmt = entryKind === 'contrib' && head ? Math.max(0, Math.ceil((t.mid - t.fundAll)/head)) : 0;
@@ -978,7 +1184,7 @@ function openEntry(kind, id, presetName){
   $('#entryDlgTitle').textContent = (editingEntry ? 'ویرایش ' : '') + (isF ? 'واریزی' : 'سهم') + (editingEntry ? '' : ' جدید');
   $('#entryDel').hidden = !editingEntry;
   $('#entryMeta').textContent = metaLine(editingEntry);
-  updateECalc(); entryDlg.showModal();
+  lockForm(entryForm); updateECalc(); entryDlg.showModal();
   if (!editingEntry) setTimeout(() => (presetName ? f.amount : f.name).focus(), 30);
 }
 function updateECalc(){ const n = parseNum(entryForm.elements.amount.value); $('#ecalc').innerHTML = n ? `<b>${money(n)}</b>` : ''; }
@@ -1006,7 +1212,8 @@ document.addEventListener('click', e => {
   const g = sel => e.target.closest(sel); let el;
   if ((el = g('[data-act]'))){ const a = el.dataset.act;
     if (a === 'add-item') return openItem(); if (a === 'add-fund') return openEntry('fund'); if (a === 'add-contrib') return openEntry('contrib');
-    if (a === 'upload'){ uploadTarget = null; return fileInput.click(); } }
+    if (a === 'upload'){ uploadTarget = null; return fileInput.click(); }
+    if (a === 'export') return exportXlsx(); }
   if ((el = g('#drop'))){ uploadTarget = null; return fileInput.click(); }
   if ((el = g('[data-attach]'))){ uploadTarget = el.dataset.attach; itemDlg.close(); return fileInput.click(); }
   if ((el = g('[data-inv]'))) return openInvoice(el.dataset.inv);
@@ -1015,8 +1222,12 @@ document.addEventListener('click', e => {
   if ((el = g('[data-quick]'))) return openItem(null, QUICK[+el.dataset.quick]);
   if ((el = g('[data-quick-fund]'))) return openEntry('fund', null, QUICK_FUNDS[+el.dataset.quickFund]);
   if ((el = g('[data-apply]'))) return applyInvoices(el.dataset.apply);
+  if ((el = g('[data-mem-role]'))){ const [u, r] = el.dataset.memRole.split(':'); return setMember(u, {role:r}); }
+  if ((el = g('[data-mem-del]'))) return removeMember(el.dataset.memDel);
 });
 document.addEventListener('change', e => {
+  let m = e.target.closest('[data-mem-select]'); if (m) return setMember(m.dataset.memSelect, {role:m.value});
+  m = e.target.closest('[data-mem-name]'); if (m){ const v = m.value.trim(); if (v) setMember(m.dataset.memName, {display_name:v}); return; }
   let s = e.target.closest('[data-inv-map]'); if (s) return mapInvoice(s.dataset.invMap, s.value);
   s = e.target.closest('[data-link-free]');
   if (s && s.value){ const v = S.invoices[s.value]; if (v){ upsert('invoices', {...v, item_id:s.dataset.linkFree}); toast('فاکتور وصل شد'); } }
@@ -1084,6 +1295,7 @@ function exportXlsx(){
   const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
   const ds = ['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-');
   XLSX.writeFile(wb, `${(st.title||'جشن').replace(/[\\/:*?"<>|]/g,' ').trim()} - ${ds}.xlsx`);
+  if (tgWA) toast('اگه داخل تلگرام دانلود نشد، سایت رو در مرورگر باز کن و از اونجا خروجی بگیر');
 }
 $('#exportBtn').addEventListener('click', exportXlsx);
 
