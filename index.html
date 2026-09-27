@@ -627,7 +627,8 @@ const AUDIT = ['created_at','created_by','updated_at','updated_by'];
 const $ = s => document.querySelector(s);
 const cfg = window.APP_CONFIG || {};
 let sb = null, me = null, channel = null, ready = false;
-let S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[], participants:{}, payments:{}, payInfo:{}};
+const emptyState = () => ({settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[], participants:{}, payments:{}, payInfo:{}});
+let S = emptyState();
 const uploading = new Map();
 const urlCache = new Map(); // file_path -> {url, exp}
 const urlPending = new Set();
@@ -638,6 +639,8 @@ const fmt = n => nf.format(Math.round(n || 0));
 const money = n => fmt(n) + ' ' + S.settings.currency;
 const toLatin = s => String(s ?? '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 const parseNum = s => { const v = toLatin(s).replace(/[^\d]/g, ''); return v ? Number(v) : 0; };
+const normNo = s => toLatin(s).replace(/[\s\-_/.]/g, '').toUpperCase(); // student number, as stored
+const last4 = s => toLatin(s).replace(/\D/g, '').slice(-4);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c === 'x' ? r : (r&3|8)).toString(16); }));
 const estimate = it => (Number(it.unit) || 0) * (Number(it.qty) || 1);
@@ -668,37 +671,60 @@ function fail(error, what){
 const clean = row => { const o = {...row}; AUDIT.forEach(k => delete o[k]); return o; };
 
 /* ---------- data ---------- */
+// All writes are optimistic: local state and UI change first; on failure the table is re-read from the server.
+// Each returns true on success so callers can show a confirmation only when the change really stuck.
 async function upsert(table, row){
   S[table][row.id] = {...S[table][row.id], ...row}; render();
   const { error } = await sb.from(table).upsert(clean(row));
-  if (error){ fail(error, table); await reload(table); }
+  if (error){ fail(error, table); await resync(table); return false; }
+  return true;
+}
+// Update only the given fields, so a stale copy of the row can't overwrite someone else's concurrent edit.
+async function patch(table, id, fields){
+  if (!S[table][id]) return false;
+  S[table][id] = {...S[table][id], ...fields}; render();
+  const { error } = await sb.from(table).update(fields).eq('id', id);
+  if (error){ fail(error, table); await resync(table); return false; }
+  return true;
 }
 async function del(table, id){
   const old = S[table][id]; delete S[table][id]; render();
-  const { error } = await sb.from(table).delete().eq('id', id);
-  if (error){ fail(error, table); if (old){ S[table][id] = old; render(); } }
+  const { data, error } = await sb.from(table).delete().eq('id', id).select('id');
+  if (error){ fail(error, table); if (old) S[table][id] = old; render(); return false; }
+  // Row-level security filters a forbidden delete silently (no error, nothing deleted)
+  if (!data || !data.length){ toast('حذف نشد؛ شاید دسترسی لازم رو نداری'); await resync(table); return false; }
+  return true;
 }
-async function saveSettings(patch){
-  S.settings = {...S.settings, ...patch}; render();
-  const { error } = await sb.from('settings').update(patch).eq('id', 1);
-  if (error) fail(error, 'settings');
+async function resync(table){ try { await reload(table); } catch(e){ console.error(table, e); } render(); }
+async function saveSettings(fields){
+  const old = S.settings; S.settings = {...S.settings, ...fields}; render();
+  const { error } = await sb.from('settings').update(fields).eq('id', 1);
+  if (error){ fail(error, 'settings'); S.settings = old; render(); fillSettings(); }
 }
 async function reload(table){
   const { data, error } = await sb.from(table).select('*');
   if (error) throw error;
   const next = {}; data.forEach(r => next[r.id] = r); S[table] = next;
 }
-async function loadAll(){
-  const { data: st, error } = await sb.from('settings').select('*').eq('id', 1).maybeSingle();
+async function loadSettings(){
+  const { data, error } = await sb.from('settings').select('*').eq('id', 1).maybeSingle();
   if (error) throw error;
-  S.settings = {...DEFAULT_SETTINGS, ...(st || {})};
-  await Promise.all([...TABLES.map(reload), loadMembers(), loadActivity(), loadPayInfo()]);
+  S.settings = {...DEFAULT_SETTINGS, ...(data || {})};
+}
+async function loadAll(){
+  await Promise.all([loadSettings(), ...TABLES.map(reload), loadMembers(), loadActivity(), loadPayInfo()]);
   ready = true; render(); fillSettings();
+}
+async function loadParticipantData(){
+  // settings is only needed for the currency label; participants may not be allowed to read it
+  await Promise.all([reload('participants'), reload('payments'), loadPayInfo(), loadSettings().catch(() => {})]);
+  ready = true; render();
 }
 function subscribe(){
   if (channel) sb.removeChannel(channel);
   channel = sb.channel('party-finance');
-  [...TABLES, 'settings', 'payment_info'].forEach(table => {
+  const tables = myRole === 'participant' ? ['participants','payments'] : TABLES;
+  [...tables, 'settings', 'payment_info'].forEach(table => {
     channel.on('postgres_changes', {event:'*', schema:'public', table}, p => {
       if (table === 'payment_info'){ if (p.new && p.new.id === 1) S.payInfo = {...DEFAULT_PAYINFO, ...p.new}; }
       else if (table === 'settings'){ if (p.new && p.new.id === 1){ S.settings = {...DEFAULT_SETTINGS, ...p.new}; fillSettings(); } }
@@ -709,7 +735,12 @@ function subscribe(){
   });
   channel.on('postgres_changes', {event:'*', schema:'public', table:'members'}, p => {
     const row = p.new && p.new.user_id ? p.new : null, oldId = p.old && p.old.user_id;
-    if (row && row.user_id === me.id){ me.member = row; if (row.role !== myRole){ enter({user:me}); return; } }
+    if (row && row.user_id === me.id){
+      me.member = row;
+      // a 'pending' member who claimed a student number is shown the participant page, so that's not a role change
+      const changed = myRole === 'participant' ? !['pending','participant'].includes(row.role) : row.role !== myRole;
+      if (changed){ enter({user:me}); return; }
+    }
     if ((p.eventType === 'DELETE' && oldId === me.id)){ enter({user:me}); return; }
     if (canAdmin){ if (p.eventType === 'DELETE'){ if (oldId) delete S.members[oldId]; } else if (row) S.members[row.user_id] = row; render(); }
   });
@@ -717,14 +748,17 @@ function subscribe(){
     if (p.new){ S.activity.unshift(p.new); S.activity.length = Math.min(S.activity.length, 300); if (currentTab === 'history') renderHistory(); }
   });
   channel.subscribe(status => {
-    if (status === 'SUBSCRIBED') setSync(true, 'همگام؛ تغییرات هر دو نفر همون لحظه دیده می‌شه');
+    if (status === 'SUBSCRIBED') setSync(true, 'همگام؛ تغییرات بقیه همون لحظه اینجا دیده می‌شه');
     else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setSync(false, 'همگام‌سازی زنده قطعه؛ تغییرات بعد از تازه‌سازی دیده می‌شن');
   });
 }
 function setSync(on, text){ $('#syncDot').classList.toggle('on', on); $('#syncText').textContent = text; }
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && ready && me){ try { await Promise.all([...TABLES.map(reload), loadMembers(), loadActivity()]); const { data } = await sb.from('settings').select('*').eq('id',1).maybeSingle(); if (data) S.settings = {...DEFAULT_SETTINGS, ...data}; render(); fillSettings(); } catch(e){} }
+// realtime events can be missed while a phone has the page in the background, so re-read everything on return
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !ready || !me) return;
+  (myRole === 'participant' ? loadParticipantData() : loadAll()).catch(e => console.warn('refresh', e));
 });
+window.addEventListener('beforeunload', e => { if (uploading.size){ e.preventDefault(); e.returnValue = ''; } });
 
 /* ---------- roles ---------- */
 const ROLE_LABEL = {participant:'شرکت‌کننده', admin:'مدیر', editor:'ویرایشگر', viewer:'بیننده', pending:'در انتظار تأیید'};
@@ -765,7 +799,16 @@ function gateState(state, msg, err){
 }
 let widgetMounted = false;
 function mountTelegramWidget(){
-  if (widgetMounted || tgWA || !cfg.telegramBot || /YOUR/.test(cfg.telegramBot)) return;
+  if (widgetMounted) return;
+  if (tgWA){
+    // inside Telegram the login widget isn't used; after a failed auto-login or a logout, offer a retry instead of a dead end
+    widgetMounted = true;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn primary'; b.textContent = 'ورود با حساب تلگرام';
+    b.addEventListener('click', () => telegramLogin({initData: tgWA.initData}));
+    $('#tgBox').appendChild(b); return;
+  }
+  if (!cfg.telegramBot || /YOUR/.test(cfg.telegramBot)) return;
   widgetMounted = true;
   const s = document.createElement('script');
   s.async = true; s.src = 'https://telegram.org/js/telegram-widget.js?22';
@@ -791,10 +834,14 @@ async function telegramLogin(payload){
     gateState('login', tgWA ? 'ورود خودکار از داخل تلگرام انجام نشد.' : 'برای ورود، با تلگرام وارد شو.', e.message || 'ورود ناموفق بود.');
   }
 }
-let ownChannel = null;
+let ownChannel = null, enterSeq = 0;
+function stopOwnWatch(){ if (ownChannel){ sb.removeChannel(ownChannel); ownChannel = null; } }
 async function enter(session){
+  // enter() can be triggered again (role change, realtime) while a previous call is still awaiting; only the latest wins
+  const seq = ++enterSeq;
   me = session.user;
   const { data: row, error } = await sb.from('members').select('*').eq('user_id', me.id).maybeSingle();
+  if (seq !== enterSeq) return;
   if (error){
     console.error('members', error);
     const m = `${error.code || ''} ${error.message || ''}`;
@@ -808,31 +855,31 @@ async function enter(session){
   const role0 = row ? row.role : 'pending';
   if (role0 === 'pending' || role0 === 'participant'){
     const { data: part } = await sb.from('participants').select('id').eq('user_id', me.id).maybeSingle();
+    if (seq !== enterSeq) return;
     if (part) return enterParticipant();
     gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره دانشجویی‌ت رو بزن تا مبلغ و اطلاعات پرداخت رو ببینی.` + (role0 === 'pending' ? '<br><span class="sub">اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی.</span>' : ''));
     watchOwnRow(); return;
   }
-  if (!row){
-    gateState('wait', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! درخواست دسترسی‌ت ثبت شد. وقتی مدیر نقشت رو تعیین کرد، همین‌جا خودکار وارد می‌شی.`);
-    watchOwnRow(); return;
-  }
+  stopOwnWatch();
   $('#gate').hidden = true; $('#payApp').hidden = true; $('#app').hidden = false; $('#bottomBar').hidden = false;
   $('#me').textContent = row.display_name || (me.email && !me.email.endsWith('@telegram.local') ? me.email : '');
   applyRole(row.role);
   try { await loadAll(); subscribe(); } catch(e){ fail(e, 'load'); setSync(false, 'بارگذاری ناموفق بود؛ صفحه رو تازه کن'); }
 }
 async function enterParticipant(){
+  stopOwnWatch();
   $('#gate').hidden = true; $('#app').hidden = true; $('#payApp').hidden = false; $('#bottomBar').hidden = true;
   applyRole('participant');
-  try { await Promise.all([reload('participants'), reload('payments'), loadPayInfo()]); ready = true; render(); subscribe(); }
+  try { await loadParticipantData(); subscribe(); }
   catch(e){ fail(e, 'load'); }
 }
 $('#claimForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const f = e.target.elements, btn = $('#claimBtn');
-  if (!toLatin(f.no.value).trim()){ f.no.focus(); return; }
+  const f = e.target.elements, btn = $('#claimBtn'), no = normNo(f.no.value);
+  if (!no){ f.no.focus(); return; }
   btn.disabled = true; $('#loginErr').textContent = '';
-  const { data, error } = await sb.rpc('claim_student', {p_no:f.no.value, p_code:f.code.value || null});
+  // send the same normalized form the list is stored in (Persian digits, spaces and dashes typed by people otherwise never match)
+  const { data, error } = await sb.rpc('claim_student', {p_no:no, p_code:last4(f.code.value) || null});
   btn.disabled = false;
   if (error){ $('#loginErr').textContent = 'بررسی شماره انجام نشد؛ دوباره امتحان کن.'; return; }
   if (data && data.ok){ const s = await sb.auth.getSession(); if (s.data.session) enter(s.data.session); return; }
@@ -861,10 +908,17 @@ $('#loginForm').addEventListener('submit', async e => {
   if (error){ $('#loginErr').textContent = /Invalid login/i.test(error.message) ? 'ایمیل یا رمز اشتباهه.' : /fetch/i.test(error.message) ? 'به Supabase وصل نمی‌شه؛ اینترنت رو چک کن.' : error.message; return; }
   await enter(data.session);
 });
-async function logout(){
+function resetSession(){
+  enterSeq++; // cancel any enter() still in flight
   [channel, ownChannel].forEach(c => c && sb.removeChannel(c)); channel = ownChannel = null;
-  await sb.auth.signOut(); me = null; ready = false; myRole = null;
-  S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[], participants:{}, payments:{}, payInfo:{}};
+  me = null; ready = false; myRole = null; canEdit = canAdmin = false;
+  document.body.classList.remove('can-edit', 'can-admin');
+  if (draftReceipt){ URL.revokeObjectURL(draftReceipt.url); draftReceipt = null; }
+  S = emptyState();
+}
+async function logout(){
+  resetSession();
+  await sb.auth.signOut();
   gateState('login', 'برای ورود، با تلگرام وارد شو.');
 }
 $('#logoutBtn').addEventListener('click', logout);
@@ -882,7 +936,7 @@ async function boot(){
   if (data.session && (!tgIdHere || (tgIdOfSession && tgIdOfSession[1] === tgIdHere))) await enter(data.session);
   else if (tgWA) await telegramLogin({initData: tgWA.initData});
   else gateState('login', 'برای ورود، با تلگرام وارد شو.');
-  sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && me){ me = null; gateState('login', 'از حساب خارج شدی.'); } });
+  sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && me){ resetSession(); gateState('login', 'از حساب خارج شدی.'); } });
 }
 
 /* ---------- members (admin) ---------- */
@@ -912,6 +966,8 @@ function renderMembers(){
   $('#nMembers').textContent = pending.length ? fmt(pending.length) + ' جدید' : fmt(others.length);
   $('#nMembers').classList.toggle('alert', !!pending.length);
   if (!canAdmin){ box.innerHTML = ''; return; }
+  // don't wipe a display name the admin is typing when a realtime update arrives
+  if (box.contains(document.activeElement) && document.activeElement.matches('input')) return;
   const ident = m => m.telegram_username ? '@' + m.telegram_username : (m.telegram_id ? 'tg ' + m.telegram_id : (m.email || ''));
   const row = m => `<div class="mem">
       <div><input class="field" value="${esc(m.display_name)}" data-mem-name="${esc(m.user_id)}" aria-label="نام نمایشی" maxlength="60"><div class="id">${esc(ident(m))}</div></div>
@@ -944,7 +1000,7 @@ async function loadActivity(){
 function renderHistory(){
   const box = $('#historyList');
   if (!S.activity.length){ box.innerHTML = '<div class="empty">هنوز تغییری ثبت نشده.</div>'; return; }
-  const TBL = {items:'هزینه', invoices:'فاکتور', settings:'تنظیمات', participants:'شرکت‌کننده', payments:'', payment_info:''};
+  const TBL = {items:'هزینه', invoices:'فاکتور', settings:'تنظیمات', participants:'شرکت‌کننده', payments:'فیش', payment_info:'اطلاعات پرداخت'};
   const ACT = {insert:'اضافه کرد', update:'ویرایش کرد', delete:'حذف کرد'};
   const COL = {insert:'var(--ok)', update:'var(--gold)', delete:'var(--bad)'};
   const dt = new Intl.DateTimeFormat('fa-IR', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
@@ -960,7 +1016,7 @@ function renderHistory(){
       chg = amt ? `مبلغ: ${fmt(amt)}` : '';
     }
     return `<div class="hist" style="--c:${COL[a.action] || 'var(--line)'}"><span class="who2">${esc(a.actor_name || '—')}</span><span class="when">${dt.format(new Date(a.at))}</span>
-      <span class="what">${what ? what + ' ' : ''}«${esc(a.title || '')}» رو ${ACT[a.action] || a.action}${chg ? `<span class="chg">${chg}</span>` : ''}</span></div>`;
+      <span class="what">${esc(what)} ${a.title ? `«${esc(a.title)}» ` : ''}رو ${esc(ACT[a.action] || a.action)}${chg ? `<span class="chg">${chg}</span>` : ''}</span></div>`;
   }).join('');
 }
 
@@ -1079,9 +1135,11 @@ async function signedUrls(paths, bucket = BUCKET){
   const need = paths.filter(p => { const c = urlCache.get(key(p)); return !(c && c.exp > Date.now() + 60000) && !urlPending.has(key(p)); });
   if (need.length){
     need.forEach(p => urlPending.add(key(p)));
-    const { data, error } = await sb.storage.from(bucket).createSignedUrls(need, 3600);
-    need.forEach(p => urlPending.delete(key(p)));
-    if (!error && data) data.forEach(d => { if (d.signedUrl) urlCache.set(key(d.path), {url:d.signedUrl, exp:Date.now() + 3500e3}); });
+    try {
+      const { data, error } = await sb.storage.from(bucket).createSignedUrls(need, 3600);
+      if (!error && data) data.forEach(d => { if (d.signedUrl) urlCache.set(key(d.path), {url:d.signedUrl, exp:Date.now() + 3500e3}); });
+    } catch(e){ console.warn('signed urls', e); }
+    finally { need.forEach(p => urlPending.delete(key(p))); }
   }
   return paths.map(p => urlCache.get(key(p))?.url);
 }
@@ -1170,24 +1228,24 @@ function mapInvoice(id, itemId){
   if (!canEdit) return;
   const v = S.invoices[id]; if (!v) return;
   if (itemId === '__new') return createFromInvoice(id);
-  upsert('invoices', {...v, item_id: itemId || null});
-  if (itemId) toast(`به «${S.items[itemId]?.title}» وصل شد`);
+  patch('invoices', id, {item_id: itemId || null}).then(ok => { if (ok && itemId) toast(`به «${S.items[itemId]?.title}» وصل شد`); });
 }
-async function createFromInvoice(id, overrides){
-  const v = {...S.invoices[id], ...(overrides||{})}; if (!v.id) return;
+// fields: unsaved edits from the invoice dialog, saved together with the new link
+async function createFromInvoice(id, fields = {}){
+  if (!S.invoices[id]) return;
+  const v = {...S.invoices[id], ...fields};
   const item = {id:newId(), title:(v.note || v.vendor || 'خرج جدید').slice(0,100), reason:'', vendor:v.vendor || '', type:'must', category:'سایر',
     unit:v.total || 0, qty:1, paid:!!v.total, actual:v.total || 0, payer: v.total ? FUND : ''};
   S.items[item.id] = item; render();
   const { error } = await sb.from('items').insert(item);
-  if (error){ delete S.items[item.id]; fail(error, 'items'); return; }
-  await upsert('invoices', {...v, item_id:item.id});
+  if (error){ delete S.items[item.id]; render(); fail(error, 'items'); return; }
+  if (!await patch('invoices', id, {...fields, item_id:item.id})) return;
   toast('خرج جدید ساخته شد؛ عنوان، نوع و دسته‌ش رو کامل کن');
   openItem(item.id);
 }
-function applyInvoices(itemId){
+async function applyInvoices(itemId){
   const it = S.items[itemId], s = invSum(itemId); if (!it || !s) return;
-  upsert('items', {...it, paid:true, actual:s, payer: it.payer || FUND});
-  toast('پرداخت با جمع فاکتورها ثبت شد');
+  if (await patch('items', itemId, {paid:true, actual:s, payer: it.payer || FUND})) toast('پرداخت با جمع فاکتورها ثبت شد');
 }
 
 const invDlg = $('#invDlg'), invForm = $('#invForm'); let editingInv = null;
@@ -1209,18 +1267,19 @@ async function openInvoice(id){
     : `<a href="${esc(url)}" target="_blank" rel="noopener" style="padding:0"><img src="${esc(url)}" alt="تصویر فاکتور"></a>`;
 }
 invForm.addEventListener('input', liveFormat);
-invForm.addEventListener('submit', e => {
+invForm.addEventListener('submit', async e => {
   e.preventDefault(); if (!editingInv) return;
-  const f = invForm.elements, sel = f.item_id.value;
-  const upd = {...S.invoices[editingInv.id], vendor:f.vendor.value.trim(), invoice_date:f.invoice_date.value.trim(), total:parseNum(f.total.value), note:f.note.value.trim()};
+  const f = invForm.elements, sel = f.item_id.value, id = editingInv.id;
+  const fields = {vendor:f.vendor.value.trim(), invoice_date:f.invoice_date.value.trim(), total:parseNum(f.total.value), note:f.note.value.trim()};
   invDlg.close();
-  if (sel === '__new') return createFromInvoice(upd.id, upd);
-  upd.item_id = sel || null;
-  upsert('invoices', upd); toast(upd.item_id ? `فاکتور ذخیره و به «${S.items[upd.item_id]?.title}» وصل شد` : 'فاکتور ذخیره شد');
+  if (sel === '__new') return createFromInvoice(id, fields);
+  fields.item_id = sel || null;
+  if (await patch('invoices', id, fields)) toast(fields.item_id ? `فاکتور ذخیره و به «${S.items[fields.item_id]?.title}» وصل شد` : 'فاکتور ذخیره شد');
 });
 $('#invDel').addEventListener('click', async () => {
   const v = editingInv; if (!v || !confirm('این فاکتور و فایلش برای همیشه حذف بشه؟')) return;
-  invDlg.close(); await del('invoices', v.id);
+  invDlg.close();
+  if (!await del('invoices', v.id)) return; // keep the file if the row couldn't be deleted
   const { error } = await sb.storage.from(BUCKET).remove([v.file_path]);
   if (error) console.warn(error);
   toast('فاکتور حذف شد');
@@ -1401,7 +1460,10 @@ async function sendReceipt(btn){
   if (up.error){ btn.disabled = false; btn.textContent = 'ارسال فیش'; fail(up.error, 'receipt'); return; }
   const row = {id:newId(), participant_id:p.id, file_path:path, amount, tracking_code:track};
   const { error } = await sb.from('payments').insert(row);
-  if (error){ btn.disabled = false; btn.textContent = 'ارسال فیش'; fail(error, 'payment'); return; }
+  if (error){
+    sb.storage.from('receipts').remove([path]).catch(() => {}); // don't leave an orphan file behind
+    btn.disabled = false; btn.textContent = 'ارسال فیش'; fail(error, 'payment'); return;
+  }
   S.payments[row.id] = {...row, status:'submitted', created_at:new Date().toISOString()};
   URL.revokeObjectURL(draftReceipt.url); draftReceipt = null;
   render(); toast('فیش ارسال شد؛ بعد از بررسی تأیید می‌شه');
@@ -1473,25 +1535,28 @@ function openPerson(id){
 personForm.addEventListener('input', liveFormat);
 personForm.addEventListener('submit', async e => {
   e.preventDefault();
-  const f = personForm.elements, no = toLatin(f.student_no.value).replace(/[\s\-_/.]/g, '').toUpperCase();
+  const f = personForm.elements, no = normNo(f.student_no.value);
   if (!no){ f.student_no.focus(); toast('شماره دانشجویی رو بنویس'); return; }
   const dup = Object.values(S.participants).find(x => x.student_no === no && (!editingPerson || x.id !== editingPerson.id));
   if (dup){ toast('این شماره دانشجویی قبلاً ثبت شده'); return; }
   const amt = f.amount.value.trim() ? parseNum(f.amount.value) : null;
   const obj = {id: editingPerson ? editingPerson.id : newId(), student_no:no, full_name:f.full_name.value.trim(), amount:amt,
-    verify_code: toLatin(f.verify_code.value).replace(/\D/g, '').slice(-4) || null, note:f.note.value.trim()};
-  if (editingPerson) obj.user_id = editingPerson.user_id ?? null;
-  personDlg.close(); await upsert('participants', obj); toast('ذخیره شد');
+    verify_code: last4(f.verify_code.value) || null, note:f.note.value.trim()};
+  // user_id is deliberately not sent: if the person linked their account while this dialog was open,
+  // re-sending the old (empty) value would silently unlink them
+  personDlg.close(); if (await upsert('participants', obj)) toast('ذخیره شد');
 });
-$('#personDel').addEventListener('click', () => {
+$('#personDel').addEventListener('click', async () => {
   const p = editingPerson; if (!p) return;
-  const n = paysOf(p.id).length;
-  if (!confirm(`«${p.full_name || p.student_no}» حذف بشه؟` + (n ? `\n${fmt(n)} فیش ثبت‌شده‌ش هم حذف می‌شه (سهم‌های تأییدشده در بودجه می‌مونن).` : ''))) return;
-  personDlg.close(); paysOf(p.id).forEach(x => delete S.payments[x.id]); del('participants', p.id); toast('حذف شد');
+  const pays = paysOf(p.id);
+  if (!confirm(`«${p.full_name || p.student_no}» حذف بشه؟` + (pays.length ? `\n${fmt(pays.length)} فیش ثبت‌شده‌ش هم حذف می‌شه (سهم‌های تأییدشده در بودجه می‌مونن).` : ''))) return;
+  personDlg.close(); pays.forEach(x => delete S.payments[x.id]);
+  if (await del('participants', p.id)) toast('حذف شد'); else resync('payments');
 });
 async function unlinkPerson(){
   const p = editingPerson; if (!p || !confirm('حساب تلگرام از این شماره دانشجویی جدا بشه؟ بعدش هر کسی می‌تونه دوباره با این شماره وارد بشه.')) return;
-  await upsert('participants', {...p, user_id:null}); personDlg.close(); toast('حساب جدا شد');
+  personDlg.close();
+  if (await patch('participants', p.id, {user_id:null})) toast('حساب جدا شد');
 }
 
 /* receipt review dialog */
@@ -1516,11 +1581,18 @@ async function openReceipt(id){
   if (reviewing !== x) return;
   pv.innerHTML = url ? `<a href="${esc(url)}" target="_blank" rel="noopener" style="padding:0"><img src="${esc(url)}" alt="فیش"></a>` : '<span style="padding:24px;color:var(--bad)">فایل پیدا نشد</span>';
 }
+let reviewBusy = false;
 async function review(status){
-  const x = reviewing; if (!x) return;
+  const x = reviewing; if (!x || reviewBusy) return;
   const amount = parseNum($('#rcAmount').value), note = $('#rcNote').value.trim();
   if (status === 'rejected' && !note && !confirm('بدون نوشتن دلیل رد بشه؟ (دلیل برای خود شخص نمایش داده می‌شه)')) return;
-  const { error } = await sb.rpc('review_payment', {p_id:x.id, p_status:status, p_note:note, p_amount:amount || null});
+  // approving adds the amount to the budget, so a double click must not send the request twice
+  const btns = receiptDlg.querySelectorAll('.dlg-foot button');
+  reviewBusy = true; btns.forEach(b => b.disabled = true);
+  let error;
+  try { ({ error } = await sb.rpc('review_payment', {p_id:x.id, p_status:status, p_note:note, p_amount:amount || null})); }
+  catch(e){ error = e; }
+  finally { reviewBusy = false; btns.forEach(b => b.disabled = false); }
   if (error){
     const m = error.message || '';
     toast(/ADMIN_ONLY/.test(m) ? 'برگرداندن فیش تأییدشده فقط کار مدیره' : /NO_AMOUNT/.test(m) ? 'مبلغ فیش رو وارد کن' : /FORBIDDEN/.test(m) ? 'دسترسی بررسی فیش رو نداری' : 'ثبت نشد؛ دوباره امتحان کن');
@@ -1553,7 +1625,7 @@ payInfoForm.addEventListener('submit', async e => {
     sheba:toLatin(f.sheba.value).replace(/\s/g, '').toUpperCase(), default_amount:parseNum(f.default_amount.value), deadline:f.deadline.value.trim(), note:f.note.value.trim()};
   payInfoDlg.close(); S.payInfo = {...S.payInfo, ...patch}; render();
   const { error } = await sb.from('payment_info').update(patch).eq('id', 1);
-  if (error) fail(error, 'payment_info'); else toast('اطلاعات پرداخت ذخیره شد');
+  if (error){ fail(error, 'payment_info'); await loadPayInfo(); render(); } else toast('اطلاعات پرداخت ذخیره شد');
 });
 
 /* import from sheet */
@@ -1578,11 +1650,11 @@ async function readSheet(file){
   Object.entries(HEADS).forEach(([k, names]) => { const i = heads.findIndex(h => names.includes(h)); if (i >= 0) col[k] = i; });
   const seen = new Map();
   aoa.slice(hi + 1).forEach(r => {
-    const no = toLatin(r[col.student_no]).replace(/[\s\-_/.]/g, '').toUpperCase(); if (!no) return;
+    const no = normNo(r[col.student_no]); if (!no) return;
     const name = col.full_name !== undefined ? String(r[col.full_name]).trim() : [col.first, col.last].filter(i => i !== undefined).map(i => String(r[i]).trim()).filter(Boolean).join(' ');
     const row = {student_no:no, full_name:name};
     if (col.amount !== undefined){ const a = parseNum(r[col.amount]); row.amount = a || null; }
-    if (col.phone !== undefined){ row.verify_code = toLatin(r[col.phone]).replace(/\D/g, '').slice(-4) || null; }
+    if (col.phone !== undefined){ row.verify_code = last4(r[col.phone]) || null; }
     if (col.note !== undefined) row.note = String(r[col.note]).trim();
     seen.set(no, row);
   });
@@ -1621,14 +1693,29 @@ $('#importGo').addEventListener('click', async () => {
 
 /* ---------- tabs & bottom bar ---------- */
 let currentTab = 'items';
-document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
-  currentTab = b.dataset.tab;
-  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x === b));
-  document.querySelectorAll('.panel').forEach(p => p.hidden = p.id !== 'panel-' + currentTab);
-  if (currentTab === 'history') renderHistory();
-  if (currentTab === 'mypay'){ renderMyPay($('#myPayStaff')); hydrateThumbs(); }
-  renderBottomBar();
-}));
+const tabs = [...document.querySelectorAll('.tab')];
+tabs.forEach(b => {
+  b.setAttribute('aria-controls', 'panel-' + b.dataset.tab); b.id ||= 'tab-' + b.dataset.tab;
+  b.tabIndex = b.getAttribute('aria-selected') === 'true' ? 0 : -1;
+  b.addEventListener('click', () => {
+    currentTab = b.dataset.tab;
+    tabs.forEach(x => { x.setAttribute('aria-selected', x === b); x.tabIndex = x === b ? 0 : -1; });
+    document.querySelectorAll('.panel').forEach(p => p.hidden = p.id !== 'panel-' + currentTab);
+    if (currentTab === 'history') renderHistory();
+    if (currentTab === 'mypay'){ renderMyPay($('#myPayStaff')); hydrateThumbs(); }
+    renderBottomBar();
+  });
+});
+tabs.forEach(b => { const p = $('#panel-' + b.dataset.tab); p.setAttribute('role', 'tabpanel'); p.setAttribute('aria-labelledby', b.id); });
+// arrow keys move between tabs (the page is RTL, so ArrowLeft goes to the next tab)
+$('.tabs').addEventListener('keydown', e => {
+  const shown = tabs.filter(t => !t.hidden && t.offsetParent), i = shown.indexOf(document.activeElement);
+  if (i < 0) return;
+  const next = {ArrowLeft:i + 1, ArrowRight:i - 1, Home:0, End:shown.length - 1}[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  const t = shown[(next + shown.length) % shown.length]; t.focus(); t.click();
+});
 function renderBottomBar(){
   const bar = $('#bottomBar'), key = currentTab + ':' + myRole; if (bar.dataset.key === key) return; bar.dataset.key = key;
   const btn = (act, l, p) => `<button class="btn ${p ? 'primary' : ''}" type="button" data-act="${act}">${l}</button>`;
@@ -1647,6 +1734,9 @@ const itemDlg = $('#itemDlg'), itemForm = $('#itemForm'); let editingItem = null
 function numField(el, v){ el.value = v ? fmt(v) : ''; }
 function liveFormat(e){
   const el = e.target; if (!el || el.getAttribute('inputmode') !== 'numeric') return;
+  if (el.name === 'card_number'){ const s = cardFmt(el.value); if (el.value !== s) el.value = s; return; }
+  // dir=ltr numeric fields are codes (phone digits, tracking code): keep leading zeros, no thousands separators
+  if (el.dir === 'ltr') return;
   const n = parseNum(el.value), s = n ? fmt(n) : ''; if (el.value !== s) el.value = s;
 }
 function renderItemAtt(itemId){
@@ -1682,7 +1772,7 @@ function openItem(id, preset){
 function updateCalc(){ const f = itemForm.elements, u = parseNum(f.unit.value), q = parseNum(f.qty.value) || 1; $('#calc').innerHTML = u ? `برآورد کل: <b>${money(u*q)}</b>` : ''; }
 itemForm.addEventListener('input', e => { liveFormat(e); updateCalc(); });
 $('#paidChk').addEventListener('change', e => { $('#paidBox').hidden = !e.target.checked; });
-itemForm.addEventListener('submit', e => {
+itemForm.addEventListener('submit', async e => {
   e.preventDefault();
   const f = itemForm.elements, title = f.title.value.trim();
   if (!title){ f.title.focus(); toast('عنوان رو بنویس'); return; }
@@ -1690,15 +1780,15 @@ itemForm.addEventListener('submit', e => {
     type:itemForm.querySelector('input[name=type]:checked').value, category:f.category.value, unit:parseNum(f.unit.value), qty:parseNum(f.qty.value) || 1,
     paid:f.paid.checked, actual:f.paid.checked ? parseNum(f.actual.value) : 0, payer:f.paid.checked ? (f.payer.value.trim() || FUND) : ''};
   const wasNew = !editingItem;
-  itemDlg.close(); upsert('items', obj); toast(wasNew ? 'هزینه اضافه شد' : 'تغییرات ذخیره شد');
+  itemDlg.close(); if (await upsert('items', obj)) toast(wasNew ? 'هزینه اضافه شد' : 'تغییرات ذخیره شد');
 });
-$('#itemDel').addEventListener('click', () => {
+$('#itemDel').addEventListener('click', async () => {
   const it = editingItem; if (!it) return;
-  const n = invOf(it.id).length;
-  if (!confirm(`«${it.title}» حذف بشه؟` + (n ? `\n${fmt(n)} فاکتورِ وصل‌شده حذف نمی‌شن و می‌رن توی «وصل‌نشده».` : ''))) return;
+  const invs = invOf(it.id);
+  if (!confirm(`«${it.title}» حذف بشه؟` + (invs.length ? `\n${fmt(invs.length)} فاکتورِ وصل‌شده حذف نمی‌شن و می‌رن توی «وصل‌نشده».` : ''))) return;
   itemDlg.close();
-  invOf(it.id).forEach(v => { S.invoices[v.id] = {...v, item_id:null}; }); // database does this via ON DELETE SET NULL
-  del('items', it.id); toast('حذف شد');
+  invs.forEach(v => { S.invoices[v.id] = {...v, item_id:null}; }); // database does this via ON DELETE SET NULL
+  if (await del('items', it.id)) toast('حذف شد'); else resync('invoices');
 });
 
 /* ---------- money entry dialog ---------- */
@@ -1722,17 +1812,17 @@ function openEntry(kind, id, presetName){
 }
 function updateECalc(){ const n = parseNum(entryForm.elements.amount.value); $('#ecalc').innerHTML = n ? `<b>${money(n)}</b>` : ''; }
 entryForm.addEventListener('input', e => { liveFormat(e); updateECalc(); });
-entryForm.addEventListener('submit', e => {
+entryForm.addEventListener('submit', async e => {
   e.preventDefault();
   const f = entryForm.elements, name = f.name.value.trim();
   if (!name){ f.name.focus(); toast(entryKind === 'fund' ? 'منبع رو بنویس' : 'اسم رو بنویس'); return; }
   const obj = {id: editingEntry ? editingEntry.id : newId(), kind:entryKind, name, amount:parseNum(f.amount.value), paid:f.paid.checked, note:f.note.value.trim()};
   const wasNew = !editingEntry;
-  entryDlg.close(); upsert('funds', obj); toast(wasNew ? 'ثبت شد' : 'تغییرات ذخیره شد');
+  entryDlg.close(); if (await upsert('funds', obj)) toast(wasNew ? 'ثبت شد' : 'تغییرات ذخیره شد');
 });
-$('#entryDel').addEventListener('click', () => {
-  if (!editingEntry || !confirm(`«${editingEntry.name}» حذف بشه؟`)) return;
-  entryDlg.close(); del('funds', editingEntry.id); toast('حذف شد');
+$('#entryDel').addEventListener('click', async () => {
+  const c = editingEntry; if (!c || !confirm(`«${c.name}» حذف بشه؟`)) return;
+  entryDlg.close(); if (await del('funds', c.id)) toast('حذف شد');
 });
 
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
@@ -1774,7 +1864,7 @@ document.addEventListener('change', e => {
   m = e.target.closest('[data-mem-name]'); if (m){ const v = m.value.trim(); if (v) setMember(m.dataset.memName, {display_name:v}); return; }
   let s = e.target.closest('[data-inv-map]'); if (s) return mapInvoice(s.dataset.invMap, s.value);
   s = e.target.closest('[data-link-free]');
-  if (s && s.value){ const v = S.invoices[s.value]; if (v){ upsert('invoices', {...v, item_id:s.dataset.linkFree}); toast('فاکتور وصل شد'); } }
+  if (s && s.value) patch('invoices', s.value, {item_id:s.dataset.linkFree}).then(ok => ok && toast('فاکتور وصل شد'));
 });
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.id === 'drop'){ e.preventDefault(); fileInput.click(); } });
 const drop = $('#drop');
