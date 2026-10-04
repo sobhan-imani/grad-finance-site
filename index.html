@@ -2177,6 +2177,7 @@ async function setupBot(btn){
     if (error){
       let b = {}; try { b = await error.context.json(); } catch(e){}
       throw new Error(b.error === 'not_admin' ? 'فقط مدیر می‌تونه ربات رو راه‌اندازی کنه.'
+        : b.error === 'role_check_failed' ? 'نقشت از دیتابیس خونده نشد: ' + (b.detail || '')
         : b.error === 'telegram_failed' ? 'تلگرام قبول نکرد' + (b.detail ? ': ' + b.detail : '.')
         : b.error === 'bot_token_missing' ? 'توکن ربات در Supabase تنظیم نشده.'
         : 'تابع telegram-auth جواب درست نداد؛ مطمئن شو نسخه‌ی جدیدش Deploy شده.');
