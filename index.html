@@ -286,6 +286,8 @@ body:not(.can-admin) .need-admin{display:none!important}
 .email-box form{display:grid;gap:12px;margin-top:12px}
 .wait-box{display:flex;gap:8px}
 .role-tag{font-weight:700}
+.manual-pay summary{cursor:pointer;font-weight:500;padding:4px 0}
+.manual-pay .paid-box{margin-top:8px}
 .hist{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);border-inline-start:4px solid var(--c)}
 .hist .who2{font-weight:700;white-space:nowrap}
 .hist .when{grid-column:1;color:var(--muted);font-size:12px;white-space:nowrap}
@@ -544,6 +546,19 @@ body:not(.can-admin) .need-admin{display:none!important}
       <label class="lbl">یادداشت<input class="field" name="note" maxlength="140"></label>
       <div id="personLink"></div>
       <div id="personPays"></div>
+      <details id="manualPay" class="manual-pay need-edit" hidden>
+        <summary>+ ثبت پرداخت این نفر <span class="hint">نقدی، یا فیشی که مستقیم برای خودت فرستاده</span></summary>
+        <div class="paid-box">
+          <div class="two">
+            <label class="lbl">مبلغ<input class="field" name="mp_amount" inputmode="numeric"></label>
+            <label class="lbl">کد پیگیری <span class="hint">اختیاری</span><input class="field" name="mp_track" inputmode="numeric" dir="ltr" maxlength="40"></label>
+          </div>
+          <label class="lbl">عکس فیش <span class="hint">اختیاری؛ برای پرداخت نقدی خالی بمونه</span><input class="field" type="file" name="mp_file" accept="image/*"></label>
+          <label class="lbl">یادداشت <span class="hint">اختیاری</span><input class="field" name="mp_note" maxlength="200" placeholder="مثلاً نقدی تحویل داد"></label>
+          <div class="row-btns"><button class="btn primary" type="button" data-act="manual-pay">ثبت و تأیید پرداخت</button></div>
+          <p class="sub bad" id="mpErr" hidden></p>
+        </div>
+      </details>
       <p class="hint" id="personMeta" style="color:var(--muted);font-size:12.5px;margin:0"></p>
     </div>
     <div class="dlg-foot">
@@ -1118,6 +1133,7 @@ function render(){
   renderItems(t); renderInvoices(); renderBudget(t); renderCats(t); renderPayers(); renderBottomBar(); renderMembers(); if (currentTab === 'history') renderHistory();
   renderPeople(); $('#myPayTab').hidden = !myParticipant(); if (currentTab === 'mypay') renderMyPay($('#myPayStaff'));
   if ($('#itemDlg').open && editingItem) renderItemAtt(editingItem.id);
+  if ($('#personDlg').open && editingPerson) renderPersonPays();
   hydrateThumbs();
 }
 
@@ -1479,7 +1495,11 @@ function renderMyPay(el){
         <span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span></div>`).join('')}</div>` : ''}
   </div>`;
 }
+// payments the finance team records by hand (e.g. cash) may have no picture; their file_path is a placeholder
+const NO_FILE = 'manual/';
+const hasFile = x => !!x.file_path && !x.file_path.startsWith(NO_FILE);
 function receiptThumb(x){
+  if (!hasFile(x)) return '<span class="thumb" title="بدون عکس فیش">دستی</span>';
   const key = 'receipts:' + x.file_path, c = urlCache.get(key), src = c && c.exp > Date.now() ? ` src="${esc(c.url)}"` : '';
   return `<span class="thumb"><img data-bucket="receipts" data-path="${esc(x.file_path)}"${src} alt="" loading="lazy"></span>`;
 }
@@ -1583,8 +1603,8 @@ function openPerson(id){
   $('#personLink').innerHTML = editingPerson ? (p.user_id
     ? `<span class="tag ok">حساب تلگرام: ${esc(linked)}</span> <button class="btn small danger need-admin" type="button" data-act="unlink-person">جدا کردن حساب</button>`
     : '<span class="tag">هنوز وارد نشده</span>') : '';
-  const ps = editingPerson ? paysOf(p.id) : [];
-  $('#personPays').innerHTML = ps.length ? `<div class="lbl">فیش‌ها<div class="list">${ps.map(x => `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:${PAY_COLOR[x.status]}">${receiptThumb(x)}<div><b>${fmt(x.amount)}</b><span class="sub">${faDate(x.created_at)}</span></div><span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span></button>`).join('')}</div></div>` : '';
+  renderPersonPays();
+  resetManualPay();
   $('#personMeta').textContent = metaLine(editingPerson);
   lockForm(personForm);
   if (!personDlg.open) personDlg.showModal();
@@ -1592,6 +1612,55 @@ function openPerson(id){
 }
 // the amount placeholder shows what "empty = automatic" works out to for the guests typed in
 function updateAutoDue(){ const f = personForm.elements; f.amount.placeholder = `خودکار: ${fmt(autoDue({guests:parseNum(f.guests.value)}))}`; }
+function renderPersonPays(){
+  const ps = editingPerson ? paysOf(editingPerson.id) : [];
+  $('#personPays').innerHTML = ps.length ? `<div class="lbl">فیش‌ها<div class="list">${ps.map(x => `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:${PAY_COLOR[x.status]}">${receiptThumb(x)}<div><b>${fmt(x.amount)}</b><span class="sub">${faDate(x.created_at)}</span></div><span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span></button>`).join('')}</div></div>` : '';
+  hydrateThumbs();
+}
+function resetManualPay(){
+  const box = $('#manualPay'), f = personForm.elements, rem = editingPerson ? payState(editingPerson).remaining : 0;
+  box.hidden = !editingPerson; box.open = false; $('#mpErr').hidden = true;
+  f.mp_amount.value = rem ? fmt(rem) : ''; f.mp_track.value = ''; f.mp_note.value = ''; f.mp_file.value = '';
+}
+// The finance team records a payment for someone (cash, or a receipt sent to them directly):
+// the same payments row a participant would create, then approved through review_payment,
+// so the budget contribution and the person's status work exactly as for an uploaded receipt.
+async function recordPayment(btn){
+  const p = editingPerson; if (!p || !canEdit) return;
+  const f = personForm.elements, amount = parseNum(f.mp_amount.value), file = f.mp_file.files[0], err = $('#mpErr');
+  const track = toLatin(f.mp_track.value).trim(), note = f.mp_note.value.trim() || 'ثبت دستی توسط تیم مالی';
+  if (!amount){ f.mp_amount.focus(); toast('مبلغ رو بنویس'); return; }
+  const label = btn.textContent; btn.disabled = true; btn.textContent = 'در حال ثبت…'; err.hidden = true;
+  const id = newId();
+  let path = NO_FILE + id, step = 'upload';
+  try {
+    if (file){
+      const blob = await compressReceipt(file);
+      path = `${me.id}/${id}.${blob.type === 'image/webp' ? 'webp' : 'jpg'}`;
+      const up = await sb.storage.from('receipts').upload(path, blob, {contentType:blob.type, upsert:false});
+      if (up.error) throw up.error;
+    }
+    step = 'insert';
+    const ins = await sb.from('payments').insert({id, participant_id:p.id, file_path:path, amount, tracking_code:track});
+    if (ins.error){ if (file) sb.storage.from('receipts').remove([path]).catch(() => {}); throw ins.error; }
+    step = 'approve';
+    const rv = await sb.rpc('review_payment', {p_id:id, p_status:'approved', p_note:note, p_amount:amount});
+    await resync('payments'); await resync('funds');
+    if (rv.error) throw rv.error;
+    if (editingPerson === p){ renderPersonPays(); resetManualPay(); }
+    toast(`پرداخت ${money(amount)} برای «${p.full_name || p.student_no}» ثبت و تأیید شد`);
+  } catch(e){
+    console.error('manual payment', step, e);
+    const m = String(e && (e.message || e) || ''), denied = /row-level security|permission denied|42501|not authorized|unauthorized|FORBIDDEN/i.test(m);
+    err.textContent = step === 'approve' ? 'پرداخت ثبت شد ولی تأیید نشد؛ از «فیش‌های در انتظار بررسی» تأییدش کن.'
+      : (step === 'upload' && !/storage|bucket|row-level|policy/i.test(m) ? 'این عکس خونده یا آپلود نشد؛ یه اسکرین‌شات ازش بگیر و دوباره امتحان کن.'
+      : denied ? 'دیتابیس هنوز به تیم مالی اجازه‌ی ثبت پرداخت برای بقیه رو نمی‌ده. فایل upgrade-staff-payments.sql رو یک بار در SQL Editor سوپابیس اجرا کن و دوباره امتحان کن.'
+      : 'ثبت نشد: ' + m);
+    err.hidden = false;
+  } finally { btn.disabled = false; btn.textContent = label; }
+}
+// Enter inside the payment fields would otherwise submit (and close) the whole person form
+$('#manualPay').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); recordPayment($('#manualPay [data-act="manual-pay"]')); } });
 personForm.addEventListener('input', e => { liveFormat(e); if (e.target.name === 'guests') updateAutoDue(); });
 // most of the list is phone numbers (imported from a registration sheet)?
 const phoneList = () => { const ids = Object.values(S.participants).map(p => p.student_no); return ids.length > 0 && ids.filter(isPhoneId).length * 2 >= ids.length; };
@@ -1642,6 +1711,7 @@ async function openReceipt(id){
   $('#rcAmountSave').hidden = x.status !== 'approved';
   const pv = $('#rcPreview'); pv.innerHTML = '<span style="padding:24px;color:var(--muted)">در حال بارگذاری…</span>';
   if (!receiptDlg.open) receiptDlg.showModal();
+  if (!hasFile(x)){ pv.innerHTML = '<span style="padding:24px;color:var(--muted)">بدون عکس فیش؛ تیم مالی دستی ثبتش کرده</span>'; return; }
   const [url] = await signedUrls([x.file_path], 'receipts');
   if (reviewing !== x) return;
   pv.innerHTML = url ? `<a href="${esc(url)}" target="_blank" rel="noopener" style="padding:0"><img src="${esc(url)}" alt="فیش"></a>` : '<span style="padding:24px;color:var(--bad)">فایل پیدا نشد</span>';
@@ -1947,7 +2017,8 @@ document.addEventListener('click', e => {
     if (a === 'edit-payinfo') return openPayInfo();
     if (a === 'import-people') return openImport();
     if (a === 'add-person') return openPerson();
-    if (a === 'unlink-person') return unlinkPerson(); }
+    if (a === 'unlink-person') return unlinkPerson();
+    if (a === 'manual-pay') return recordPayment(el); }
   if ((el = g('[data-copy]'))) return copyText(el.dataset.copy, el.dataset.copyLabel);
   if ((el = g('[data-receipt]'))) return openReceipt(el.dataset.receipt);
   if ((el = g('[data-person]'))) return openPerson(el.dataset.person);
