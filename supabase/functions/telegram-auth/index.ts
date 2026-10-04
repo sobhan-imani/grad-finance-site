@@ -108,7 +108,14 @@ async function linkByPhone(req: Request, raw: string): Promise<Response> {
   if (!contact || String(contact.user_id) !== tgId) return json({ error: "invalid_signature" }, 401);
   const phone = canonPhone(contact.phone_number);
   if (!phone) return json({ error: "not_found", phone: contact.phone_number });
-  // وصل کردن با همون تابع دیتابیس که فرم «شماره موبایل» صدا می‌زنه، به‌عنوان خود کاربر
+  // اگه دستور SQL «ورود فقط با تلگرام» اجرا شده باشه، وصل کردن فقط از این مسیر ممکنه:
+  // claim_verified_phone رو فقط همین تابع (با service role) می‌تونه صدا بزنه، و اولین نفرِ این شماره رو وصل می‌کنه.
+  const verified = await admin.rpc("claim_verified_phone", { p_user: user!.id, p_phone: phone });
+  if (!verified.error) return json({ ...(verified.data ?? {}), phone });
+  if (!/PGRST202|42883|claim_verified_phone/.test(`${verified.error.code} ${verified.error.message}`)) {
+    return json({ error: "claim_failed", detail: verified.error.message }, 500);
+  }
+  // اون دستور هنوز اجرا نشده: با همون claim_student، به‌عنوان خود کاربر
   const asUser = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${jwt}` } },
