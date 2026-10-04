@@ -35,6 +35,8 @@ function safeEqual(a: string, b: string) {
   return r === 0;
 }
 const MAX_AGE = 24 * 60 * 60; // seconds
+// «!(x <= MAX)» به‌جای «x > MAX» تا auth_date نامعتبر (NaN) هم رد بشه
+const fresh = (authDate: unknown) => Date.now() / 1000 - Number(authDate) <= MAX_AGE;
 
 type TgUser = { id: number; first_name?: string; last_name?: string; username?: string; photo_url?: string };
 
@@ -45,7 +47,7 @@ async function verifyWidget(data: Record<string, unknown>): Promise<TgUser | nul
     .sort().map((k) => `${k}=${data[k]}`).join("\n");
   const secret = new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(BOT_TOKEN)));
   if (!safeEqual(hex(await hmac(secret, check)), hash)) return null;
-  if (Date.now() / 1000 - Number(data.auth_date) > MAX_AGE) return null;
+  if (!fresh(data.auth_date)) return null;
   return { id: Number(data.id), first_name: data.first_name as string, last_name: data.last_name as string,
            username: data.username as string, photo_url: data.photo_url as string };
 }
@@ -58,7 +60,7 @@ async function verifyInitData(initData: string): Promise<TgUser | null> {
   const check = [...p.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, v]) => `${k}=${v}`).join("\n");
   const secret = await hmac(enc.encode("WebAppData"), BOT_TOKEN);
   if (!safeEqual(hex(await hmac(secret, check)), hash)) return null;
-  if (Date.now() / 1000 - Number(p.get("auth_date")) > MAX_AGE) return null;
+  if (!fresh(p.get("auth_date"))) return null;
   try { return JSON.parse(p.get("user") ?? "null"); } catch { return null; }
 }
 
@@ -72,7 +74,7 @@ Deno.serve(async (req) => {
 
   const tg = body.initData ? await verifyInitData(body.initData)
            : body.widget ? await verifyWidget(body.widget) : null;
-  if (!tg || !tg.id) return json({ error: "invalid_signature" }, 401);
+  if (!tg || !Number.isSafeInteger(tg.id) || tg.id <= 0) return json({ error: "invalid_signature" }, 401);
 
   const email = `tg${tg.id}@telegram.local`;
   const meta = { telegram_id: String(tg.id), first_name: tg.first_name ?? "", last_name: tg.last_name ?? "",
@@ -80,7 +82,9 @@ Deno.serve(async (req) => {
 
   // اولین ورود: ساخت کاربر (تریگر دیتابیس اون رو با نقش pending به members اضافه می‌کنه)
   const created = await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: meta });
-  if (created.error && !/already|exists|registered/i.test(created.error.message)) {
+  const exists = created.error && ((created.error as { code?: string }).code === "email_exists" ||
+    /already|exists|registered/i.test(created.error.message));
+  if (created.error && !exists) {
     return json({ error: "create_failed", detail: created.error.message }, 500);
   }
 

@@ -312,7 +312,7 @@ body:not(.can-admin) .need-admin{display:none!important}
       <button class="btn" type="button" id="gateLogout">خروج</button>
     </div>
     <form id="claimForm" class="claim-box" hidden novalidate>
-      <label class="lbl">شماره دانشجویی<input class="field" name="no" inputmode="numeric" dir="ltr" autocomplete="off" maxlength="20"></label>
+      <label class="lbl">شماره موبایل <span class="hint">همونی که موقع ثبت‌نام دادی (اگه لیست با شماره دانشجویی ثبت شده، شماره دانشجویی)</span><input class="field" name="no" inputmode="tel" dir="ltr" autocomplete="off" maxlength="20" placeholder="09121234567"></label>
       <label class="lbl" id="codeWrap" hidden>۴ رقم آخر شماره موبایلت <span class="hint">همونی که توی لیست ثبت‌نام دادی</span><input class="field" name="code" inputmode="numeric" dir="ltr" maxlength="4" autocomplete="off"></label>
       <button class="btn primary" type="submit" id="claimBtn">ادامه</button>
     </form>
@@ -401,7 +401,8 @@ body:not(.can-admin) .need-admin{display:none!important}
     <div id="payInfoCard"></div>
     <div class="toolbar">
       <label class="sr" for="pq">جستجو</label>
-      <input type="search" id="pq" placeholder="جستجو در نام یا شماره دانشجویی…">
+      <input type="search" id="pq" placeholder="جستجو در نام، شماره یا گرایش…">
+      <select id="pMajor" aria-label="گرایش" hidden><option value="">همه گرایش‌ها</option></select>
       <select id="pFilter" aria-label="وضعیت"><option value="">همه</option><option value="review">فیش در انتظار بررسی</option><option value="unpaid">پرداخت نکرده</option><option value="partial">بخشی پرداخت شده</option><option value="settled">تسویه</option><option value="unclaimed">هنوز وارد نشده</option></select>
       <button class="btn desk need-edit push" type="button" data-act="import-people">ورود از شیت</button>
       <button class="btn primary desk need-edit" type="button" data-act="add-person">+ شرکت‌کننده</button>
@@ -529,11 +530,15 @@ body:not(.can-admin) .need-admin{display:none!important}
     <div class="dlg-head"><h2 id="personDlgTitle">شرکت‌کننده</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
     <div class="dlg-body">
       <div class="two">
-        <label class="lbl">شماره دانشجویی<input class="field" name="student_no" dir="ltr" required maxlength="20"></label>
+        <label class="lbl">موبایل یا شماره دانشجویی <span class="hint">ورود با همین انجام می‌شه</span><input class="field" name="student_no" dir="ltr" required maxlength="20"></label>
         <label class="lbl">نام و نام خانوادگی<input class="field" name="full_name" maxlength="80"></label>
       </div>
+      <div class="two" id="personExtra">
+        <label class="lbl">گرایش<input class="field" name="major" maxlength="80"></label>
+        <label class="lbl">تعداد مهمان <span class="hint">به‌جز خود شخص</span><input class="field" name="guests" inputmode="numeric" placeholder="۰"></label>
+      </div>
       <div class="two">
-        <label class="lbl">مبلغ سهم <span class="hint">خالی = پیش‌فرض</span><input class="field" name="amount" inputmode="numeric"></label>
+        <label class="lbl">مبلغ کل <span class="hint">خالی = خودکار</span><input class="field" name="amount" inputmode="numeric"></label>
         <label class="lbl">کد تأیید <span class="hint">۴ رقم آخر موبایل؛ اختیاری</span><input class="field" name="verify_code" inputmode="numeric" dir="ltr" maxlength="11"></label>
       </div>
       <label class="lbl">یادداشت<input class="field" name="note" maxlength="140"></label>
@@ -581,9 +586,10 @@ body:not(.can-admin) .need-admin{display:none!important}
       </div>
       <label class="lbl">شبا <span class="hint">اختیاری</span><input class="field" name="sheba" dir="ltr" maxlength="34" placeholder="IR..."></label>
       <div class="two">
-        <label class="lbl">مبلغ پیش‌فرض سهم<input class="field" name="default_amount" inputmode="numeric"></label>
-        <label class="lbl">مهلت پرداخت<input class="field" name="deadline" maxlength="40" placeholder="مثلاً ۱۵ آبان"></label>
+        <label class="lbl">مبلغ پیش‌فرض سهم <span class="hint">برای خود هر نفر</span><input class="field" name="default_amount" inputmode="numeric"></label>
+        <label class="lbl" id="guestAmtWrap">مبلغ هر مهمان <span class="hint">خالی = مهمان رایگان</span><input class="field" name="guest_amount" inputmode="numeric"></label>
       </div>
+      <label class="lbl">مهلت پرداخت<input class="field" name="deadline" maxlength="40" placeholder="مثلاً ۱۵ آبان"></label>
       <label class="lbl">توضیح برای شرکت‌کننده‌ها<textarea class="field" name="note" maxlength="400"></textarea></label>
     </div>
     <div class="dlg-foot"><span class="spacer"></span><button class="btn" type="button" data-close>انصراف</button><button class="btn primary need-edit" type="submit">ذخیره</button></div>
@@ -594,7 +600,7 @@ body:not(.can-admin) .need-admin{display:none!important}
   <form method="dialog" novalidate onsubmit="return false">
     <div class="dlg-head"><h2>ورود لیست از شیت</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
     <div class="dlg-body">
-      <p class="hint" style="color:var(--muted);font-size:13px;margin:0">فایل Excel یا CSV. سطر اول عنوان ستون‌ها باشه: «شماره دانشجویی» (لازم)، «نام و نام خانوادگی» یا «نام» + «نام خانوادگی»، و اختیاری «مبلغ»، «موبایل»، «توضیحات». شماره‌های تکراری به‌روزرسانی می‌شن و اتصال حساب‌ها دست نمی‌خوره.</p>
+      <p class="hint" style="color:var(--muted);font-size:13px;margin:0">فایل Excel یا CSV با یک سطر عنوان. ستون «شماره تماس» (یا «شماره دانشجویی») لازمه و هر نفر بعداً با همون وارد می‌شه؛ «نام»، «گرایش»، «تعداد مهمان»، «مبلغ» و «توضیحات» اختیاری‌ان. تعداد مهمان می‌تونه «۲»، «۲ نفر» یا «دو نفر» باشه. شماره‌های تکراری به‌روزرسانی می‌شن و اتصال حساب‌ها دست نمی‌خوره.</p>
       <input class="field" type="file" id="importFile" accept=".xlsx,.xls,.csv">
       <div id="importInfo"></div>
     </div>
@@ -627,7 +633,8 @@ const AUDIT = ['created_at','created_by','updated_at','updated_by'];
 const $ = s => document.querySelector(s);
 const cfg = window.APP_CONFIG || {};
 let sb = null, me = null, channel = null, ready = false;
-let S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[], participants:{}, payments:{}, payInfo:{}};
+const emptyState = () => ({settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[], participants:{}, payments:{}, payInfo:{}});
+let S = emptyState();
 const uploading = new Map();
 const urlCache = new Map(); // file_path -> {url, exp}
 const urlPending = new Set();
@@ -638,6 +645,27 @@ const fmt = n => nf.format(Math.round(n || 0));
 const money = n => fmt(n) + ' ' + S.settings.currency;
 const toLatin = s => String(s ?? '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 const parseNum = s => { const v = toLatin(s).replace(/[^\d]/g, ''); return v ? Number(v) : 0; };
+const normNo = s => toLatin(s).replace(/[\s\-_/.]/g, '').toUpperCase(); // student number, as stored
+const last4 = s => toLatin(s).replace(/\D/g, '').slice(-4);
+// An Iranian mobile in the one form participants are stored under (09xxxxxxxxx), or null.
+// Accepts +98/0098/98 prefixes, Persian digits, spaces, and a lost leading 0 (Excel drops it from numeric cells).
+// If a cell holds two numbers ("0912… / 0935…"), the first one is used.
+function canonPhone(s){
+  const one = t => { const m = /^(?:0098|98|0)?(9\d{9})$/.exec(toLatin(t).replace(/\D/g, '')); return m ? '0' + m[1] : null; };
+  return [s, ...String(s ?? '').split(/[\/,،;|\n]|\s[-–]\s|\s{2,}/)].map(one).find(Boolean) || null;
+}
+const isPhoneId = s => /^09\d{9}$/.test(s || '');
+// Guest count as people write it: "2", "۲ نفر", "دو نفر", "ندارم", "-".
+// sure=false when the cell had more than a plain count (e.g. "۲ نفر (پدر و مادر)") or couldn't be read, so the admin can check it.
+const GUEST_WORDS = {'صفر':0, 'یک':1, 'یه':1, 'دو':2, 'سه':3, 'چهار':4, 'پنج':5, 'شش':6, 'شیش':6, 'هفت':7, 'هشت':8, 'ده':10};
+function parseGuests(v){
+  const s = toLatin(v).replace(/[\u200cيك]/g, c => ({'\u200c':' ', 'ي':'ی', 'ك':'ک'}[c])).trim();
+  if (!s || /^(?:[-—ـ.]+|0|ندارم|ندارد|نداره|ندارن|ندارند|خیر|نخیر|هیچ|هیچی|هیچکس|بدون|بدون مهمان|نمیارم|نمیاورم)$/.test(s)) return {n:0, sure:true};
+  const plain = /^\S+\s*(?:نفر|مهمان|تا)?$/.test(s), d = s.match(/\d+/);
+  if (d) return {n:Math.min(+d[0], 50), sure: plain && +d[0] <= 10};
+  const w = s.split(/\s+/).find(x => x in GUEST_WORDS);
+  return w ? {n:GUEST_WORDS[w], sure:plain} : {n:0, sure:false};
+}
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c === 'x' ? r : (r&3|8)).toString(16); }));
 const estimate = it => (Number(it.unit) || 0) * (Number(it.qty) || 1);
@@ -668,37 +696,67 @@ function fail(error, what){
 const clean = row => { const o = {...row}; AUDIT.forEach(k => delete o[k]); return o; };
 
 /* ---------- data ---------- */
+// All writes are optimistic: local state and UI change first; on failure the table is re-read from the server.
+// Each returns true on success so callers can show a confirmation only when the change really stuck.
 async function upsert(table, row){
   S[table][row.id] = {...S[table][row.id], ...row}; render();
   const { error } = await sb.from(table).upsert(clean(row));
-  if (error){ fail(error, table); await reload(table); }
+  if (error){ fail(error, table); await resync(table); return false; }
+  return true;
+}
+// Update only the given fields, so a stale copy of the row can't overwrite someone else's concurrent edit.
+async function patch(table, id, fields){
+  if (!S[table][id]) return false;
+  S[table][id] = {...S[table][id], ...fields}; render();
+  const { error } = await sb.from(table).update(fields).eq('id', id);
+  if (error){ fail(error, table); await resync(table); return false; }
+  return true;
 }
 async function del(table, id){
   const old = S[table][id]; delete S[table][id]; render();
-  const { error } = await sb.from(table).delete().eq('id', id);
-  if (error){ fail(error, table); if (old){ S[table][id] = old; render(); } }
+  const { data, error } = await sb.from(table).delete().eq('id', id).select('id');
+  if (error){ fail(error, table); if (old) S[table][id] = old; render(); return false; }
+  // Row-level security filters a forbidden delete silently (no error, nothing deleted)
+  if (!data || !data.length){ toast('حذف نشد؛ شاید دسترسی لازم رو نداری'); await resync(table); return false; }
+  return true;
 }
-async function saveSettings(patch){
-  S.settings = {...S.settings, ...patch}; render();
-  const { error } = await sb.from('settings').update(patch).eq('id', 1);
-  if (error) fail(error, 'settings');
+async function resync(table){ try { await reload(table); } catch(e){ console.error(table, e); } render(); }
+async function saveSettings(fields){
+  const old = S.settings; S.settings = {...S.settings, ...fields}; render();
+  const { error } = await sb.from('settings').update(fields).eq('id', 1);
+  if (error){ fail(error, 'settings'); S.settings = old; render(); fillSettings(); }
 }
 async function reload(table){
   const { data, error } = await sb.from(table).select('*');
   if (error) throw error;
   const next = {}; data.forEach(r => next[r.id] = r); S[table] = next;
 }
-async function loadAll(){
-  const { data: st, error } = await sb.from('settings').select('*').eq('id', 1).maybeSingle();
+async function loadSettings(){
+  const { data, error } = await sb.from('settings').select('*').eq('id', 1).maybeSingle();
   if (error) throw error;
-  S.settings = {...DEFAULT_SETTINGS, ...(st || {})};
-  await Promise.all([...TABLES.map(reload), loadMembers(), loadActivity(), loadPayInfo()]);
+  S.settings = {...DEFAULT_SETTINGS, ...(data || {})};
+}
+async function loadAll(){
+  await Promise.all([loadSettings(), ...TABLES.map(reload), loadMembers(), loadActivity(), loadPayInfo(), probeGuestCols()]);
   ready = true; render(); fillSettings();
+}
+// major / guests / guest_amount come from upgrade-guests.sql; until it's run, the app works without them
+// and leaves them out of every write (sending an unknown column would make the whole save fail)
+let hasGuestCols = false;
+async function probeGuestCols(){
+  const [a, b] = await Promise.all([sb.from('participants').select('guests,major').limit(1), sb.from('payment_info').select('guest_amount').limit(1)]);
+  hasGuestCols = !a.error && !b.error;
+}
+async function loadParticipantData(){
+  // settings is only needed for the currency label; participants may not be allowed to read it
+  await Promise.all([reload('participants'), reload('payments'), loadPayInfo(), loadSettings().catch(() => {})]);
+  ready = true; render();
 }
 function subscribe(){
   if (channel) sb.removeChannel(channel);
   channel = sb.channel('party-finance');
-  [...TABLES, 'settings', 'payment_info'].forEach(table => {
+  const tables = myRole === 'participant' ? ['participants','payments'] : TABLES;
+  [...tables, 'settings', 'payment_info'].forEach(table => {
     channel.on('postgres_changes', {event:'*', schema:'public', table}, p => {
       if (table === 'payment_info'){ if (p.new && p.new.id === 1) S.payInfo = {...DEFAULT_PAYINFO, ...p.new}; }
       else if (table === 'settings'){ if (p.new && p.new.id === 1){ S.settings = {...DEFAULT_SETTINGS, ...p.new}; fillSettings(); } }
@@ -709,7 +767,12 @@ function subscribe(){
   });
   channel.on('postgres_changes', {event:'*', schema:'public', table:'members'}, p => {
     const row = p.new && p.new.user_id ? p.new : null, oldId = p.old && p.old.user_id;
-    if (row && row.user_id === me.id){ me.member = row; if (row.role !== myRole){ enter({user:me}); return; } }
+    if (row && row.user_id === me.id){
+      me.member = row;
+      // a 'pending' member who claimed a student number is shown the participant page, so that's not a role change
+      const changed = myRole === 'participant' ? !['pending','participant'].includes(row.role) : row.role !== myRole;
+      if (changed){ enter({user:me}); return; }
+    }
     if ((p.eventType === 'DELETE' && oldId === me.id)){ enter({user:me}); return; }
     if (canAdmin){ if (p.eventType === 'DELETE'){ if (oldId) delete S.members[oldId]; } else if (row) S.members[row.user_id] = row; render(); }
   });
@@ -717,14 +780,17 @@ function subscribe(){
     if (p.new){ S.activity.unshift(p.new); S.activity.length = Math.min(S.activity.length, 300); if (currentTab === 'history') renderHistory(); }
   });
   channel.subscribe(status => {
-    if (status === 'SUBSCRIBED') setSync(true, 'همگام؛ تغییرات هر دو نفر همون لحظه دیده می‌شه');
+    if (status === 'SUBSCRIBED') setSync(true, 'همگام؛ تغییرات بقیه همون لحظه اینجا دیده می‌شه');
     else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setSync(false, 'همگام‌سازی زنده قطعه؛ تغییرات بعد از تازه‌سازی دیده می‌شن');
   });
 }
 function setSync(on, text){ $('#syncDot').classList.toggle('on', on); $('#syncText').textContent = text; }
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && ready && me){ try { await Promise.all([...TABLES.map(reload), loadMembers(), loadActivity()]); const { data } = await sb.from('settings').select('*').eq('id',1).maybeSingle(); if (data) S.settings = {...DEFAULT_SETTINGS, ...data}; render(); fillSettings(); } catch(e){} }
+// realtime events can be missed while a phone has the page in the background, so re-read everything on return
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !ready || !me) return;
+  (myRole === 'participant' ? loadParticipantData() : loadAll()).catch(e => console.warn('refresh', e));
 });
+window.addEventListener('beforeunload', e => { if (uploading.size){ e.preventDefault(); e.returnValue = ''; } });
 
 /* ---------- roles ---------- */
 const ROLE_LABEL = {participant:'شرکت‌کننده', admin:'مدیر', editor:'ویرایشگر', viewer:'بیننده', pending:'در انتظار تأیید'};
@@ -765,7 +831,16 @@ function gateState(state, msg, err){
 }
 let widgetMounted = false;
 function mountTelegramWidget(){
-  if (widgetMounted || tgWA || !cfg.telegramBot || /YOUR/.test(cfg.telegramBot)) return;
+  if (widgetMounted) return;
+  if (tgWA){
+    // inside Telegram the login widget isn't used; after a failed auto-login or a logout, offer a retry instead of a dead end
+    widgetMounted = true;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn primary'; b.textContent = 'ورود با حساب تلگرام';
+    b.addEventListener('click', () => telegramLogin({initData: tgWA.initData}));
+    $('#tgBox').appendChild(b); return;
+  }
+  if (!cfg.telegramBot || /YOUR/.test(cfg.telegramBot)) return;
   widgetMounted = true;
   const s = document.createElement('script');
   s.async = true; s.src = 'https://telegram.org/js/telegram-widget.js?22';
@@ -791,10 +866,14 @@ async function telegramLogin(payload){
     gateState('login', tgWA ? 'ورود خودکار از داخل تلگرام انجام نشد.' : 'برای ورود، با تلگرام وارد شو.', e.message || 'ورود ناموفق بود.');
   }
 }
-let ownChannel = null;
+let ownChannel = null, enterSeq = 0;
+function stopOwnWatch(){ if (ownChannel){ sb.removeChannel(ownChannel); ownChannel = null; } }
 async function enter(session){
+  // enter() can be triggered again (role change, realtime) while a previous call is still awaiting; only the latest wins
+  const seq = ++enterSeq;
   me = session.user;
   const { data: row, error } = await sb.from('members').select('*').eq('user_id', me.id).maybeSingle();
+  if (seq !== enterSeq) return;
   if (error){
     console.error('members', error);
     const m = `${error.code || ''} ${error.message || ''}`;
@@ -808,35 +887,41 @@ async function enter(session){
   const role0 = row ? row.role : 'pending';
   if (role0 === 'pending' || role0 === 'participant'){
     const { data: part } = await sb.from('participants').select('id').eq('user_id', me.id).maybeSingle();
+    if (seq !== enterSeq) return;
     if (part) return enterParticipant();
-    gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره دانشجویی‌ت رو بزن تا مبلغ و اطلاعات پرداخت رو ببینی.` + (role0 === 'pending' ? '<br><span class="sub">اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی.</span>' : ''));
+    gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره موبایلی که موقع ثبت‌نام دادی رو بزن تا مبلغ و اطلاعات پرداخت رو ببینی.` + (role0 === 'pending' ? '<br><span class="sub">اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی.</span>' : ''));
     watchOwnRow(); return;
   }
-  if (!row){
-    gateState('wait', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! درخواست دسترسی‌ت ثبت شد. وقتی مدیر نقشت رو تعیین کرد، همین‌جا خودکار وارد می‌شی.`);
-    watchOwnRow(); return;
-  }
+  stopOwnWatch();
   $('#gate').hidden = true; $('#payApp').hidden = true; $('#app').hidden = false; $('#bottomBar').hidden = false;
   $('#me').textContent = row.display_name || (me.email && !me.email.endsWith('@telegram.local') ? me.email : '');
   applyRole(row.role);
   try { await loadAll(); subscribe(); } catch(e){ fail(e, 'load'); setSync(false, 'بارگذاری ناموفق بود؛ صفحه رو تازه کن'); }
 }
 async function enterParticipant(){
+  stopOwnWatch();
   $('#gate').hidden = true; $('#app').hidden = true; $('#payApp').hidden = false; $('#bottomBar').hidden = true;
   applyRole('participant');
-  try { await Promise.all([reload('participants'), reload('payments'), loadPayInfo()]); ready = true; render(); subscribe(); }
+  try { await loadParticipantData(); subscribe(); }
   catch(e){ fail(e, 'load'); }
 }
 $('#claimForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const f = e.target.elements, btn = $('#claimBtn');
-  if (!toLatin(f.no.value).trim()){ f.no.focus(); return; }
+  const f = e.target.elements, btn = $('#claimBtn'), plain = normNo(f.no.value), phone = canonPhone(f.no.value);
+  if (!plain){ f.no.focus(); return; }
   btn.disabled = true; $('#loginErr').textContent = '';
-  const { data, error } = await sb.rpc('claim_student', {p_no:f.no.value, p_code:f.code.value || null});
+  // send the same normalized form the list is stored in (Persian digits, spaces, +98 typed by people otherwise never match).
+  // A bare 10-digit number starting with 9 is either a student number or a phone missing its 0, so try both.
+  const tries = !phone ? [plain] : /^9\d{9}$/.test(plain) ? [plain, phone] : [phone];
+  let data, error;
+  for (const no of tries){
+    ({ data, error } = await sb.rpc('claim_student', {p_no:no, p_code:last4(f.code.value) || null}));
+    if (error || !data || data.error !== 'not_found') break;
+  }
   btn.disabled = false;
   if (error){ $('#loginErr').textContent = 'بررسی شماره انجام نشد؛ دوباره امتحان کن.'; return; }
   if (data && data.ok){ const s = await sb.auth.getSession(); if (s.data.session) enter(s.data.session); return; }
-  const MSG = {not_found:'این شماره دانشجویی توی لیست نیست. اگه مطمئنی درسته، به مسئول مالی خبر بده.',
+  const MSG = {not_found:'این شماره توی لیست نیست. همون شماره‌ای رو بزن که موقع ثبت‌نام دادی؛ اگه مطمئنی درسته، به مسئول مالی خبر بده.',
     taken:'این شماره قبلاً به یه حساب تلگرام دیگه وصل شده. اگه مال خودته، به مسئول مالی خبر بده.',
     already_linked:'حسابت قبلاً به یه شماره‌ی دیگه وصل شده.', need_code:'برای تأیید، ۴ رقم آخر شماره موبایلت رو هم بزن.',
     bad_code:'۴ رقم آخر موبایل با لیست نمی‌خونه.', too_many:'تلاش‌ها زیاد شد؛ یک ساعت دیگه دوباره امتحان کن.'};
@@ -861,10 +946,17 @@ $('#loginForm').addEventListener('submit', async e => {
   if (error){ $('#loginErr').textContent = /Invalid login/i.test(error.message) ? 'ایمیل یا رمز اشتباهه.' : /fetch/i.test(error.message) ? 'به Supabase وصل نمی‌شه؛ اینترنت رو چک کن.' : error.message; return; }
   await enter(data.session);
 });
-async function logout(){
+function resetSession(){
+  enterSeq++; // cancel any enter() still in flight
   [channel, ownChannel].forEach(c => c && sb.removeChannel(c)); channel = ownChannel = null;
-  await sb.auth.signOut(); me = null; ready = false; myRole = null;
-  S = {settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[], participants:{}, payments:{}, payInfo:{}};
+  me = null; ready = false; myRole = null; canEdit = canAdmin = false;
+  document.body.classList.remove('can-edit', 'can-admin');
+  if (draftReceipt){ URL.revokeObjectURL(draftReceipt.url); draftReceipt = null; }
+  S = emptyState();
+}
+async function logout(){
+  resetSession();
+  await sb.auth.signOut();
   gateState('login', 'برای ورود، با تلگرام وارد شو.');
 }
 $('#logoutBtn').addEventListener('click', logout);
@@ -882,7 +974,7 @@ async function boot(){
   if (data.session && (!tgIdHere || (tgIdOfSession && tgIdOfSession[1] === tgIdHere))) await enter(data.session);
   else if (tgWA) await telegramLogin({initData: tgWA.initData});
   else gateState('login', 'برای ورود، با تلگرام وارد شو.');
-  sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && me){ me = null; gateState('login', 'از حساب خارج شدی.'); } });
+  sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && me){ resetSession(); gateState('login', 'از حساب خارج شدی.'); } });
 }
 
 /* ---------- members (admin) ---------- */
@@ -892,11 +984,11 @@ async function loadMembers(){
   if (error) throw error;
   S.members = {}; data.forEach(m => S.members[m.user_id] = m);
 }
-async function setMember(uid, patch){
-  const old = S.members[uid]; S.members[uid] = {...old, ...patch}; render();
-  const { error } = await sb.from('members').update(patch).eq('user_id', uid);
+async function setMember(uid, fields){
+  const old = S.members[uid]; S.members[uid] = {...old, ...fields}; render();
+  const { error } = await sb.from('members').update(fields).eq('user_id', uid);
   if (error){ S.members[uid] = old; render(); toast(/LAST_ADMIN/.test(error.message) ? 'حداقل یک مدیر باید بمونه' : 'تغییر نقش ذخیره نشد'); }
-  else if (patch.role) toast(`نقش ${old.display_name || ''}: ${ROLE_LABEL[patch.role]}`);
+  else if (fields.role) toast(`نقش ${old.display_name || ''}: ${ROLE_LABEL[fields.role]}`);
 }
 async function removeMember(uid){
   const m = S.members[uid]; if (!m) return;
@@ -912,6 +1004,8 @@ function renderMembers(){
   $('#nMembers').textContent = pending.length ? fmt(pending.length) + ' جدید' : fmt(others.length);
   $('#nMembers').classList.toggle('alert', !!pending.length);
   if (!canAdmin){ box.innerHTML = ''; return; }
+  // don't wipe a display name the admin is typing when a realtime update arrives
+  if (box.contains(document.activeElement) && document.activeElement.matches('input')) return;
   const ident = m => m.telegram_username ? '@' + m.telegram_username : (m.telegram_id ? 'tg ' + m.telegram_id : (m.email || ''));
   const row = m => `<div class="mem">
       <div><input class="field" value="${esc(m.display_name)}" data-mem-name="${esc(m.user_id)}" aria-label="نام نمایشی" maxlength="60"><div class="id">${esc(ident(m))}</div></div>
@@ -925,11 +1019,11 @@ function renderMembers(){
 const role_rank = r => ({admin:3, editor:2, viewer:1}[r] || 0);
 
 /* ---------- history ---------- */
-const FIELD_LABELS = {student_no:'شماره دانشجویی', full_name:'نام', status:'وضعیت فیش', review_note:'یادداشت بررسی', tracking_code:'کد پیگیری', card_number:'شماره کارت', card_holder:'به نام', default_amount:'مبلغ پیش‌فرض', deadline:'مهلت', user_id:'حساب متصل', verify_code:'کد تأیید', title:'عنوان', reason:'دلیل', type:'نوع', category:'دسته', vendor:'فروشنده', unit:'قیمت واحد', qty:'تعداد', paid:'وضعیت', actual:'مبلغ واقعی', payer:'پرداخت از',
+const FIELD_LABELS = {student_no:'شماره', full_name:'نام', major:'گرایش', guests:'تعداد مهمان', guest_amount:'مبلغ هر مهمان', status:'وضعیت فیش', review_note:'یادداشت بررسی', tracking_code:'کد پیگیری', card_number:'شماره کارت', card_holder:'به نام', default_amount:'مبلغ پیش‌فرض', deadline:'مهلت', user_id:'حساب متصل', verify_code:'کد تأیید', title:'عنوان', reason:'دلیل', type:'نوع', category:'دسته', vendor:'فروشنده', unit:'قیمت واحد', qty:'تعداد', paid:'وضعیت', actual:'مبلغ واقعی', payer:'پرداخت از',
   name:'نام', amount:'مبلغ', note:'یادداشت', item_id:'خرج مربوط', total:'مبلغ فاکتور', invoice_date:'تاریخ فاکتور', budget:'سقف بودجه', headcount:'تعداد نفرات', currency:'واحد پول'};
 function valText(k, v, tbl, kind){
   if (v === null || v === undefined || v === '') return '—';
-  if (['unit','actual','amount','total','budget','headcount','qty','default_amount'].includes(k)) return fmt(v);
+  if (['unit','actual','amount','total','budget','headcount','qty','default_amount','guest_amount','guests'].includes(k)) return fmt(v);
   if (k === 'status') return PAY_STATUS[v] || v;
   if (k === 'user_id') return 'متصل';
   if (k === 'paid') return v ? (tbl === 'funds' ? (kind === 'contrib' ? 'واریز کرده' : 'دریافت شد') : 'پرداخت شد') : (tbl === 'funds' ? 'در راه' : 'پرداخت‌نشده');
@@ -944,7 +1038,7 @@ async function loadActivity(){
 function renderHistory(){
   const box = $('#historyList');
   if (!S.activity.length){ box.innerHTML = '<div class="empty">هنوز تغییری ثبت نشده.</div>'; return; }
-  const TBL = {items:'هزینه', invoices:'فاکتور', settings:'تنظیمات', participants:'شرکت‌کننده', payments:'', payment_info:''};
+  const TBL = {items:'هزینه', invoices:'فاکتور', settings:'تنظیمات', participants:'شرکت‌کننده', payments:'فیش', payment_info:'اطلاعات پرداخت'};
   const ACT = {insert:'اضافه کرد', update:'ویرایش کرد', delete:'حذف کرد'};
   const COL = {insert:'var(--ok)', update:'var(--gold)', delete:'var(--bad)'};
   const dt = new Intl.DateTimeFormat('fa-IR', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
@@ -960,7 +1054,7 @@ function renderHistory(){
       chg = amt ? `مبلغ: ${fmt(amt)}` : '';
     }
     return `<div class="hist" style="--c:${COL[a.action] || 'var(--line)'}"><span class="who2">${esc(a.actor_name || '—')}</span><span class="when">${dt.format(new Date(a.at))}</span>
-      <span class="what">${what ? what + ' ' : ''}«${esc(a.title || '')}» رو ${ACT[a.action] || a.action}${chg ? `<span class="chg">${chg}</span>` : ''}</span></div>`;
+      <span class="what">${esc(what)} ${a.title ? `«${esc(a.title)}» ` : ''}رو ${esc(ACT[a.action] || a.action)}${chg ? `<span class="chg">${chg}</span>` : ''}</span></div>`;
   }).join('');
 }
 
@@ -1079,9 +1173,11 @@ async function signedUrls(paths, bucket = BUCKET){
   const need = paths.filter(p => { const c = urlCache.get(key(p)); return !(c && c.exp > Date.now() + 60000) && !urlPending.has(key(p)); });
   if (need.length){
     need.forEach(p => urlPending.add(key(p)));
-    const { data, error } = await sb.storage.from(bucket).createSignedUrls(need, 3600);
-    need.forEach(p => urlPending.delete(key(p)));
-    if (!error && data) data.forEach(d => { if (d.signedUrl) urlCache.set(key(d.path), {url:d.signedUrl, exp:Date.now() + 3500e3}); });
+    try {
+      const { data, error } = await sb.storage.from(bucket).createSignedUrls(need, 3600);
+      if (!error && data) data.forEach(d => { if (d.signedUrl) urlCache.set(key(d.path), {url:d.signedUrl, exp:Date.now() + 3500e3}); });
+    } catch(e){ console.warn('signed urls', e); }
+    finally { need.forEach(p => urlPending.delete(key(p))); }
   }
   return paths.map(p => urlCache.get(key(p))?.url);
 }
@@ -1170,24 +1266,24 @@ function mapInvoice(id, itemId){
   if (!canEdit) return;
   const v = S.invoices[id]; if (!v) return;
   if (itemId === '__new') return createFromInvoice(id);
-  upsert('invoices', {...v, item_id: itemId || null});
-  if (itemId) toast(`به «${S.items[itemId]?.title}» وصل شد`);
+  patch('invoices', id, {item_id: itemId || null}).then(ok => { if (ok && itemId) toast(`به «${S.items[itemId]?.title}» وصل شد`); });
 }
-async function createFromInvoice(id, overrides){
-  const v = {...S.invoices[id], ...(overrides||{})}; if (!v.id) return;
+// fields: unsaved edits from the invoice dialog, saved together with the new link
+async function createFromInvoice(id, fields = {}){
+  if (!S.invoices[id]) return;
+  const v = {...S.invoices[id], ...fields};
   const item = {id:newId(), title:(v.note || v.vendor || 'خرج جدید').slice(0,100), reason:'', vendor:v.vendor || '', type:'must', category:'سایر',
     unit:v.total || 0, qty:1, paid:!!v.total, actual:v.total || 0, payer: v.total ? FUND : ''};
   S.items[item.id] = item; render();
   const { error } = await sb.from('items').insert(item);
-  if (error){ delete S.items[item.id]; fail(error, 'items'); return; }
-  await upsert('invoices', {...v, item_id:item.id});
+  if (error){ delete S.items[item.id]; render(); fail(error, 'items'); return; }
+  if (!await patch('invoices', id, {...fields, item_id:item.id})) return;
   toast('خرج جدید ساخته شد؛ عنوان، نوع و دسته‌ش رو کامل کن');
   openItem(item.id);
 }
-function applyInvoices(itemId){
+async function applyInvoices(itemId){
   const it = S.items[itemId], s = invSum(itemId); if (!it || !s) return;
-  upsert('items', {...it, paid:true, actual:s, payer: it.payer || FUND});
-  toast('پرداخت با جمع فاکتورها ثبت شد');
+  if (await patch('items', itemId, {paid:true, actual:s, payer: it.payer || FUND})) toast('پرداخت با جمع فاکتورها ثبت شد');
 }
 
 const invDlg = $('#invDlg'), invForm = $('#invForm'); let editingInv = null;
@@ -1209,18 +1305,19 @@ async function openInvoice(id){
     : `<a href="${esc(url)}" target="_blank" rel="noopener" style="padding:0"><img src="${esc(url)}" alt="تصویر فاکتور"></a>`;
 }
 invForm.addEventListener('input', liveFormat);
-invForm.addEventListener('submit', e => {
+invForm.addEventListener('submit', async e => {
   e.preventDefault(); if (!editingInv) return;
-  const f = invForm.elements, sel = f.item_id.value;
-  const upd = {...S.invoices[editingInv.id], vendor:f.vendor.value.trim(), invoice_date:f.invoice_date.value.trim(), total:parseNum(f.total.value), note:f.note.value.trim()};
+  const f = invForm.elements, sel = f.item_id.value, id = editingInv.id;
+  const fields = {vendor:f.vendor.value.trim(), invoice_date:f.invoice_date.value.trim(), total:parseNum(f.total.value), note:f.note.value.trim()};
   invDlg.close();
-  if (sel === '__new') return createFromInvoice(upd.id, upd);
-  upd.item_id = sel || null;
-  upsert('invoices', upd); toast(upd.item_id ? `فاکتور ذخیره و به «${S.items[upd.item_id]?.title}» وصل شد` : 'فاکتور ذخیره شد');
+  if (sel === '__new') return createFromInvoice(id, fields);
+  fields.item_id = sel || null;
+  if (await patch('invoices', id, fields)) toast(fields.item_id ? `فاکتور ذخیره و به «${S.items[fields.item_id]?.title}» وصل شد` : 'فاکتور ذخیره شد');
 });
 $('#invDel').addEventListener('click', async () => {
   const v = editingInv; if (!v || !confirm('این فاکتور و فایلش برای همیشه حذف بشه؟')) return;
-  invDlg.close(); await del('invoices', v.id);
+  invDlg.close();
+  if (!await del('invoices', v.id)) return; // keep the file if the row couldn't be deleted
   const { error } = await sb.storage.from(BUCKET).remove([v.file_path]);
   if (error) console.warn(error);
   toast('فاکتور حذف شد');
@@ -1281,9 +1378,12 @@ function fillSettings(){
 /* ---------- participants & receipts ---------- */
 const PAY_STATUS = {submitted:'در انتظار بررسی', approved:'تأیید شد', rejected:'رد شد'};
 const PAY_COLOR = {submitted:'var(--warn)', approved:'var(--ok)', rejected:'var(--bad)'};
-const DEFAULT_PAYINFO = {card_number:'', card_holder:'', bank:'', sheba:'', default_amount:0, deadline:'', note:''};
+const DEFAULT_PAYINFO = {card_number:'', card_holder:'', bank:'', sheba:'', default_amount:0, guest_amount:0, deadline:'', note:''};
 const cardFmt = n => (toLatin(n).replace(/\D/g, '').match(/.{1,4}/g) || []).join(' ');
-const dueOf = p => (p.amount !== null && p.amount !== undefined) ? Number(p.amount) : Number(S.payInfo.default_amount || 0);
+const guestsOf = p => Math.max(0, Math.floor(Number(p.guests) || 0));
+// what someone owes: their own share plus the guest price for each guest, unless a total was set by hand for them
+const autoDue = p => Number(S.payInfo.default_amount || 0) + guestsOf(p) * Number(S.payInfo.guest_amount || 0);
+const dueOf = p => (p.amount !== null && p.amount !== undefined) ? Number(p.amount) : autoDue(p);
 const paysOf = pid => Object.values(S.payments).filter(x => x.participant_id === pid).sort((a,b) => ts(b.created_at) - ts(a.created_at));
 function payState(p){
   const ps = paysOf(p.id), due = dueOf(p);
@@ -1332,6 +1432,12 @@ const kb = n => fmt(Math.max(1, Math.round(n / 1024))) + ' کیلوبایت';
 
 /* participant's own payment page (full page for participants, a tab for staff who are also participants) */
 let draftReceipt = null; // {blob, url, origSize}
+// "your share + 2 guests × price" under the amount, so people see why their total is what it is
+function guestLine(p, m){
+  const g = guestsOf(p), price = Number(S.payInfo.guest_amount || 0); if (!g) return '';
+  if (p.amount !== null && p.amount !== undefined) return `<span class="sub">با ${fmt(g)} مهمان</span>`;
+  return `<span class="sub">${price ? `سهم خودت ${m(S.payInfo.default_amount || 0)} + ${fmt(g)} مهمان × ${m(price)}` : `با ${fmt(g)} مهمان`}</span>`;
+}
 function renderMyPay(el){
   const p = myParticipant(); if (!el) return;
   const keepA = el.querySelector('#rdAmount')?.value, keepT = el.querySelector('#rdTrack')?.value;
@@ -1358,9 +1464,10 @@ function renderMyPay(el){
       </div></div>`
     : (st.key !== 'settled' ? `<button class="btn primary big" type="button" data-act="pick-receipt">آپلود عکس فیش</button><p class="sub">اسکرین‌شات رسید بانکی کافیه؛ قبل از ارسال خودکار فشرده می‌شه.</p>` : '');
   el.innerHTML = `<div class="pay-wrap">
-    <div class="pay-hello"><h2>سلام ${esc(p.full_name || '')}</h2><span class="sub">شماره دانشجویی <span dir="ltr">${esc(p.student_no)}</span></span></div>
+    <div class="pay-hello"><h2>سلام ${esc(p.full_name || '')}</h2><span class="sub">${isPhoneId(p.student_no) ? 'موبایل' : 'شماره دانشجویی'} <span dir="ltr">${esc(p.student_no)}</span>${p.major ? ' · ' + esc(p.major) : ''}</span></div>
     ${statusLine}
     <div class="pay-amount"><span class="k">مبلغ سهم</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${st.remaining || st.due}" data-copy-label="مبلغ">کپی مبلغ</button>` : ''}
+      ${guestLine(p, m)}
       ${st.approved || st.pending ? `<span class="sub">تأییدشده ${m(st.approved)}${st.pending ? ` · در انتظار بررسی ${m(st.pending)}` : ''}</span>` : ''}</div>
     ${cardRow}${shebaRow}
     ${info.deadline ? `<p class="sub">مهلت پرداخت: <b>${esc(info.deadline)}</b></p>` : ''}
@@ -1401,7 +1508,10 @@ async function sendReceipt(btn){
   if (up.error){ btn.disabled = false; btn.textContent = 'ارسال فیش'; fail(up.error, 'receipt'); return; }
   const row = {id:newId(), participant_id:p.id, file_path:path, amount, tracking_code:track};
   const { error } = await sb.from('payments').insert(row);
-  if (error){ btn.disabled = false; btn.textContent = 'ارسال فیش'; fail(error, 'payment'); return; }
+  if (error){
+    sb.storage.from('receipts').remove([path]).catch(() => {}); // don't leave an orphan file behind
+    btn.disabled = false; btn.textContent = 'ارسال فیش'; fail(error, 'payment'); return;
+  }
   S.payments[row.id] = {...row, status:'submitted', created_at:new Date().toISOString()};
   URL.revokeObjectURL(draftReceipt.url); draftReceipt = null;
   render(); toast('فیش ارسال شد؛ بعد از بررسی تأیید می‌شه');
@@ -1413,15 +1523,17 @@ function renderPeople(){
   const cur = S.settings.currency || 'تومان';
   $('#payInfoCard').innerHTML = `<div class="payinfo ${info.card_number ? '' : 'warn'}">
     <div><span class="k">کارت مقصد</span><b dir="ltr" class="num">${info.card_number ? esc(cardFmt(info.card_number)) : '—'}</b>${info.card_holder ? `<span class="sub">${esc(info.card_holder)}</span>` : ''}</div>
-    <div><span class="k">مبلغ پیش‌فرض سهم</span><b>${info.default_amount ? fmt(info.default_amount) + ' ' + cur : '—'}</b></div>
+    <div><span class="k">مبلغ پیش‌فرض سهم</span><b>${info.default_amount ? fmt(info.default_amount) + ' ' + cur : '—'}</b>${hasGuestCols ? `<span class="sub">هر مهمان ${info.guest_amount ? fmt(info.guest_amount) + ' ' + cur : 'رایگان'}</span>` : ''}</div>
     <div><span class="k">مهلت</span><b>${esc(info.deadline) || '—'}</b></div>
     <button class="btn small need-edit" type="button" data-act="edit-payinfo">ویرایش اطلاعات پرداخت</button>
     ${info.card_number ? '' : '<p class="sub bad" style="grid-column:1/-1;margin:0">تا شماره کارت وارد نشه، شرکت‌کننده‌ها جایی برای واریز نمی‌بینن.</p>'}
+    ${hasGuestCols || !ready ? '' : '<p class="sub bad need-admin" style="grid-column:1/-1;margin:0">برای ثبت گرایش، تعداد مهمان و مبلغ هر مهمان، فایل <code>upgrade-guests.sql</code> رو یک بار در SQL Editor سوپابیس اجرا کن و صفحه رو تازه کن.</p>'}
   </div>`;
   const states = all.map(p => [p, payState(p)]);
   const sum = k => states.reduce((a,[,s]) => a + s[k], 0);
   const cnt = k => states.filter(([,s]) => s.key === k).length;
-  $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span><span>تسویه ${fmt(cnt('settled'))}</span><span>وصل‌شده ${fmt(all.filter(p => p.user_id).length)}</span><span>تأییدشده ${fmt(sum('approved'))}</span><span>مانده ${fmt(states.reduce((a,[,s]) => a + Math.max(0, s.due - s.approved), 0))}</span>` : '';
+  const guests = all.reduce((a,p) => a + guestsOf(p), 0);
+  $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span>${guests ? `<span>مهمان ${fmt(guests)}</span><span>کل حضور ${fmt(all.length + guests)}</span>` : ''}<span>تسویه ${fmt(cnt('settled'))}</span><span>وصل‌شده ${fmt(all.filter(p => p.user_id).length)}</span><span>تأییدشده ${fmt(sum('approved'))}</span><span>مانده ${fmt(states.reduce((a,[,s]) => a + Math.max(0, s.due - s.approved), 0))}</span>` : '';
 
   const queue = Object.values(S.payments).filter(x => x.status === 'submitted').sort((a,b) => ts(a.created_at) - ts(b.created_at));
   const nPeople = $('#nPeople'); nPeople.textContent = queue.length ? fmt(queue.length) + ' فیش' : fmt(all.length); nPeople.classList.toggle('alert', !!queue.length);
@@ -1430,17 +1542,23 @@ function renderPeople(){
       return `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:var(--warn)">${receiptThumb(x)}<div><b>${esc(p.full_name || p.student_no || '')}</b><span class="sub"><span dir="ltr">${esc(p.student_no || '')}</span> · ${faDate(x.created_at)}</span></div><b class="num">${fmt(x.amount)}</b></button>`;
     }).join('')}</div></div>` : '';
 
+  // major filter: options follow whatever majors are in the list; keep the current choice across re-renders
+  const majors = [...new Set(all.map(p => (p.major || '').trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b,'fa'));
+  const ms = $('#pMajor'), mv = majors.includes(ms.value) ? ms.value : '';
+  ms.hidden = !majors.length;
+  ms.innerHTML = '<option value="">همه گرایش‌ها</option>' + majors.map(m => `<option${m === mv ? ' selected' : ''}>${esc(m)}</option>`).join('');
   const q = toLatin($('#pq').value).trim().toLowerCase(), f = $('#pFilter').value;
   const rows = states.filter(([p, s]) => {
     if (f === 'unclaimed' ? p.user_id : f && s.key !== f) return false;
-    if (q && !toLatin([p.full_name, p.student_no, p.note].join(' ')).toLowerCase().includes(q)) return false;
+    if (mv && (p.major || '').trim() !== mv) return false;
+    if (q && !toLatin([p.full_name, p.student_no, p.major, p.note].join(' ')).toLowerCase().includes(q)) return false;
     return true;
   }).sort(([a,sa],[b,sb2]) => ['review','unpaid','partial','settled'].indexOf(sa.key) - ['review','unpaid','partial','settled'].indexOf(sb2.key) || (a.full_name||'').localeCompare(b.full_name||'','fa'));
   $('#peopleList').innerHTML = !all.length
-    ? `<div class="empty"><h3>هنوز شرکت‌کننده‌ای ثبت نشده</h3>فایل اکسل یا CSV لیست رو وارد کن؛ کافیه ستون «شماره دانشجویی» و «نام» داشته باشه. ستون‌های «مبلغ» و «موبایل» اختیاری‌ان.<div class="chips need-edit"><button class="chip" type="button" data-act="import-people">ورود از شیت</button><button class="chip" type="button" data-act="add-person">افزودن دستی</button></div></div>`
+    ? `<div class="empty"><h3>هنوز شرکت‌کننده‌ای ثبت نشده</h3>فایل اکسل یا CSV لیست ثبت‌نام رو وارد کن؛ کافیه ستون «شماره تماس» (یا «شماره دانشجویی») و «نام» داشته باشه. «گرایش» و «تعداد مهمان» هم خونده می‌شن.<div class="chips need-edit"><button class="chip" type="button" data-act="import-people">ورود از شیت</button><button class="chip" type="button" data-act="add-person">افزودن دستی</button></div></div>`
     : rows.map(([p, s]) => `<button class="row" type="button" data-person="${esc(p.id)}" style="--c:${STATE_COLOR[s.key]}">
         <span class="stripe"></span>
-        <span><span class="t">${esc(p.full_name || '—')}</span><span class="meta"><span class="tag" dir="ltr">${esc(p.student_no)}</span><span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${p.user_id ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}</span></span>
+        <span><span class="t">${esc(p.full_name || '—')}</span><span class="meta"><span class="tag" dir="ltr">${esc(p.student_no)}</span>${p.major ? `<span class="tag">${esc(p.major)}</span>` : ''}${guestsOf(p) ? `<span class="tag">${fmt(guestsOf(p))} مهمان</span>` : ''}<span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${p.user_id ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}</span></span>
         <span></span>
         <span class="amt"><b>${fmt(s.approved)}</b><small>از ${fmt(s.due)}</small></span>
       </button>`).join('') || '<div class="empty">موردی با این فیلتر پیدا نشد.</div>';
@@ -1451,18 +1569,20 @@ const personDlg = $('#personDlg'), personForm = $('#personForm'); let editingPer
 function openPerson(id){
   if (!ready || (!id && !canEdit)) return;
   editingPerson = id ? S.participants[id] : null;
-  const p = editingPerson || {student_no:'', full_name:'', amount:null, verify_code:'', note:''};
+  const p = editingPerson || {student_no:'', full_name:'', amount:null, verify_code:'', note:'', major:'', guests:0};
   const f = personForm.elements;
   f.student_no.value = p.student_no || ''; f.full_name.value = p.full_name || '';
+  f.major.value = p.major || ''; f.guests.value = guestsOf(p) ? fmt(guestsOf(p)) : '';
+  $('#personExtra').hidden = !hasGuestCols;
   f.amount.value = p.amount !== null && p.amount !== undefined ? fmt(p.amount) : '';
-  f.amount.placeholder = S.payInfo.default_amount ? `پیش‌فرض: ${fmt(S.payInfo.default_amount)}` : 'خالی = مبلغ پیش‌فرض';
+  updateAutoDue();
   f.verify_code.value = p.verify_code || ''; f.note.value = p.note || '';
   $('#personDlgTitle').textContent = editingPerson ? (p.full_name || 'شرکت‌کننده') : 'شرکت‌کننده‌ی جدید';
   $('#personDel').hidden = !editingPerson;
   const linked = p.user_id ? (S.members[p.user_id]?.display_name || 'متصل') : '';
   $('#personLink').innerHTML = editingPerson ? (p.user_id
     ? `<span class="tag ok">حساب تلگرام: ${esc(linked)}</span> <button class="btn small danger need-admin" type="button" data-act="unlink-person">جدا کردن حساب</button>`
-    : '<span class="tag">هنوز با شماره دانشجویی‌ش وارد نشده</span>') : '';
+    : '<span class="tag">هنوز وارد نشده</span>') : '';
   const ps = editingPerson ? paysOf(p.id) : [];
   $('#personPays').innerHTML = ps.length ? `<div class="lbl">فیش‌ها<div class="list">${ps.map(x => `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:${PAY_COLOR[x.status]}">${receiptThumb(x)}<div><b>${fmt(x.amount)}</b><span class="sub">${faDate(x.created_at)}</span></div><span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span></button>`).join('')}</div></div>` : '';
   $('#personMeta').textContent = metaLine(editingPerson);
@@ -1470,28 +1590,38 @@ function openPerson(id){
   if (!personDlg.open) personDlg.showModal();
   hydrateThumbs();
 }
-personForm.addEventListener('input', liveFormat);
+// the amount placeholder shows what "empty = automatic" works out to for the guests typed in
+function updateAutoDue(){ const f = personForm.elements; f.amount.placeholder = `خودکار: ${fmt(autoDue({guests:parseNum(f.guests.value)}))}`; }
+personForm.addEventListener('input', e => { liveFormat(e); if (e.target.name === 'guests') updateAutoDue(); });
+// most of the list is phone numbers (imported from a registration sheet)?
+const phoneList = () => { const ids = Object.values(S.participants).map(p => p.student_no); return ids.length > 0 && ids.filter(isPhoneId).length * 2 >= ids.length; };
 personForm.addEventListener('submit', async e => {
   e.preventDefault();
-  const f = personForm.elements, no = toLatin(f.student_no.value).replace(/[\s\-_/.]/g, '').toUpperCase();
-  if (!no){ f.student_no.focus(); toast('شماره دانشجویی رو بنویس'); return; }
+  const f = personForm.elements, plain = normNo(f.student_no.value), phone = canonPhone(f.student_no.value);
+  // store phones as 09xxxxxxxxx like the import does; a bare 10-digit "9…" is only taken as a phone in a phone-based list
+  const no = phone && (!/^9\d{9}$/.test(plain) || phoneList()) ? phone : plain;
+  if (!no){ f.student_no.focus(); toast('شماره موبایل یا دانشجویی رو بنویس'); return; }
   const dup = Object.values(S.participants).find(x => x.student_no === no && (!editingPerson || x.id !== editingPerson.id));
-  if (dup){ toast('این شماره دانشجویی قبلاً ثبت شده'); return; }
+  if (dup){ toast(`این شماره قبلاً برای «${dup.full_name || no}» ثبت شده`); return; }
   const amt = f.amount.value.trim() ? parseNum(f.amount.value) : null;
   const obj = {id: editingPerson ? editingPerson.id : newId(), student_no:no, full_name:f.full_name.value.trim(), amount:amt,
-    verify_code: toLatin(f.verify_code.value).replace(/\D/g, '').slice(-4) || null, note:f.note.value.trim()};
-  if (editingPerson) obj.user_id = editingPerson.user_id ?? null;
-  personDlg.close(); await upsert('participants', obj); toast('ذخیره شد');
+    verify_code: last4(f.verify_code.value) || null, note:f.note.value.trim()};
+  if (hasGuestCols){ obj.major = f.major.value.trim(); obj.guests = Math.min(50, parseNum(f.guests.value)); }
+  // user_id is deliberately not sent: if the person linked their account while this dialog was open,
+  // re-sending the old (empty) value would silently unlink them
+  personDlg.close(); if (await upsert('participants', obj)) toast('ذخیره شد');
 });
-$('#personDel').addEventListener('click', () => {
+$('#personDel').addEventListener('click', async () => {
   const p = editingPerson; if (!p) return;
-  const n = paysOf(p.id).length;
-  if (!confirm(`«${p.full_name || p.student_no}» حذف بشه؟` + (n ? `\n${fmt(n)} فیش ثبت‌شده‌ش هم حذف می‌شه (سهم‌های تأییدشده در بودجه می‌مونن).` : ''))) return;
-  personDlg.close(); paysOf(p.id).forEach(x => delete S.payments[x.id]); del('participants', p.id); toast('حذف شد');
+  const pays = paysOf(p.id);
+  if (!confirm(`«${p.full_name || p.student_no}» حذف بشه؟` + (pays.length ? `\n${fmt(pays.length)} فیش ثبت‌شده‌ش هم حذف می‌شه (سهم‌های تأییدشده در بودجه می‌مونن).` : ''))) return;
+  personDlg.close(); pays.forEach(x => delete S.payments[x.id]);
+  if (await del('participants', p.id)) toast('حذف شد'); else resync('payments');
 });
 async function unlinkPerson(){
-  const p = editingPerson; if (!p || !confirm('حساب تلگرام از این شماره دانشجویی جدا بشه؟ بعدش هر کسی می‌تونه دوباره با این شماره وارد بشه.')) return;
-  await upsert('participants', {...p, user_id:null}); personDlg.close(); toast('حساب جدا شد');
+  const p = editingPerson; if (!p || !confirm('حساب تلگرام از این شماره جدا بشه؟ بعدش هر کسی می‌تونه دوباره با این شماره وارد بشه.')) return;
+  personDlg.close();
+  if (await patch('participants', p.id, {user_id:null})) toast('حساب جدا شد');
 }
 
 /* receipt review dialog */
@@ -1516,11 +1646,18 @@ async function openReceipt(id){
   if (reviewing !== x) return;
   pv.innerHTML = url ? `<a href="${esc(url)}" target="_blank" rel="noopener" style="padding:0"><img src="${esc(url)}" alt="فیش"></a>` : '<span style="padding:24px;color:var(--bad)">فایل پیدا نشد</span>';
 }
+let reviewBusy = false;
 async function review(status){
-  const x = reviewing; if (!x) return;
+  const x = reviewing; if (!x || reviewBusy) return;
   const amount = parseNum($('#rcAmount').value), note = $('#rcNote').value.trim();
   if (status === 'rejected' && !note && !confirm('بدون نوشتن دلیل رد بشه؟ (دلیل برای خود شخص نمایش داده می‌شه)')) return;
-  const { error } = await sb.rpc('review_payment', {p_id:x.id, p_status:status, p_note:note, p_amount:amount || null});
+  // approving adds the amount to the budget, so a double click must not send the request twice
+  const btns = receiptDlg.querySelectorAll('.dlg-foot button');
+  reviewBusy = true; btns.forEach(b => b.disabled = true);
+  let error;
+  try { ({ error } = await sb.rpc('review_payment', {p_id:x.id, p_status:status, p_note:note, p_amount:amount || null})); }
+  catch(e){ error = e; }
+  finally { reviewBusy = false; btns.forEach(b => b.disabled = false); }
   if (error){
     const m = error.message || '';
     toast(/ADMIN_ONLY/.test(m) ? 'برگرداندن فیش تأییدشده فقط کار مدیره' : /NO_AMOUNT/.test(m) ? 'مبلغ فیش رو وارد کن' : /FORBIDDEN/.test(m) ? 'دسترسی بررسی فیش رو نداری' : 'ثبت نشد؛ دوباره امتحان کن');
@@ -1542,6 +1679,7 @@ function openPayInfo(){
   const i = S.payInfo, f = payInfoForm.elements;
   f.card_number.value = cardFmt(i.card_number); f.card_holder.value = i.card_holder; f.bank.value = i.bank; f.sheba.value = i.sheba;
   f.default_amount.value = i.default_amount ? fmt(i.default_amount) : ''; f.deadline.value = i.deadline; f.note.value = i.note;
+  f.guest_amount.value = i.guest_amount ? fmt(i.guest_amount) : ''; $('#guestAmtWrap').hidden = !hasGuestCols;
   lockForm(payInfoForm); payInfoDlg.showModal();
 }
 payInfoForm.addEventListener('input', liveFormat);
@@ -1549,86 +1687,138 @@ payInfoForm.addEventListener('submit', async e => {
   e.preventDefault();
   const f = payInfoForm.elements, card = toLatin(f.card_number.value).replace(/\D/g, '');
   if (card && card.length !== 16){ toast('شماره کارت باید ۱۶ رقم باشه'); f.card_number.focus(); return; }
-  const patch = {card_number:card, card_holder:f.card_holder.value.trim(), bank:f.bank.value.trim(),
+  const fields = {card_number:card, card_holder:f.card_holder.value.trim(), bank:f.bank.value.trim(),
     sheba:toLatin(f.sheba.value).replace(/\s/g, '').toUpperCase(), default_amount:parseNum(f.default_amount.value), deadline:f.deadline.value.trim(), note:f.note.value.trim()};
-  payInfoDlg.close(); S.payInfo = {...S.payInfo, ...patch}; render();
-  const { error } = await sb.from('payment_info').update(patch).eq('id', 1);
-  if (error) fail(error, 'payment_info'); else toast('اطلاعات پرداخت ذخیره شد');
+  if (hasGuestCols) fields.guest_amount = parseNum(f.guest_amount.value);
+  payInfoDlg.close(); S.payInfo = {...S.payInfo, ...fields}; render();
+  const { error } = await sb.from('payment_info').update(fields).eq('id', 1);
+  if (error){ fail(error, 'payment_info'); await loadPayInfo(); render(); } else toast('اطلاعات پرداخت ذخیره شد');
 });
 
 /* import from sheet */
 const importDlg = $('#importDlg'); let importRows = null;
-const normHead = h => String(h ?? '').replace(/[\s\u200c_\-]/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').toLowerCase();
+const normHead = h => String(h ?? '').replace(/[\s\u200c_\-\/\\().:*؟?]/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').toLowerCase();
+// exact: the whole normalized header; has: a distinctive word anywhere in it, for long Google Form questions
+// like "شماره تماس (ترجیحاً موبایل)". "نام" is only matched exactly: it's also inside "نام خانوادگی", "ثبت‌نام"…
 const HEADS = {
-  student_no:['شمارهدانشجویی','شمارهدانشجوئی','شدانشجویی','کددانشجویی','شمارهیدانشجویی','studentno','studentid','student','stdno'],
-  full_name:['نامونامخانوادگی','نامکامل','نامونامخانوادگي','fullname','name'],
-  first:['نام','firstname','first'], last:['نامخانوادگی','فامیلی','lastname','last','family'],
-  amount:['مبلغ','سهم','مبلغسهم','amount','share'],
-  phone:['موبایل','شمارهموبایل','تلفن','شمارهتماس','همراه','تلفنهمراه','phone','mobile'],
-  note:['توضیحات','یادداشت','note','notes']
+  student_no:{exact:['شمارهدانشجویی','شمارهدانشجوئی','شدانشجویی','کددانشجویی','شمارهیدانشجویی','studentno','studentid','student','stdno'], has:['شمارهدانشجو','کددانشجو']},
+  full_name:{exact:['نامونامخانوادگی','نامکامل','fullname','name','اسم'], has:['نامونامخانوادگی','نامدانشجو','نامفارغالتحصیل']},
+  first:{exact:['نام','firstname','first']},
+  last:{exact:['نامخانوادگی','فامیلی','lastname','last','family']},
+  phone:{exact:['همراه'], has:['موبایل','تماس','تلفن','شمارههمراه','mobile','phone']},
+  guests:{has:['مهمان','همراهان','تعدادهمراه','guest']},
+  major:{has:['گرایش','رشته','major']},
+  amount:{exact:['مبلغ','سهم','مبلغسهم','amount','share']},
+  note:{exact:['یادداشت','note','notes'], has:['توضیح']}
 };
-async function readSheet(file){
+function findCols(row){
+  const heads = row.map(normHead), col = {}, used = new Set();
+  const take = (k, test) => { if (k in col) return; const i = heads.findIndex((h, j) => h && !used.has(j) && test(h)); if (i >= 0){ col[k] = i; used.add(i); } };
+  Object.entries(HEADS).forEach(([k, m]) => m.exact && take(k, h => m.exact.includes(h)));
+  Object.entries(HEADS).forEach(([k, m]) => m.has && take(k, h => m.has.some(w => h.includes(w))));
+  return col;
+}
+// A CSV from Google Sheets is UTF-8 without a BOM, which SheetJS would read as Latin-1 (garbled Persian);
+// Excel's "CSV" on Persian Windows is Windows-1256. So CSV text is decoded here.
+async function readWorkbook(file){
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, {type:'array'});
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
-  const hi = aoa.findIndex(r => r.some(c => HEADS.student_no.includes(normHead(c))));
-  if (hi < 0) throw new Error('ستون «شماره دانشجویی» پیدا نشد.');
-  const heads = aoa[hi].map(normHead), col = {};
-  Object.entries(HEADS).forEach(([k, names]) => { const i = heads.findIndex(h => names.includes(h)); if (i >= 0) col[k] = i; });
-  const seen = new Map();
+  if (!/\.(csv|txt)$/i.test(file.name) && !/csv|text\/plain/.test(file.type)) return XLSX.read(buf, {type:'array'});
+  let text;
+  try { text = new TextDecoder('utf-8', {fatal:true}).decode(buf); } catch(e){ text = new TextDecoder('windows-1256').decode(buf); }
+  return XLSX.read(text.replace(/^﻿/, ''), {type:'string'});
+}
+async function readSheet(file){
+  const wb = await readWorkbook(file);
+  const aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:'', raw:false});
+  let hi = -1, col = {};
+  for (let i = 0; i < Math.min(aoa.length, 20) && hi < 0; i++){ const c = findCols(aoa[i]); if (c.student_no !== undefined || c.phone !== undefined){ hi = i; col = c; } }
+  if (hi < 0) throw new Error('ستون «شماره تماس» یا «شماره دانشجویی» پیدا نشد. سطر اول فایل باید عنوان ستون‌ها باشه.');
+  // with a student-number column the phone only gives the 4-digit check code; otherwise the phone itself is what people log in with
+  const byPhone = col.student_no === undefined;
+  const cell = (r, k) => col[k] === undefined ? '' : String(r[col[k]] ?? '').trim();
+  const seen = new Map(), bad = [], dups = [], unsure = [];
   aoa.slice(hi + 1).forEach(r => {
-    const no = toLatin(r[col.student_no]).replace(/[\s\-_/.]/g, '').toUpperCase(); if (!no) return;
-    const name = col.full_name !== undefined ? String(r[col.full_name]).trim() : [col.first, col.last].filter(i => i !== undefined).map(i => String(r[i]).trim()).filter(Boolean).join(' ');
-    const row = {student_no:no, full_name:name};
-    if (col.amount !== undefined){ const a = parseNum(r[col.amount]); row.amount = a || null; }
-    if (col.phone !== undefined){ row.verify_code = toLatin(r[col.phone]).replace(/\D/g, '').slice(-4) || null; }
-    if (col.note !== undefined) row.note = String(r[col.note]).trim();
+    const name = cell(r, 'full_name') || [cell(r, 'first'), cell(r, 'last')].filter(Boolean).join(' ');
+    const no = byPhone ? canonPhone(cell(r, 'phone')) : normNo(cell(r, 'student_no'));
+    if (!no){ if (byPhone && (name || cell(r, 'phone'))) bad.push(`${name || '—'} (${cell(r, 'phone') || 'بدون شماره'})`); return; }
+    const row = {student_no:no, full_name:name.slice(0, 80)};
+    if (col.amount !== undefined) row.amount = parseNum(cell(r, 'amount')) || null;
+    if (!byPhone && col.phone !== undefined) row.verify_code = last4(cell(r, 'phone')) || null;
+    if (col.note !== undefined) row.note = cell(r, 'note').slice(0, 140);
+    if (col.major !== undefined) row.major = cell(r, 'major').slice(0, 80);
+    if (col.guests !== undefined){ const g = parseGuests(cell(r, 'guests')); row.guests = g.n; if (!g.sure) unsure.push({name:name || no, raw:cell(r, 'guests'), n:g.n}); }
+    if (seen.has(no)) dups.push(name || no);
     seen.set(no, row);
   });
-  return {rows:[...seen.values()], col};
+  return {rows:[...seen.values()], col, byPhone, bad, dups, unsure};
 }
 function openImport(){ importRows = null; $('#importInfo').innerHTML = ''; $('#importGo').disabled = true; $('#importFile').value = ''; importDlg.showModal(); }
 $('#importFile').addEventListener('change', async e => {
   const file = e.target.files[0]; if (!file) return;
+  importRows = null; $('#importGo').disabled = true;
   try {
-    const {rows, col} = await readSheet(file); importRows = rows;
-    const existing = rows.filter(r => Object.values(S.participants).some(p => p.student_no === r.student_no)).length;
-    const colNames = {full_name:'نام', first:'نام', last:'نام خانوادگی', amount:'مبلغ', phone:'موبایل (برای ۴ رقم تأیید)', note:'توضیحات'};
-    $('#importInfo').innerHTML = `<p><b>${fmt(rows.length)}</b> ردیف پیدا شد: ${fmt(rows.length - existing)} جدید، ${fmt(existing)} به‌روزرسانی.</p>
-      <p class="sub">ستون‌های شناسایی‌شده: شماره دانشجویی${Object.keys(col).filter(k => k !== 'student_no').map(k => '، ' + colNames[k]).join('')}</p>
-      ${col.phone !== undefined ? '<p class="sub">چون ستون موبایل هست، هر نفر موقع ورود باید ۴ رقم آخر موبایلش رو هم بزنه.</p>' : '<p class="sub">ستون موبایل نیست؛ ورود فقط با شماره دانشجویی انجام می‌شه.</p>'}
-      ${col.amount === undefined ? '<p class="sub">ستون مبلغ نیست؛ برای همه مبلغ پیش‌فرض (از «اطلاعات پرداخت») حساب می‌شه.</p>' : ''}
-      <ul class="lines">${rows.slice(0, 4).map(r => `<li><span>${esc(r.full_name || '—')}</span><span dir="ltr">${esc(r.student_no)}</span></li>`).join('')}</ul>`;
+    const {rows, col, byPhone, bad, dups, unsure} = await readSheet(file); importRows = rows;
+    const known = new Set(Object.values(S.participants).map(p => p.student_no)), existing = rows.filter(r => known.has(r.student_no)).length;
+    const guests = rows.reduce((a, r) => a + (r.guests || 0), 0);
+    const colNames = {student_no:'شماره دانشجویی', phone: byPhone ? 'شماره تماس (برای ورود)' : 'موبایل (برای ۴ رقم تأیید)', full_name:'نام', first:'نام', last:'نام خانوادگی', major:'گرایش', guests:'تعداد مهمان', amount:'مبلغ', note:'توضیحات'};
+    const few = (arr, n = 6) => esc(arr.slice(0, n).join('، ')) + (arr.length > n ? ` و ${fmt(arr.length - n)} مورد دیگه` : '');
+    $('#importInfo').innerHTML = `<p><b>${fmt(rows.length)}</b> نفر پیدا شد: ${fmt(rows.length - existing)} جدید، ${fmt(existing)} به‌روزرسانی.${col.guests !== undefined ? ` جمع مهمان‌ها: <b>${fmt(guests)}</b> (کل حضور ${fmt(rows.length + guests)} نفر)` : ''}</p>
+      <p class="sub">ستون‌های شناسایی‌شده: ${Object.keys(col).map(k => colNames[k]).join('، ')}</p>
+      <p class="sub">${byPhone ? 'هر نفر بعداً با همین شماره موبایل وارد می‌شه.' : col.phone !== undefined ? 'چون ستون موبایل هست، هر نفر موقع ورود باید ۴ رقم آخر موبایلش رو هم بزنه.' : 'ستون موبایل نیست؛ ورود فقط با شماره دانشجویی انجام می‌شه.'}</p>
+      ${col.amount === undefined ? `<p class="sub">ستون مبلغ نیست؛ مبلغ هر نفر از «اطلاعات پرداخت» حساب می‌شه${col.guests !== undefined ? ' (سهم خودش + تعداد مهمان × مبلغ هر مهمان)' : ''}.</p>` : ''}
+      ${bad.length ? `<p class="sub bad">${fmt(bad.length)} ردیف شماره موبایل درست نداشت و وارد نمی‌شه: ${few(bad)}</p>` : ''}
+      ${dups.length ? `<p class="sub">${fmt(dups.length)} شماره تکراری بود و آخرین ردیفش ملاک شد: ${few(dups)}</p>` : ''}
+      ${unsure.length ? `<p class="sub bad">تعداد مهمان این‌ها دقیق خونده نشد؛ بعد از ورود چک کن:</p><ul class="lines">${unsure.slice(0, 8).map(u => `<li><span>${esc(u.name)}: «${esc(u.raw)}»</span><span>${fmt(u.n)} مهمان</span></li>`).join('')}</ul>${unsure.length > 8 ? `<p class="sub">و ${fmt(unsure.length - 8)} مورد دیگه</p>` : ''}` : ''}
+      ${(col.guests !== undefined || col.major !== undefined) && !hasGuestCols ? '<p class="sub bad">گرایش و تعداد مهمان ذخیره نمی‌شن تا فایل <code>upgrade-guests.sql</code> رو یک بار در Supabase اجرا کنی.</p>' : ''}
+      <ul class="lines">${rows.slice(0, 5).map(r => `<li><span>${esc(r.full_name || '—')}${r.major ? ' · ' + esc(r.major) : ''}${r.guests ? ` · ${fmt(r.guests)} مهمان` : ''}</span><span dir="ltr">${esc(r.student_no)}</span></li>`).join('')}</ul>`;
     $('#importGo').disabled = !rows.length;
-  } catch(err){ $('#importInfo').innerHTML = `<p class="sub bad">${esc(err.message || 'فایل خونده نشد')}</p>`; }
+  } catch(err){ console.error('import', err); $('#importInfo').innerHTML = `<p class="sub bad">${esc(err.message || 'فایل خونده نشد')}</p>`; }
 });
 $('#importGo').addEventListener('click', async () => {
   if (!importRows || !importRows.length) return;
   const btn = $('#importGo'); btn.disabled = true; btn.textContent = 'در حال ورود…';
-  let okCount = 0;
-  for (let i = 0; i < importRows.length; i += 200){
-    const chunk = importRows.slice(i, i + 200);
-    const { error } = await sb.from('participants').upsert(chunk, {onConflict:'student_no'});
-    if (error){ fail(error, 'import'); break; }
-    okCount += chunk.length;
+  // existing people keep their id; new ones get one here, so this works whether or not the table has an id default.
+  // Without upgrade-guests.sql there are no major/guests columns, and sending them would fail the whole import.
+  const byNo = new Map(Object.values(S.participants).map(p => [p.student_no, p.id]));
+  const rows = importRows.map(r => { const o = {id: byNo.get(r.student_no) || newId(), ...r}; if (!hasGuestCols){ delete o.major; delete o.guests; } return o; });
+  let okCount = 0, error = null;
+  for (let i = 0; i < rows.length && !error; i += 200){
+    const chunk = rows.slice(i, i + 200);
+    try { ({ error } = await sb.from('participants').upsert(chunk, {onConflict:'student_no'})); } catch(e){ error = e; }
+    if (!error) okCount += chunk.length;
   }
-  btn.textContent = 'وارد کردن'; importDlg.close();
-  await reload('participants'); render();
-  if (okCount) toast(`${fmt(okCount)} نفر وارد شد`);
+  btn.textContent = 'وارد کردن';
+  await resync('participants');
+  if (error){ fail(error, 'import'); btn.disabled = false; $('#importInfo').insertAdjacentHTML('beforeend', `<p class="sub bad">${fmt(okCount)} از ${fmt(rows.length)} نفر وارد شد و بقیه نه؛ دوباره «وارد کردن» رو بزن.</p>`); return; }
+  importDlg.close(); toast(`${fmt(okCount)} نفر وارد شد`);
 });
 
 
 /* ---------- tabs & bottom bar ---------- */
 let currentTab = 'items';
-document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
-  currentTab = b.dataset.tab;
-  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x === b));
-  document.querySelectorAll('.panel').forEach(p => p.hidden = p.id !== 'panel-' + currentTab);
-  if (currentTab === 'history') renderHistory();
-  if (currentTab === 'mypay'){ renderMyPay($('#myPayStaff')); hydrateThumbs(); }
-  renderBottomBar();
-}));
+const tabs = [...document.querySelectorAll('.tab')];
+tabs.forEach(b => {
+  b.setAttribute('aria-controls', 'panel-' + b.dataset.tab); b.id ||= 'tab-' + b.dataset.tab;
+  b.tabIndex = b.getAttribute('aria-selected') === 'true' ? 0 : -1;
+  b.addEventListener('click', () => {
+    currentTab = b.dataset.tab;
+    tabs.forEach(x => { x.setAttribute('aria-selected', x === b); x.tabIndex = x === b ? 0 : -1; });
+    document.querySelectorAll('.panel').forEach(p => p.hidden = p.id !== 'panel-' + currentTab);
+    if (currentTab === 'history') renderHistory();
+    if (currentTab === 'mypay'){ renderMyPay($('#myPayStaff')); hydrateThumbs(); }
+    renderBottomBar();
+  });
+});
+tabs.forEach(b => { const p = $('#panel-' + b.dataset.tab); p.setAttribute('role', 'tabpanel'); p.setAttribute('aria-labelledby', b.id); });
+// arrow keys move between tabs (the page is RTL, so ArrowLeft goes to the next tab)
+$('.tabs').addEventListener('keydown', e => {
+  const shown = tabs.filter(t => !t.hidden && t.offsetParent), i = shown.indexOf(document.activeElement);
+  if (i < 0) return;
+  const next = {ArrowLeft:i + 1, ArrowRight:i - 1, Home:0, End:shown.length - 1}[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  const t = shown[(next + shown.length) % shown.length]; t.focus(); t.click();
+});
 function renderBottomBar(){
   const bar = $('#bottomBar'), key = currentTab + ':' + myRole; if (bar.dataset.key === key) return; bar.dataset.key = key;
   const btn = (act, l, p) => `<button class="btn ${p ? 'primary' : ''}" type="button" data-act="${act}">${l}</button>`;
@@ -1639,7 +1829,7 @@ function renderBottomBar(){
     : currentTab === 'people' ? btn('add-person','+ شرکت‌کننده',1) + btn('import-people','ورود از شیت') : '';
 }
 ['#q','#fType','#fStatus','#fSort'].forEach(s => $(s).addEventListener('input', () => renderItems(totals())));
-['#pq','#pFilter'].forEach(s => $(s).addEventListener('input', () => { renderPeople(); hydrateThumbs(); }));
+['#pq','#pFilter','#pMajor'].forEach(s => $(s).addEventListener('input', () => { renderPeople(); hydrateThumbs(); }));
 
 /* ---------- item dialog ---------- */
 $('#catSelect').innerHTML = CATS.map(c => `<option>${c}</option>`).join('');
@@ -1647,6 +1837,9 @@ const itemDlg = $('#itemDlg'), itemForm = $('#itemForm'); let editingItem = null
 function numField(el, v){ el.value = v ? fmt(v) : ''; }
 function liveFormat(e){
   const el = e.target; if (!el || el.getAttribute('inputmode') !== 'numeric') return;
+  if (el.name === 'card_number'){ const s = cardFmt(el.value); if (el.value !== s) el.value = s; return; }
+  // dir=ltr numeric fields are codes (phone digits, tracking code): keep leading zeros, no thousands separators
+  if (el.dir === 'ltr') return;
   const n = parseNum(el.value), s = n ? fmt(n) : ''; if (el.value !== s) el.value = s;
 }
 function renderItemAtt(itemId){
@@ -1682,7 +1875,7 @@ function openItem(id, preset){
 function updateCalc(){ const f = itemForm.elements, u = parseNum(f.unit.value), q = parseNum(f.qty.value) || 1; $('#calc').innerHTML = u ? `برآورد کل: <b>${money(u*q)}</b>` : ''; }
 itemForm.addEventListener('input', e => { liveFormat(e); updateCalc(); });
 $('#paidChk').addEventListener('change', e => { $('#paidBox').hidden = !e.target.checked; });
-itemForm.addEventListener('submit', e => {
+itemForm.addEventListener('submit', async e => {
   e.preventDefault();
   const f = itemForm.elements, title = f.title.value.trim();
   if (!title){ f.title.focus(); toast('عنوان رو بنویس'); return; }
@@ -1690,15 +1883,15 @@ itemForm.addEventListener('submit', e => {
     type:itemForm.querySelector('input[name=type]:checked').value, category:f.category.value, unit:parseNum(f.unit.value), qty:parseNum(f.qty.value) || 1,
     paid:f.paid.checked, actual:f.paid.checked ? parseNum(f.actual.value) : 0, payer:f.paid.checked ? (f.payer.value.trim() || FUND) : ''};
   const wasNew = !editingItem;
-  itemDlg.close(); upsert('items', obj); toast(wasNew ? 'هزینه اضافه شد' : 'تغییرات ذخیره شد');
+  itemDlg.close(); if (await upsert('items', obj)) toast(wasNew ? 'هزینه اضافه شد' : 'تغییرات ذخیره شد');
 });
-$('#itemDel').addEventListener('click', () => {
+$('#itemDel').addEventListener('click', async () => {
   const it = editingItem; if (!it) return;
-  const n = invOf(it.id).length;
-  if (!confirm(`«${it.title}» حذف بشه؟` + (n ? `\n${fmt(n)} فاکتورِ وصل‌شده حذف نمی‌شن و می‌رن توی «وصل‌نشده».` : ''))) return;
+  const invs = invOf(it.id);
+  if (!confirm(`«${it.title}» حذف بشه؟` + (invs.length ? `\n${fmt(invs.length)} فاکتورِ وصل‌شده حذف نمی‌شن و می‌رن توی «وصل‌نشده».` : ''))) return;
   itemDlg.close();
-  invOf(it.id).forEach(v => { S.invoices[v.id] = {...v, item_id:null}; }); // database does this via ON DELETE SET NULL
-  del('items', it.id); toast('حذف شد');
+  invs.forEach(v => { S.invoices[v.id] = {...v, item_id:null}; }); // database does this via ON DELETE SET NULL
+  if (await del('items', it.id)) toast('حذف شد'); else resync('invoices');
 });
 
 /* ---------- money entry dialog ---------- */
@@ -1722,17 +1915,17 @@ function openEntry(kind, id, presetName){
 }
 function updateECalc(){ const n = parseNum(entryForm.elements.amount.value); $('#ecalc').innerHTML = n ? `<b>${money(n)}</b>` : ''; }
 entryForm.addEventListener('input', e => { liveFormat(e); updateECalc(); });
-entryForm.addEventListener('submit', e => {
+entryForm.addEventListener('submit', async e => {
   e.preventDefault();
   const f = entryForm.elements, name = f.name.value.trim();
   if (!name){ f.name.focus(); toast(entryKind === 'fund' ? 'منبع رو بنویس' : 'اسم رو بنویس'); return; }
   const obj = {id: editingEntry ? editingEntry.id : newId(), kind:entryKind, name, amount:parseNum(f.amount.value), paid:f.paid.checked, note:f.note.value.trim()};
   const wasNew = !editingEntry;
-  entryDlg.close(); upsert('funds', obj); toast(wasNew ? 'ثبت شد' : 'تغییرات ذخیره شد');
+  entryDlg.close(); if (await upsert('funds', obj)) toast(wasNew ? 'ثبت شد' : 'تغییرات ذخیره شد');
 });
-$('#entryDel').addEventListener('click', () => {
-  if (!editingEntry || !confirm(`«${editingEntry.name}» حذف بشه؟`)) return;
-  entryDlg.close(); del('funds', editingEntry.id); toast('حذف شد');
+$('#entryDel').addEventListener('click', async () => {
+  const c = editingEntry; if (!c || !confirm(`«${c.name}» حذف بشه؟`)) return;
+  entryDlg.close(); if (await del('funds', c.id)) toast('حذف شد');
 });
 
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
@@ -1774,7 +1967,7 @@ document.addEventListener('change', e => {
   m = e.target.closest('[data-mem-name]'); if (m){ const v = m.value.trim(); if (v) setMember(m.dataset.memName, {display_name:v}); return; }
   let s = e.target.closest('[data-inv-map]'); if (s) return mapInvoice(s.dataset.invMap, s.value);
   s = e.target.closest('[data-link-free]');
-  if (s && s.value){ const v = S.invoices[s.value]; if (v){ upsert('invoices', {...v, item_id:s.dataset.linkFree}); toast('فاکتور وصل شد'); } }
+  if (s && s.value) patch('invoices', s.value, {item_id:s.dataset.linkFree}).then(ok => ok && toast('فاکتور وصل شد'));
 });
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.id === 'drop'){ e.preventDefault(); fileInput.click(); } });
 const drop = $('#drop');
@@ -1837,10 +2030,12 @@ function exportXlsx(){
   XLSX.utils.book_append_sheet(wb, sheetFrom(a5, [6,14,24,16,14,34,12,14], [3]), 'بودجه و سهم‌ها');
   const parts = Object.values(S.participants).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||'','fa'));
   if (parts.length){
-    const a6 = [['ردیف','شماره دانشجویی','نام','مبلغ سهم','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت']];
-    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, p.student_no, p.full_name||'', s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'']); });
-    a6.push([]); a6.push(['','','جمع', parts.reduce((a,p) => a + dueOf(p), 0), parts.reduce((a,p) => a + payState(p).approved, 0)]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a6, [6,16,24,14,14,14,14,18,10,10,30], [3,4,5,6]), 'شرکت‌کننده‌ها');
+    const a6 = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','تعداد مهمان','مبلغ سهم','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت']];
+    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, p.student_no, p.full_name||'', p.major||'', guestsOf(p), s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'']); });
+    const guests = parts.reduce((a,p) => a + guestsOf(p), 0);
+    a6.push([]); a6.push(['','','جمع','', guests, parts.reduce((a,p) => a + dueOf(p), 0), parts.reduce((a,p) => a + payState(p).approved, 0)]);
+    a6.push(['','','کل حضور (نفرات + مهمان‌ها)','', parts.length + guests]);
+    XLSX.utils.book_append_sheet(wb, sheetFrom(a6, [6,16,24,18,10,14,14,14,14,18,10,10,30], [4,5,6,7,8]), 'شرکت‌کننده‌ها');
   }
 
   const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
