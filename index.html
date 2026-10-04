@@ -548,7 +548,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
     <div class="dlg-head"><h2 id="personDlgTitle">شرکت‌کننده</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
     <div class="dlg-body">
       <div class="two">
-        <label class="lbl">موبایل یا شماره دانشجویی <span class="hint">ورود با همین انجام می‌شه</span><input class="field" name="student_no" dir="ltr" required maxlength="20"></label>
+        <label class="lbl">موبایل یا شماره دانشجویی <span class="hint">ورود با همین انجام می‌شه؛ اگه نداره خالی بمونه</span><input class="field" name="student_no" dir="ltr" maxlength="20" placeholder="بدون شماره"></label>
         <label class="lbl">نام و نام خانوادگی<input class="field" name="full_name" maxlength="80"></label>
       </div>
       <div class="two" id="personExtra">
@@ -678,13 +678,21 @@ const toLatin = s => String(s ?? '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷�
 const parseNum = s => { const v = toLatin(s).replace(/[^\d]/g, ''); return v ? Number(v) : 0; };
 const normNo = s => toLatin(s).replace(/[\s\-_/.]/g, '').toUpperCase(); // student number, as stored
 const last4 = s => toLatin(s).replace(/\D/g, '').slice(-4);
-// An Iranian mobile in the one form participants are stored under (09xxxxxxxxx), or null.
-// Accepts +98/0098/98 prefixes, Persian digits, spaces, and a lost leading 0 (Excel drops it from numeric cells).
-// If a cell holds two numbers ("0912… / 0935…"), the first one is used.
-function canonPhone(s){
-  const one = t => { const m = /^(?:0098|98|0)?(9\d{9})$/.exec(toLatin(t).replace(/\D/g, '')); return m ? '0' + m[1] : null; };
-  return [s, ...String(s ?? '').split(/[\/,،;|\n]|\s[-–]\s|\s{2,}/)].map(one).find(Boolean) || null;
+// Every Iranian mobile written in a cell, in the one form participants are stored under (09xxxxxxxxx).
+// Accepts +98/0098/98 prefixes, Persian digits, spaces/dashes inside the number, a lost leading 0 (Excel drops it
+// from numeric cells), and other text around it ("09367…(@user)", "0910…(تلگرام) 0999…(تماس)").
+// tg: the text right after the number says it's the Telegram one.
+function phonesIn(s){
+  const t = toLatin(s), out = [], re = /(^|\D)((?:\+?98|0098|0)?[\s\-]*9(?:[\s\-]*\d){9})(?!\d)/g;
+  let m;
+  while ((m = re.exec(t))){
+    const d = m[2].replace(/\D/g, ''), phone = '0' + d.slice(-10), after = t.slice(m.index + m[0].length, m.index + m[0].length + 16);
+    if (!out.some(x => x.phone === phone)) out.push({phone, tg: /^\s*[(\[\-–:]?\s*(تلگرام|telegram|tg)/i.test(after)});
+  }
+  return out;
 }
+// the number a person logs in with: the one marked Telegram if a cell has several, else the first; or null
+const canonPhone = s => { const ps = phonesIn(s); return (ps.find(x => x.tg) || ps[0] || {}).phone || null; };
 // Several people can register with one number (e.g. someone signs up a friend too). The number column has to stay
 // unique, so they're stored as 0912…, 0912…#2, 0912…#3; the number's owner logs in once and switches between them.
 const baseNo = s => String(s ?? '').split('#')[0];
@@ -694,6 +702,11 @@ const normName = s => String(s ?? '').replace(/\u200c/g, ' ').replace(/ي/g, 'ی
 // the stored key for one more person on this number (taken: keys already in use)
 function freeKey(base, taken){ if (!taken.has(base)) return base; let k = 2; while (taken.has(`${base}#${k}`)) k++; return `${base}#${k}`; }
 const isPhoneId = s => /^09\d{9}$/.test(baseNo(s));
+// Someone on the list without a usable number is stored as "~<name>" (the column can't be empty and must stay unique).
+// They can't log in until a number is added for them; the finance team can still record their payments.
+const noPhone = s => String(s ?? '').startsWith('~');
+const noPhoneKey = name => '~' + normName(name);
+const shownNo = s => noPhone(s) ? '' : baseNo(s);
 // Guest count as people write it: "2", "۲ نفر", "دو نفر", "ندارم", "-".
 // sure=false when the cell had more than a plain count (e.g. "۲ نفر (پدر و مادر)") or couldn't be read, so the admin can check it.
 const GUEST_WORDS = {'صفر':0, 'یک':1, 'یه':1, 'دو':2, 'سه':3, 'چهار':4, 'پنج':5, 'شش':6, 'شیش':6, 'هفت':7, 'هشت':8, 'ده':10};
@@ -1615,9 +1628,9 @@ function renderPeople(){
   </div>`;
   const states = all.map(p => [p, payState(p)]);
   // people sharing a number: how many per number, and whose number's owner has already logged in
-  const perNo = new Map(); all.forEach(p => perNo.set(baseNo(p.student_no), (perNo.get(baseNo(p.student_no)) || 0) + 1));
-  const linkedNos = new Set(all.filter(p => p.user_id).map(p => baseNo(p.student_no)));
-  const isLinked = p => !!p.user_id || linkedNos.has(baseNo(p.student_no));
+  const perNo = new Map(); all.filter(p => isPhoneId(p.student_no)).forEach(p => perNo.set(baseNo(p.student_no), (perNo.get(baseNo(p.student_no)) || 0) + 1));
+  const linkedNos = new Set(all.filter(p => p.user_id && isPhoneId(p.student_no)).map(p => baseNo(p.student_no)));
+  const isLinked = p => !!p.user_id || (isPhoneId(p.student_no) && linkedNos.has(baseNo(p.student_no)));
   const sum = k => states.reduce((a,[,s]) => a + s[k], 0);
   const cnt = k => states.filter(([,s]) => s.key === k).length;
   const guests = all.reduce((a,p) => a + guestsOf(p), 0);
@@ -1627,7 +1640,7 @@ function renderPeople(){
   const nPeople = $('#nPeople'); nPeople.textContent = queue.length ? fmt(queue.length) + ' فیش' : fmt(all.length); nPeople.classList.toggle('alert', !!queue.length);
   $('#reviewQueue').innerHTML = queue.length ? `<div class="group" style="--c:var(--warn)"><div class="group-head"><h4>فیش‌های در انتظار بررسی</h4><span class="sum">${fmt(queue.length)}</span></div><div class="list">${queue.map(x => {
       const p = S.participants[x.participant_id] || {};
-      return `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:var(--warn)">${receiptThumb(x)}<div><b>${esc(p.full_name || baseNo(p.student_no))}</b><span class="sub"><span dir="ltr">${esc(baseNo(p.student_no))}</span> · ${faDate(x.created_at)}</span></div><b class="num">${fmt(x.amount)}</b></button>`;
+      return `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:var(--warn)">${receiptThumb(x)}<div><b>${esc(p.full_name || shownNo(p.student_no))}</b><span class="sub"><span dir="ltr">${esc(shownNo(p.student_no))}</span> · ${faDate(x.created_at)}</span></div><b class="num">${fmt(x.amount)}</b></button>`;
     }).join('')}</div></div>` : '';
 
   // major filter: options follow whatever majors are in the list; keep the current choice across re-renders
@@ -1646,7 +1659,7 @@ function renderPeople(){
     ? `<div class="empty"><h3>هنوز شرکت‌کننده‌ای ثبت نشده</h3>فایل اکسل یا CSV لیست ثبت‌نام رو وارد کن؛ کافیه ستون «شماره تماس» (یا «شماره دانشجویی») و «نام» داشته باشه. «گرایش» و «تعداد مهمان» هم خونده می‌شن.<div class="chips need-edit"><button class="chip" type="button" data-act="import-people">ورود از شیت</button><button class="chip" type="button" data-act="add-person">افزودن دستی</button></div></div>`
     : rows.map(([p, s]) => `<button class="row" type="button" data-person="${esc(p.id)}" style="--c:${STATE_COLOR[s.key]}">
         <span class="stripe"></span>
-        <span><span class="t">${esc(p.full_name || '—')}</span><span class="meta"><span class="tag" dir="ltr">${esc(baseNo(p.student_no))}</span>${perNo.get(baseNo(p.student_no)) > 1 ? `<span class="tag warn">شماره‌ی مشترک ${fmt(perNo.get(baseNo(p.student_no)))} نفر</span>` : ''}${p.major ? `<span class="tag">${esc(p.major)}</span>` : ''}${guestsOf(p) ? `<span class="tag">${fmt(guestsOf(p))} مهمان</span>` : ''}<span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${isLinked(p) ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}</span></span>
+        <span><span class="t">${esc(p.full_name || '—')}</span><span class="meta">${noPhone(p.student_no) ? '<span class="tag warn">بدون شماره</span>' : `<span class="tag" dir="ltr">${esc(baseNo(p.student_no))}</span>`}${perNo.get(baseNo(p.student_no)) > 1 ? `<span class="tag warn">شماره‌ی مشترک ${fmt(perNo.get(baseNo(p.student_no)))} نفر</span>` : ''}${p.major ? `<span class="tag">${esc(p.major)}</span>` : ''}${guestsOf(p) ? `<span class="tag">${fmt(guestsOf(p))} مهمان</span>` : ''}<span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${isLinked(p) ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}</span></span>
         <span></span>
         <span class="amt"><b>${fmt(s.approved)}</b><small>از ${fmt(s.due)}</small></span>
       </button>`).join('') || '<div class="empty">موردی با این فیلتر پیدا نشد.</div>';
@@ -1659,7 +1672,7 @@ function openPerson(id){
   editingPerson = id ? S.participants[id] : null;
   const p = editingPerson || {student_no:'', full_name:'', amount:null, verify_code:'', note:'', major:'', guests:0};
   const f = personForm.elements;
-  f.student_no.value = baseNo(p.student_no); f.full_name.value = p.full_name || '';
+  f.student_no.value = shownNo(p.student_no); f.full_name.value = p.full_name || '';
   f.major.value = p.major || ''; f.guests.value = guestsOf(p) ? fmt(guestsOf(p)) : '';
   $('#personExtra').hidden = !hasGuestCols;
   f.amount.value = p.amount !== null && p.amount !== undefined ? fmt(p.amount) : '';
@@ -1673,6 +1686,7 @@ function openPerson(id){
   $('#personLink').innerHTML = editingPerson ? (p.user_id
     ? `<span class="tag ok">حساب تلگرام: ${esc(linked)}</span> <button class="btn small danger need-admin" type="button" data-act="unlink-person">جدا کردن حساب</button>`
     : viaShared ? `<span class="tag ok">صاحب شماره (حساب «${esc(S.members[viaShared.user_id]?.display_name || viaShared.full_name || '')}») براش پرداخت می‌کنه</span>`
+    : noPhone(p.student_no) ? '<span class="tag warn">بدون شماره؛ تا شماره‌ش رو بالا ننویسی، خودش نمی‌تونه وارد سایت بشه</span>'
     : '<span class="tag">هنوز وارد نشده</span>')
     + (sharing.length ? ` <span class="tag warn">با همین شماره: ${esc(sharing.map(x => x.full_name || '—').join('، '))}</span>` : '') : '';
   renderPersonPays();
@@ -1738,19 +1752,29 @@ personForm.addEventListener('input', e => { liveFormat(e); if (e.target.name ===
 const phoneList = () => { const ids = Object.values(S.participants).map(p => p.student_no); return ids.length > 0 && ids.filter(isPhoneId).length * 2 >= ids.length; };
 personForm.addEventListener('submit', async e => {
   e.preventDefault();
-  const f = personForm.elements, plain = normNo(f.student_no.value), phone = canonPhone(f.student_no.value);
-  // store phones as 09xxxxxxxxx like the import does; a bare 10-digit "9…" is only taken as a phone in a phone-based list
-  const base = baseNo(phone && (!/^9\d{9}$/.test(plain) || phoneList()) ? phone : plain);
-  if (!base){ f.student_no.focus(); toast('شماره موبایل یا دانشجویی رو بنویس'); return; }
-  let no = base;
-  if (editingPerson && sameNumber(editingPerson.student_no, base)) no = editingPerson.student_no; // number unchanged: keep its key
-  else {
-    const others = Object.values(S.participants).filter(x => sameNumber(x.student_no, base) && (!editingPerson || x.id !== editingPerson.id));
-    if (others.length){
-      // only a phone can be shared; a student number belongs to one person
-      if (!isPhoneId(base)){ toast(`این شماره قبلاً برای «${others[0].full_name || base}» ثبت شده`); return; }
-      if (!confirm(`این شماره برای «${others.map(x => x.full_name || '—').join('، ')}» هم ثبت شده.\nاگه واقعاً با یک شماره ثبت‌نام کردن، هر کدوم جدا ذخیره می‌شه و صاحب شماره بعد از ورود می‌تونه بینشون جابه‌جا بشه و برای هر کدوم جدا پرداخت کنه. ادامه؟`)) return;
-      no = freeKey(base, new Set(Object.values(S.participants).map(x => x.student_no)));
+  const f = personForm.elements, typed = f.student_no.value.trim(), plain = normNo(typed), phone = canonPhone(typed);
+  const othersKeys = () => new Set(Object.values(S.participants).filter(x => !editingPerson || x.id !== editingPerson.id).map(x => x.student_no));
+  let no;
+  if (!typed){
+    // no number (yet): kept under "~<name>"; they can't log in until one is added
+    const nm = f.full_name.value.trim();
+    if (!nm){ f.full_name.focus(); toast('دست‌کم اسم رو بنویس'); return; }
+    no = editingPerson && noPhone(editingPerson.student_no) ? editingPerson.student_no : freeKey(noPhoneKey(nm), othersKeys());
+  } else if (!phone && phoneList()){
+    f.student_no.focus(); toast('این شماره موبایل درستی نیست؛ اگه شماره نداره، خالی بذار'); return;
+  } else {
+    // store phones as 09xxxxxxxxx like the import does; a bare 10-digit "9…" is only taken as a phone in a phone-based list
+    const base = baseNo(phone && (!/^9\d{9}$/.test(plain) || phoneList()) ? phone : plain);
+    no = base;
+    if (editingPerson && sameNumber(editingPerson.student_no, base)) no = editingPerson.student_no; // number unchanged: keep its key
+    else {
+      const others = Object.values(S.participants).filter(x => sameNumber(x.student_no, base) && (!editingPerson || x.id !== editingPerson.id));
+      if (others.length){
+        // only a phone can be shared; a student number belongs to one person
+        if (!isPhoneId(base)){ toast(`این شماره قبلاً برای «${others[0].full_name || base}» ثبت شده`); return; }
+        if (!confirm(`این شماره برای «${others.map(x => x.full_name || '—').join('، ')}» هم ثبت شده.\nاگه واقعاً با یک شماره ثبت‌نام کردن، هر کدوم جدا ذخیره می‌شه و صاحب شماره بعد از ورود می‌تونه بینشون جابه‌جا بشه و برای هر کدوم جدا پرداخت کنه. ادامه؟`)) return;
+        no = freeKey(base, new Set(Object.values(S.participants).map(x => x.student_no)));
+      }
     }
   }
   const amt = f.amount.value.trim() ? parseNum(f.amount.value) : null;
@@ -1783,8 +1807,8 @@ const receiptDlg = $('#receiptDlg'); let reviewing = null;
 async function openReceipt(id){
   const x = S.payments[id]; if (!x) return; reviewing = x;
   const p = S.participants[x.participant_id] || {}, st = payState(p.id ? p : {id:null});
-  $('#rcTitle').textContent = `فیش ${p.full_name || baseNo(p.student_no)}`;
-  $('#rcInfo').innerHTML = `<span dir="ltr" class="tag">${esc(baseNo(p.student_no))}</span> <span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span>
+  $('#rcTitle').textContent = `فیش ${p.full_name || shownNo(p.student_no)}`;
+  $('#rcInfo').innerHTML = `<span dir="ltr" class="tag">${esc(shownNo(p.student_no) || 'بدون شماره')}</span> <span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span>
     <span class="sub">سهم ${fmt(p.id ? dueOf(p) : 0)} · تأییدشده قبلی ${fmt(st.approved)}${x.tracking_code ? ` · پیگیری <span dir="ltr">${esc(x.tracking_code)}</span>` : ''} · ارسال ${faDate(x.created_at)}</span>
     ${x.reviewed_by ? `<span class="sub">بررسی: ${esc(x.reviewed_by)}</span>` : ''}`;
   $('#rcAmount').value = fmt(x.amount); $('#rcAmount').disabled = !canEdit || (x.status === 'approved' && !canAdmin);
@@ -1891,19 +1915,29 @@ async function readSheet(file){
   // with a student-number column the phone only gives the 4-digit check code; otherwise the phone itself is what people log in with
   const byPhone = col.student_no === undefined;
   const cell = (r, k) => col[k] === undefined ? '' : String(r[col[k]] ?? '').trim();
-  const parsed = [], bad = [], unsure = [];
+  const parsed = [], noNumber = [], picked = [], unsure = [];
   aoa.slice(hi + 1).forEach(r => {
     // Arabic-keyboard ي/ك become Persian ی/ک, so names match searches and each other
     const name = (cell(r, 'full_name') || [cell(r, 'first'), cell(r, 'last')].filter(Boolean).join(' ')).replace(/ي/g, 'ی').replace(/ك/g, 'ک');
-    const no = byPhone ? canonPhone(cell(r, 'phone')) : normNo(cell(r, 'student_no'));
-    if (!no){ if (byPhone && (name || cell(r, 'phone'))) bad.push(`${name || '—'} (${cell(r, 'phone') || 'بدون شماره'})`); return; }
+    const rawPhone = cell(r, 'phone');
+    let no, extra = '';
+    if (byPhone){
+      const ps = phonesIn(rawPhone), chosen = ps.find(x => x.tg) || ps[0];
+      no = chosen ? chosen.phone : null;
+      // whatever else the cell said (a second number, a Telegram ID…) goes into a new person's note
+      if (rawPhone && (!no || ps.length > 1 || /[^\d\s\-+()]/.test(toLatin(rawPhone)))) extra = `شماره در شیت: ${rawPhone}`;
+      if (!no){ if (!name) return; noNumber.push(`${name} (${rawPhone || 'بدون شماره'})`); }
+      else if (extra) picked.push(`${name || no}: ${no}${chosen.tg ? ' (تلگرام)' : ''}`);
+    } else {
+      no = normNo(cell(r, 'student_no')); if (!no) return;
+    }
     const row = {student_no:no, full_name:name.slice(0, 80)};
     if (col.amount !== undefined) row.amount = parseNum(cell(r, 'amount')) || null;
-    if (!byPhone && col.phone !== undefined) row.verify_code = last4(cell(r, 'phone')) || null;
+    if (!byPhone && col.phone !== undefined) row.verify_code = last4(rawPhone) || null;
     if (col.note !== undefined) row.note = cell(r, 'note').slice(0, 140);
     if (col.major !== undefined) row.major = cell(r, 'major').slice(0, 80);
     if (col.guests !== undefined){ const g = parseGuests(cell(r, 'guests')); row.guests = g.n; if (!g.sure) unsure.push({name:name || no, raw:cell(r, 'guests'), n:g.n}); }
-    parsed.push({row, nn:normName(name)});
+    parsed.push({row, nn:normName(name), extra, noNumber:!no});
   });
   // Rows on one phone number: the same name again is a repeated registration (the last row wins);
   // a different name is another person, stored under the next free key (0912…#2) so both are kept.
@@ -1911,7 +1945,12 @@ async function readSheet(file){
   const keyOf = new Map(), shared = [];
   if (byPhone){
     const groups = new Map();
-    parsed.forEach(x => { const g = groups.get(x.row.student_no) || []; g.push(x); groups.set(x.row.student_no, g); });
+    parsed.filter(x => !x.noNumber).forEach(x => { const g = groups.get(x.row.student_no) || []; g.push(x); groups.set(x.row.student_no, g); });
+    // no usable number: the person already on the list under this name, else "~<name>"
+    parsed.filter(x => x.noNumber).forEach(x => {
+      const same = Object.values(S.participants).filter(p => normName(p.full_name) === x.nn);
+      keyOf.set(x, same.length === 1 ? same[0].student_no : (same.find(p => p.student_no === noPhoneKey(x.nn)) || {}).student_no || noPhoneKey(x.nn));
+    });
     groups.forEach((list, base) => {
       const names = [...new Set(list.map(x => x.nn))], ex = Object.values(S.participants).filter(p => baseNo(p.student_no) === base);
       const keys = new Map(), used = new Set();
@@ -1924,20 +1963,22 @@ async function readSheet(file){
       if (names.length > 1) shared.push(`${base}: ${[...new Set(list.map(x => x.row.full_name || '—'))].join(' و ')}`);
     });
   }
-  const seen = new Map(), dups = [];
+  const seen = new Map(), dups = [], known = new Set(Object.values(S.participants).map(p => p.student_no));
   parsed.forEach(x => {
-    const key = keyOf.get(x) || x.row.student_no;
-    if (seen.has(key)) dups.push(x.row.full_name || baseNo(key));
-    seen.set(key, {...x.row, student_no:key});
+    const key = keyOf.get(x) || x.row.student_no, row = {...x.row, student_no:key};
+    // the cell's leftovers only go into the note of someone new, so a re-import doesn't overwrite notes made since
+    if (x.extra && !known.has(key)) row.note = [row.note, x.extra].filter(Boolean).join(' · ').slice(0, 140);
+    if (seen.has(key)) dups.push(x.row.full_name || shownNo(key));
+    seen.set(key, row);
   });
-  return {rows:[...seen.values()], col, byPhone, bad, dups, unsure, shared};
+  return {rows:[...seen.values()], col, byPhone, noNumber, picked, dups, unsure, shared};
 }
 function openImport(){ importRows = null; $('#importInfo').innerHTML = ''; $('#importGo').disabled = true; $('#importFile').value = ''; importDlg.showModal(); }
 $('#importFile').addEventListener('change', async e => {
   const file = e.target.files[0]; if (!file) return;
   importRows = null; $('#importGo').disabled = true;
   try {
-    const {rows, col, byPhone, bad, dups, unsure, shared} = await readSheet(file); importRows = rows;
+    const {rows, col, byPhone, noNumber, picked, dups, unsure, shared} = await readSheet(file); importRows = rows;
     const known = new Set(Object.values(S.participants).map(p => p.student_no)), existing = rows.filter(r => known.has(r.student_no)).length;
     const guests = rows.reduce((a, r) => a + (r.guests || 0), 0);
     const colNames = {student_no:'شماره دانشجویی', phone: byPhone ? 'شماره تماس (برای ورود)' : 'موبایل (برای ۴ رقم تأیید)', full_name:'نام', first:'نام', last:'نام خانوادگی', major:'گرایش', guests:'تعداد مهمان', amount:'مبلغ', note:'توضیحات'};
@@ -1946,12 +1987,13 @@ $('#importFile').addEventListener('change', async e => {
       <p class="sub">ستون‌های شناسایی‌شده: ${Object.keys(col).map(k => colNames[k]).join('، ')}</p>
       <p class="sub">${byPhone ? 'هر نفر بعداً با همین شماره موبایل وارد می‌شه.' : col.phone !== undefined ? 'چون ستون موبایل هست، هر نفر موقع ورود باید ۴ رقم آخر موبایلش رو هم بزنه.' : 'ستون موبایل نیست؛ ورود فقط با شماره دانشجویی انجام می‌شه.'}</p>
       ${col.amount === undefined ? `<p class="sub">ستون مبلغ نیست؛ مبلغ هر نفر از «اطلاعات پرداخت» حساب می‌شه${col.guests !== undefined ? ' (سهم خودش + تعداد مهمان × مبلغ هر مهمان)' : ''}.</p>` : ''}
-      ${bad.length ? `<p class="sub bad">${fmt(bad.length)} ردیف شماره موبایل درست نداشت و وارد نمی‌شه: ${few(bad)}</p>` : ''}
+      ${noNumber.length ? `<p class="sub bad">${fmt(noNumber.length)} نفر شماره موبایل درست ندارن؛ با برچسب «بدون شماره» وارد می‌شن، ولی تا شماره‌شون رو در پنجره‌ی خودشون ننویسی خودشون نمی‌تونن وارد سایت بشن (پرداختشون رو می‌تونی دستی ثبت کنی): ${few(noNumber)}</p>` : ''}
+      ${picked.length ? `<p class="sub">از خونه‌ی شماره‌ی این‌ها فقط شماره‌ی موبایل برداشته شد (اگه چند شماره بود، اونی که «تلگرام» کنارش بود) و متن کامل توی یادداشتشون می‌مونه: ${few(picked)}</p>` : ''}
       ${dups.length ? `<p class="sub">${fmt(dups.length)} نفر دو بار ثبت‌نام کرده بودن (همون شماره و همون اسم) و آخرین ردیفشون ملاک شد: ${few(dups)}</p>` : ''}
       ${shared.length ? `<p class="sub">${fmt(shared.length)} شماره برای بیش از یک نفر ثبت شده؛ هر نفر جدا ثبت می‌شه و صاحب شماره بعد از ورود می‌تونه بینشون جابه‌جا بشه و برای هر کدوم جدا پرداخت کنه: ${few(shared, 4)}</p>` : ''}
       ${unsure.length ? `<p class="sub bad">تعداد مهمان این‌ها دقیق خونده نشد؛ بعد از ورود چک کن:</p><ul class="lines">${unsure.slice(0, 8).map(u => `<li><span>${esc(u.name)}: «${esc(u.raw)}»</span><span>${fmt(u.n)} مهمان</span></li>`).join('')}</ul>${unsure.length > 8 ? `<p class="sub">و ${fmt(unsure.length - 8)} مورد دیگه</p>` : ''}` : ''}
       ${(col.guests !== undefined || col.major !== undefined) && !hasGuestCols ? '<p class="sub bad">گرایش و تعداد مهمان ذخیره نمی‌شن، چون ستون‌هاشون هنوز در دیتابیس ساخته نشده (دستور SQL مربوط به مهمان‌ها رو اجرا کن).</p>' : ''}
-      <ul class="lines">${rows.slice(0, 5).map(r => `<li><span>${esc(r.full_name || '—')}${r.major ? ' · ' + esc(r.major) : ''}${r.guests ? ` · ${fmt(r.guests)} مهمان` : ''}</span><span dir="ltr">${esc(baseNo(r.student_no))}</span></li>`).join('')}</ul>`;
+      <ul class="lines">${rows.slice(0, 5).map(r => `<li><span>${esc(r.full_name || '—')}${r.major ? ' · ' + esc(r.major) : ''}${r.guests ? ` · ${fmt(r.guests)} مهمان` : ''}</span><span dir="ltr">${noPhone(r.student_no) ? 'بدون شماره' : esc(baseNo(r.student_no))}</span></li>`).join('')}</ul>`;
     $('#importGo').disabled = !rows.length;
   } catch(err){ console.error('import', err); $('#importInfo').innerHTML = `<p class="sub bad">${esc(err.message || 'فایل خونده نشد')}</p>`; }
 });
@@ -1962,11 +2004,17 @@ $('#importGo').addEventListener('click', async () => {
   // Until those columns exist there are no major/guests columns to write, and sending them would fail the whole import.
   const byNo = new Map(Object.values(S.participants).map(p => [p.student_no, p.id]));
   const rows = importRows.map(r => { const o = {id: byNo.get(r.student_no) || newId(), ...r}; if (!hasGuestCols){ delete o.major; delete o.guests; } return o; });
+  // A batch upsert sends every column any row has and blanks it where a row lacks it, so rows are sent in groups
+  // with the same columns (e.g. only new people with a messy number cell get a note; others keep theirs).
+  const groups = new Map(); rows.forEach(r => { const k = Object.keys(r).sort().join(); groups.set(k, [...(groups.get(k) || []), r]); });
   let okCount = 0, error = null;
-  for (let i = 0; i < rows.length && !error; i += 200){
-    const chunk = rows.slice(i, i + 200);
-    try { ({ error } = await sb.from('participants').upsert(chunk, {onConflict:'student_no'})); } catch(e){ error = e; }
-    if (!error) okCount += chunk.length;
+  for (const list of groups.values()){
+    for (let i = 0; i < list.length && !error; i += 200){
+      const chunk = list.slice(i, i + 200);
+      try { ({ error } = await sb.from('participants').upsert(chunk, {onConflict:'student_no'})); } catch(e){ error = e; }
+      if (!error) okCount += chunk.length;
+    }
+    if (error) break;
   }
   btn.textContent = 'وارد کردن';
   await resync('participants');
@@ -2237,7 +2285,7 @@ function exportXlsx(){
   const parts = Object.values(S.participants).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||'','fa'));
   if (parts.length){
     const a6 = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','تعداد مهمان','مبلغ سهم','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت']];
-    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, baseNo(p.student_no), p.full_name||'', p.major||'', guestsOf(p), s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'']); });
+    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', guestsOf(p), s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'']); });
     const guests = parts.reduce((a,p) => a + guestsOf(p), 0);
     a6.push([]); a6.push(['','','جمع','', guests, parts.reduce((a,p) => a + dueOf(p), 0), parts.reduce((a,p) => a + payState(p).approved, 0)]);
     a6.push(['','','کل حضور (نفرات + مهمان‌ها)','', parts.length + guests]);
