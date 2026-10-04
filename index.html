@@ -285,6 +285,7 @@ body:not(.can-admin) .need-admin{display:none!important}
 .email-box summary{cursor:pointer;color:var(--muted);font-size:13.5px}
 .email-box form{display:grid;gap:12px;margin-top:12px}
 .wait-box{display:flex;gap:8px}
+.link-btn{border:0;background:none;padding:0;font:inherit;color:var(--ink);text-decoration:underline;cursor:pointer}
 .role-tag{font-weight:700}
 .claim-help{background:color-mix(in srgb,var(--warn) 13%,transparent);border-radius:var(--radius);padding:10px 12px;font-size:14px;line-height:1.8}
 .claim-help a{color:var(--ink);font-weight:700}
@@ -316,10 +317,6 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
     <p id="gateMsg">برای ورود، با تلگرام وارد شو.</p>
     <div id="tgBox" class="tg-box"></div>
     <div class="err" id="loginErr" aria-live="polite"></div>
-    <div id="waitBox" class="wait-box" hidden>
-      <button class="btn primary" type="button" id="recheckBtn">بررسی دوباره</button>
-      <button class="btn" type="button" id="gateLogout">خروج</button>
-    </div>
     <div id="tgPhoneBox" class="claim-box" hidden>
       <button class="btn primary big" type="button" id="tgPhoneBtn">📱 تأیید شماره با تلگرام</button>
       <p class="sub">تلگرام ازت می‌پرسه شماره‌ت رو با ربات به اشتراک بذاری یا نه؛ بعد خودکار با لیست ثبت‌نام چک می‌شه.</p>
@@ -328,6 +325,10 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
     <div id="openInTgBox" class="claim-box" hidden>
       <a class="btn primary big" id="openInTgBtn" target="_blank" rel="noopener">باز کردن ربات در تلگرام</a>
       <p class="sub">ورود شرکت‌کننده‌ها فقط از داخل تلگرامه تا شماره‌ت از خود تلگرام تأیید بشه. توی ربات دکمه‌ی «ورود به سایت» رو بزن.</p>
+    </div>
+    <div id="waitBox" class="wait-box" hidden>
+      <button class="btn primary" type="button" id="recheckBtn">بررسی دوباره</button>
+      <button class="btn" type="button" id="gateLogout">خروج</button>
     </div>
     <details id="emailBox" class="email-box">
       <summary>ورود با ایمیل</summary>
@@ -878,6 +879,8 @@ function gateState(state, msg, err){
   $('#gateMsg').innerHTML = msg || '';
   $('#loginErr').textContent = err || '';
   $('#waitBox').hidden = state !== 'wait' && state !== 'claim';
+  // on the claim screen "check again" only concerns team members waiting for approval: it sits in their hint line instead
+  $('#recheckBtn').hidden = state === 'claim'; $('#gateLogout').classList.toggle('small', state === 'claim');
   gateMode = state; $('#tgPhoneBox').hidden = true; $('#openInTgBox').hidden = true; $('#claimHelp').hidden = true;
   if (state === 'claim') setClaimMode();
   $('#payApp').hidden = true;
@@ -950,7 +953,7 @@ async function enter(session){
     const { data: part } = await sb.from('participants').select('id').eq('user_id', me.id).maybeSingle();
     if (seq !== enterSeq) return;
     if (part) return enterParticipant();
-    gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره‌ت با لیست ثبت‌نام چک می‌شه تا مبلغ و اطلاعات پرداخت رو ببینی.` + (role0 === 'pending' ? '<br><span class="sub">اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی.</span>' : ''));
+    gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره‌ت با لیست ثبت‌نام چک می‌شه تا مبلغ و اطلاعات پرداخت رو ببینی.` + (role0 === 'pending' ? '<br><span class="sub">اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی. <button class="link-btn" type="button" data-act="recheck">بررسی دوباره</button></span>' : ''));
     watchOwnRow(); return;
   }
   stopOwnWatch();
@@ -1017,7 +1020,8 @@ function watchOwnRow(){
     const { data } = await sb.auth.getSession(); if (data.session) enter(data.session);
   }).subscribe();
 }
-$('#recheckBtn').addEventListener('click', async () => { const { data } = await sb.auth.getSession(); if (data.session) enter(data.session); else gateState('login', 'برای ورود، با تلگرام وارد شو.'); });
+async function recheck(){ const { data } = await sb.auth.getSession(); if (data.session) enter(data.session); else gateState('login', 'برای ورود، با تلگرام وارد شو.'); }
+$('#recheckBtn').addEventListener('click', recheck);
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.target.elements, btn = $('#loginBtn');
@@ -2170,6 +2174,7 @@ document.addEventListener('click', e => {
     if (a === 'upload'){ uploadTarget = null; return fileInput.click(); }
     if (a === 'export') return exportXlsx();
     if (a === 'logout') return logout();
+    if (a === 'recheck') return recheck();
     if (a === 'pick-receipt') return receiptInput.click();
     if (a === 'send-receipt') return sendReceipt(el);
     if (a === 'cancel-receipt'){ if (draftReceipt) URL.revokeObjectURL(draftReceipt.url); draftReceipt = null; return render(); }
