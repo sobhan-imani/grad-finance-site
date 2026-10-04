@@ -3,8 +3,11 @@
 // امضای داده‌ها با توکن ربات بررسی می‌شه، کاربر در Supabase ساخته/پیدا می‌شه
 // و یک توکن یک‌بارمصرف برمی‌گرده که سایت باهاش نشست (session) می‌گیره.
 //
+// کار دوم: وقتی سایت داخل تلگرام بازه، شرکت‌کننده با یک دکمه شماره‌ی تلگرامش رو می‌فرسته (requestContact).
+// این تابع امضای اون رو بررسی می‌کنه و با همون منطق «زدن شماره» (claim_student) به لیست وصلش می‌کنه.
+//
 // Secrets لازم (Edge Functions → Secrets):  TELEGRAM_BOT_TOKEN
-// SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY خودکار در دسترس‌اند.
+// SUPABASE_URL، SUPABASE_ANON_KEY و SUPABASE_SERVICE_ROLE_KEY خودکار در دسترس‌اند.
 // تنظیم مهم: «Verify JWT» / «Enforce JWT verification» برای این تابع خاموش باشه.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -64,13 +67,57 @@ async function verifyInitData(initData: string): Promise<TgUser | null> {
   try { return JSON.parse(p.get("user") ?? "null"); } catch { return null; }
 }
 
+// شماره‌ای که کاربر داخل Mini App با requestContact فرستاده: رشته‌ای به همون شکل initData
+// (contact=…&auth_date=…&hash=…) که تلگرام با توکن ربات امضاش کرده.
+type TgContact = { user_id: number; phone_number: string };
+async function verifyContact(raw: string): Promise<TgContact | null> {
+  const p = new URLSearchParams(raw);
+  const hash = p.get("hash") ?? "";
+  p.delete("hash");
+  const check = [...p.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, v]) => `${k}=${v}`).join("\n");
+  // امضا مثل initData است؛ روش Login Widget هم امتحان می‌شه (هر دو فقط با توکن ربات ساخته می‌شن)
+  const webApp = await hmac(enc.encode("WebAppData"), BOT_TOKEN);
+  const widget = new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(BOT_TOKEN)));
+  if (!safeEqual(hex(await hmac(webApp, check)), hash) && !safeEqual(hex(await hmac(widget, check)), hash)) return null;
+  if (!fresh(p.get("auth_date"))) return null;
+  try {
+    const c = JSON.parse(p.get("contact") ?? "null");
+    return c && Number.isSafeInteger(Number(c.user_id)) && c.phone_number ? { user_id: Number(c.user_id), phone_number: String(c.phone_number) } : null;
+  } catch { return null; }
+}
+// همون شکلی که لیست شرکت‌کننده‌ها ذخیره شده: 09xxxxxxxxx
+function canonPhone(s: string): string | null {
+  const m = /^(?:0098|98|0)?(9\d{9})$/.exec(s.replace(/\D/g, ""));
+  return m ? "0" + m[1] : null;
+}
+async function linkByPhone(req: Request, raw: string): Promise<Response> {
+  const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const { data: who } = await admin.auth.getUser(jwt);
+  const tgId = /^tg(\d+)@telegram\.local$/.exec(who?.user?.email ?? "")?.[1];
+  if (!tgId) return json({ error: "not_logged_in" }, 401);
+  const contact = await verifyContact(raw);
+  // فقط شماره‌ی خودِ همین حساب تلگرام قبوله، نه کارت تماس کس دیگه
+  if (!contact || String(contact.user_id) !== tgId) return json({ error: "invalid_signature" }, 401);
+  const phone = canonPhone(contact.phone_number);
+  if (!phone) return json({ error: "not_found", phone: contact.phone_number });
+  // وصل کردن با همون تابع دیتابیس که فرم «شماره موبایل» صدا می‌زنه، به‌عنوان خود کاربر
+  const asUser = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+  });
+  const { data, error } = await asUser.rpc("claim_student", { p_no: phone, p_code: phone.slice(-4) });
+  if (error) return json({ error: "claim_failed", detail: error.message }, 500);
+  return json({ ...(data ?? {}), phone });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!BOT_TOKEN) return json({ error: "bot_token_missing" }, 500);
 
-  let body: { widget?: Record<string, unknown>; initData?: string };
+  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
+  if (typeof body.contact === "string") return linkByPhone(req, body.contact);
 
   const tg = body.initData ? await verifyInitData(body.initData)
            : body.widget ? await verifyWidget(body.widget) : null;

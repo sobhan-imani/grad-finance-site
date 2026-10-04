@@ -286,6 +286,8 @@ body:not(.can-admin) .need-admin{display:none!important}
 .email-box form{display:grid;gap:12px;margin-top:12px}
 .wait-box{display:flex;gap:8px}
 .role-tag{font-weight:700}
+.claim-help{background:color-mix(in srgb,var(--warn) 13%,transparent);border-radius:var(--radius);padding:10px 12px;font-size:14px;line-height:1.8}
+.claim-help a{color:var(--ink);font-weight:700}
 .manual-pay summary{cursor:pointer;font-weight:500;padding:4px 0}
 .manual-pay .paid-box{margin-top:8px}
 .hist{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);border-inline-start:4px solid var(--c)}
@@ -313,6 +315,11 @@ body:not(.can-admin) .need-admin{display:none!important}
       <button class="btn primary" type="button" id="recheckBtn">بررسی دوباره</button>
       <button class="btn" type="button" id="gateLogout">خروج</button>
     </div>
+    <div id="tgPhoneBox" class="claim-box" hidden>
+      <button class="btn primary big" type="button" id="tgPhoneBtn">📱 تأیید شماره با تلگرام</button>
+      <p class="sub">تلگرام ازت می‌پرسه شماره‌ت رو با ربات به اشتراک بذاری یا نه؛ بعد خودکار با لیست ثبت‌نام چک می‌شه.</p>
+    </div>
+    <div id="claimHelp" class="claim-help" hidden></div>
     <form id="claimForm" class="claim-box" hidden novalidate>
       <label class="lbl">شماره موبایل <span class="hint">همونی که موقع ثبت‌نام دادی (اگه لیست با شماره دانشجویی ثبت شده، شماره دانشجویی)</span><input class="field" name="no" inputmode="tel" dir="ltr" autocomplete="off" maxlength="20" placeholder="09121234567"></label>
       <label class="lbl" id="codeWrap" hidden>۴ رقم آخر شماره موبایلت <span class="hint">همونی که توی لیست ثبت‌نام دادی</span><input class="field" name="code" inputmode="numeric" dir="ltr" maxlength="4" autocomplete="off"></label>
@@ -829,7 +836,10 @@ const tgWA = (() => {
   if (!init) return null;
   let user = null; try { user = JSON.parse(new URLSearchParams(init).get('user')); } catch(e){}
   const s = document.createElement('script'); s.async = true; s.src = 'https://telegram.org/js/telegram-web-app.js';
-  s.onload = () => { try { const W = window.Telegram.WebApp; W.ready(); W.expand(); document.documentElement.dataset.theme = W.colorScheme === 'dark' ? 'dark' : 'light'; } catch(e){} };
+  s.onload = () => {
+    try { const W = window.Telegram.WebApp; W.ready(); W.expand(); document.documentElement.dataset.theme = W.colorScheme === 'dark' ? 'dark' : 'light'; } catch(e){}
+    if (!$('#claimForm').hidden) setClaimMode(); // the claim screen may already be up
+  };
   document.head.appendChild(s);
   return {initData:init, user};
 })();
@@ -838,7 +848,8 @@ function gateState(state, msg, err){
   $('#gateMsg').innerHTML = msg || '';
   $('#loginErr').textContent = err || '';
   $('#waitBox').hidden = state !== 'wait' && state !== 'claim';
-  $('#claimForm').hidden = state !== 'claim';
+  $('#claimForm').hidden = state !== 'claim'; $('#tgPhoneBox').hidden = true; $('#claimHelp').hidden = true;
+  if (state === 'claim') setClaimMode();
   $('#payApp').hidden = true;
   $('#tgBox').hidden = state !== 'login';
   $('#emailBox').hidden = state !== 'login' || !!tgWA;
@@ -904,7 +915,8 @@ async function enter(session){
     const { data: part } = await sb.from('participants').select('id').eq('user_id', me.id).maybeSingle();
     if (seq !== enterSeq) return;
     if (part) return enterParticipant();
-    gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره موبایلی که موقع ثبت‌نام دادی رو بزن تا مبلغ و اطلاعات پرداخت رو ببینی.` + (role0 === 'pending' ? '<br><span class="sub">اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی.</span>' : ''));
+    const viaBot = !tgWA && cfg.telegramBot && !/YOUR/.test(cfg.telegramBot) ? `<br><span class="sub">راحت‌تر: سایت رو از داخل ربات <a href="https://t.me/${esc(cfg.telegramBot.replace(/^@/, ''))}" target="_blank" rel="noopener" dir="ltr">@${esc(cfg.telegramBot.replace(/^@/, ''))}</a> باز کن تا شماره‌ت خودکار چک بشه.</span>` : '';
+    gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره‌ت با لیست ثبت‌نام چک می‌شه تا مبلغ و اطلاعات پرداخت رو ببینی.` + viaBot + (role0 === 'pending' ? '<br><span class="sub">اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی.</span>' : ''));
     watchOwnRow(); return;
   }
   stopOwnWatch();
@@ -935,14 +947,51 @@ $('#claimForm').addEventListener('submit', async e => {
   }
   btn.disabled = false;
   if (error){ $('#loginErr').textContent = 'بررسی شماره انجام نشد؛ دوباره امتحان کن.'; return; }
+  claimResult(data, phone || plain);
+});
+// "message the people announced in the group", with their Telegram links when config.js lists them
+function askAdmins(){
+  const ids = (Array.isArray(cfg.supportIds) ? cfg.supportIds : []).map(x => String(x).trim().replace(/^@/, '')).filter(x => /^[A-Za-z0-9_]{4,32}$/.test(x));
+  return 'به آیدی‌هایی که توی گروه اعلام شده پیام بده تا درستش کنن' + (ids.length ? ': ' + ids.map(x => `<a href="https://t.me/${x}" target="_blank" rel="noopener" dir="ltr">@${x}</a>`).join('، ') : '') + '.';
+}
+// result of claim_student, whether the number was typed or came verified from Telegram
+async function claimResult(data, phone){
+  const help = $('#claimHelp'); help.hidden = true; $('#loginErr').textContent = '';
   if (data && data.ok){ const s = await sb.auth.getSession(); if (s.data.session) enter(s.data.session); return; }
-  const MSG = {not_found:'این شماره توی لیست نیست. همون شماره‌ای رو بزن که موقع ثبت‌نام دادی؛ اگه مطمئنی درسته، به مسئول مالی خبر بده.',
-    taken:'این شماره قبلاً به یه حساب تلگرام دیگه وصل شده. اگه مال خودته، به مسئول مالی خبر بده.',
-    already_linked:'حسابت قبلاً به یه شماره‌ی دیگه وصل شده.', need_code:'برای تأیید، ۴ رقم آخر شماره موبایلت رو هم بزن.',
+  const code = data && data.error, shown = phone ? `<span dir="ltr">${esc(phone)}</span>` : 'این شماره';
+  if (code === 'not_found' || code === 'taken'){
+    help.innerHTML = (code === 'not_found' ? `شماره‌ی ${shown} توی لیست شرکت‌کننده‌ها نیست.` : `شماره‌ی ${shown} قبلاً به یه حساب تلگرام دیگه وصل شده.`) + ' ' + askAdmins();
+    help.hidden = false; return;
+  }
+  const MSG = {already_linked:'حسابت قبلاً به یه شماره‌ی دیگه وصل شده.', need_code:'برای تأیید، ۴ رقم آخر شماره موبایلت رو هم بزن.',
     bad_code:'۴ رقم آخر موبایل با لیست نمی‌خونه.', too_many:'تلاش‌ها زیاد شد؛ یک ساعت دیگه دوباره امتحان کن.'};
-  const code = data && data.error;
-  if (code === 'need_code' || code === 'bad_code'){ $('#codeWrap').hidden = false; f.code.focus(); }
+  if (code === 'need_code' || code === 'bad_code'){ setManualClaim(); $('#codeWrap').hidden = false; $('#claimForm').elements.code.focus(); }
   $('#loginErr').textContent = MSG[code] || 'انجام نشد.';
+}
+// Inside Telegram (Mini App, client 6.9+) the number comes from Telegram itself, signed, instead of being typed.
+// Outside Telegram, or if that check can't run, the number is typed as before.
+let manualClaim = false;
+const canAskPhone = () => { try { return !!tgWA && window.Telegram.WebApp.isVersionAtLeast('6.9'); } catch(e){ return false; } };
+function setClaimMode(){ const ask = !manualClaim && canAskPhone(); $('#tgPhoneBox').hidden = !ask; $('#claimForm').hidden = ask; }
+function setManualClaim(msg){ manualClaim = true; setClaimMode(); if (msg) $('#loginErr').textContent = msg; }
+$('#tgPhoneBtn').addEventListener('click', () => {
+  const btn = $('#tgPhoneBtn'); $('#loginErr').textContent = ''; $('#claimHelp').hidden = true;
+  try {
+    window.Telegram.WebApp.requestContact(async (shared, ev) => {
+      if (!shared || !ev || !ev.response){ $('#loginErr').textContent = 'برای دیدن مبلغ و پرداخت، باید شماره‌ت رو با ربات به اشتراک بذاری.'; return; }
+      const label = btn.textContent; btn.disabled = true; btn.textContent = 'در حال بررسی…';
+      try {
+        const { data, error } = await sb.functions.invoke('telegram-auth', {body:{contact:ev.response}});
+        if (error){
+          let code = ''; try { code = (await error.context.json()).error; } catch(e){}
+          console.error('telegram phone', code, error);
+          // a technical failure shouldn't strand anyone: fall back to typing the number
+          return setManualClaim(code === 'invalid_signature' ? 'تأیید شماره از طرف تلگرام انجام نشد؛ شماره‌ت رو دستی بزن.' : 'بررسی خودکار شماره انجام نشد؛ شماره‌ت رو دستی بزن.');
+        }
+        await claimResult(data, data && data.phone);
+      } finally { btn.disabled = false; btn.textContent = label; }
+    });
+  } catch(e){ console.error('requestContact', e); setManualClaim('این نسخه‌ی تلگرام فرستادن شماره رو پشتیبانی نمی‌کنه؛ شماره‌ت رو دستی بزن.'); }
 });
 function watchOwnRow(){
   if (ownChannel) sb.removeChannel(ownChannel);
