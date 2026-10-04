@@ -755,7 +755,7 @@ async function loadAll(){
   await Promise.all([loadSettings(), ...TABLES.map(reload), loadMembers(), loadActivity(), loadPayInfo(), probeGuestCols()]);
   ready = true; render(); fillSettings();
 }
-// major / guests / guest_amount come from upgrade-guests.sql; until it's run, the app works without them
+// major / guests / guest_amount are added to the database after schema.sql; until they exist, the app works without them
 // and leaves them out of every write (sending an unknown column would make the whole save fail)
 let hasGuestCols = false;
 async function probeGuestCols(){
@@ -1547,7 +1547,7 @@ function renderPeople(){
     <div><span class="k">مهلت</span><b>${esc(info.deadline) || '—'}</b></div>
     <button class="btn small need-edit" type="button" data-act="edit-payinfo">ویرایش اطلاعات پرداخت</button>
     ${info.card_number ? '' : '<p class="sub bad" style="grid-column:1/-1;margin:0">تا شماره کارت وارد نشه، شرکت‌کننده‌ها جایی برای واریز نمی‌بینن.</p>'}
-    ${hasGuestCols || !ready ? '' : '<p class="sub bad need-admin" style="grid-column:1/-1;margin:0">برای ثبت گرایش، تعداد مهمان و مبلغ هر مهمان، فایل <code>upgrade-guests.sql</code> رو یک بار در SQL Editor سوپابیس اجرا کن و صفحه رو تازه کن.</p>'}
+    ${hasGuestCols || !ready ? '' : '<p class="sub bad need-admin" style="grid-column:1/-1;margin:0">ستون‌های گرایش، تعداد مهمان و مبلغ هر مهمان هنوز در دیتابیس ساخته نشدن؛ دستور SQL مربوط به مهمان‌ها رو در SQL Editor سوپابیس اجرا کن و صفحه رو تازه کن.</p>'}
   </div>`;
   const states = all.map(p => [p, payState(p)]);
   const sum = k => states.reduce((a,[,s]) => a + s[k], 0);
@@ -1654,7 +1654,7 @@ async function recordPayment(btn){
     const m = String(e && (e.message || e) || ''), denied = /row-level security|permission denied|42501|not authorized|unauthorized|FORBIDDEN/i.test(m);
     err.textContent = step === 'approve' ? 'پرداخت ثبت شد ولی تأیید نشد؛ از «فیش‌های در انتظار بررسی» تأییدش کن.'
       : (step === 'upload' && !/storage|bucket|row-level|policy/i.test(m) ? 'این عکس خونده یا آپلود نشد؛ یه اسکرین‌شات ازش بگیر و دوباره امتحان کن.'
-      : denied ? 'دیتابیس هنوز به تیم مالی اجازه‌ی ثبت پرداخت برای بقیه رو نمی‌ده. فایل upgrade-staff-payments.sql رو یک بار در SQL Editor سوپابیس اجرا کن و دوباره امتحان کن.'
+      : denied ? 'دیتابیس هنوز به تیم مالی اجازه‌ی ثبت پرداخت برای بقیه رو نمی‌ده؛ دستور SQL دسترسی ثبت پرداخت (برای مدیر و ویرایشگر) رو در SQL Editor سوپابیس اجرا کن و دوباره امتحان کن.'
       : 'ثبت نشد: ' + m);
     err.hidden = false;
   } finally { btn.disabled = false; btn.textContent = label; }
@@ -1839,7 +1839,7 @@ $('#importFile').addEventListener('change', async e => {
       ${bad.length ? `<p class="sub bad">${fmt(bad.length)} ردیف شماره موبایل درست نداشت و وارد نمی‌شه: ${few(bad)}</p>` : ''}
       ${dups.length ? `<p class="sub">${fmt(dups.length)} شماره تکراری بود و آخرین ردیفش ملاک شد: ${few(dups)}</p>` : ''}
       ${unsure.length ? `<p class="sub bad">تعداد مهمان این‌ها دقیق خونده نشد؛ بعد از ورود چک کن:</p><ul class="lines">${unsure.slice(0, 8).map(u => `<li><span>${esc(u.name)}: «${esc(u.raw)}»</span><span>${fmt(u.n)} مهمان</span></li>`).join('')}</ul>${unsure.length > 8 ? `<p class="sub">و ${fmt(unsure.length - 8)} مورد دیگه</p>` : ''}` : ''}
-      ${(col.guests !== undefined || col.major !== undefined) && !hasGuestCols ? '<p class="sub bad">گرایش و تعداد مهمان ذخیره نمی‌شن تا فایل <code>upgrade-guests.sql</code> رو یک بار در Supabase اجرا کنی.</p>' : ''}
+      ${(col.guests !== undefined || col.major !== undefined) && !hasGuestCols ? '<p class="sub bad">گرایش و تعداد مهمان ذخیره نمی‌شن، چون ستون‌هاشون هنوز در دیتابیس ساخته نشده (دستور SQL مربوط به مهمان‌ها رو اجرا کن).</p>' : ''}
       <ul class="lines">${rows.slice(0, 5).map(r => `<li><span>${esc(r.full_name || '—')}${r.major ? ' · ' + esc(r.major) : ''}${r.guests ? ` · ${fmt(r.guests)} مهمان` : ''}</span><span dir="ltr">${esc(r.student_no)}</span></li>`).join('')}</ul>`;
     $('#importGo').disabled = !rows.length;
   } catch(err){ console.error('import', err); $('#importInfo').innerHTML = `<p class="sub bad">${esc(err.message || 'فایل خونده نشد')}</p>`; }
@@ -1848,7 +1848,7 @@ $('#importGo').addEventListener('click', async () => {
   if (!importRows || !importRows.length) return;
   const btn = $('#importGo'); btn.disabled = true; btn.textContent = 'در حال ورود…';
   // existing people keep their id; new ones get one here, so this works whether or not the table has an id default.
-  // Without upgrade-guests.sql there are no major/guests columns, and sending them would fail the whole import.
+  // Until those columns exist there are no major/guests columns to write, and sending them would fail the whole import.
   const byNo = new Map(Object.values(S.participants).map(p => [p.student_no, p.id]));
   const rows = importRows.map(r => { const o = {id: byNo.get(r.student_no) || newId(), ...r}; if (!hasGuestCols){ delete o.major; delete o.guests; } return o; });
   let okCount = 0, error = null;
