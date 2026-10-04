@@ -286,6 +286,13 @@ body:not(.can-admin) .need-admin{display:none!important}
 .email-box form{display:grid;gap:12px;margin-top:12px}
 .wait-box{display:flex;gap:8px}
 .role-tag{font-weight:700}
+.claim-help{background:color-mix(in srgb,var(--warn) 13%,transparent);border-radius:var(--radius);padding:10px 12px;font-size:14px;line-height:1.8}
+.claim-help a{color:var(--ink);font-weight:700}
+a.btn{text-decoration:none;text-align:center;display:inline-block}
+.chip.on{border-color:var(--gold);background:var(--gold-soft);font-weight:700}
+.chip small{color:var(--muted);font-weight:400;margin-inline-start:4px}
+.pay-for{display:grid;gap:6px}
+.pay-for .chips{justify-content:flex-start;margin:0}
 .manual-pay summary{cursor:pointer;font-weight:500;padding:4px 0}
 .manual-pay .paid-box{margin-top:8px}
 .hist{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);border-inline-start:4px solid var(--c)}
@@ -313,11 +320,15 @@ body:not(.can-admin) .need-admin{display:none!important}
       <button class="btn primary" type="button" id="recheckBtn">بررسی دوباره</button>
       <button class="btn" type="button" id="gateLogout">خروج</button>
     </div>
-    <form id="claimForm" class="claim-box" hidden novalidate>
-      <label class="lbl">شماره موبایل <span class="hint">همونی که موقع ثبت‌نام دادی (اگه لیست با شماره دانشجویی ثبت شده، شماره دانشجویی)</span><input class="field" name="no" inputmode="tel" dir="ltr" autocomplete="off" maxlength="20" placeholder="09121234567"></label>
-      <label class="lbl" id="codeWrap" hidden>۴ رقم آخر شماره موبایلت <span class="hint">همونی که توی لیست ثبت‌نام دادی</span><input class="field" name="code" inputmode="numeric" dir="ltr" maxlength="4" autocomplete="off"></label>
-      <button class="btn primary" type="submit" id="claimBtn">ادامه</button>
-    </form>
+    <div id="tgPhoneBox" class="claim-box" hidden>
+      <button class="btn primary big" type="button" id="tgPhoneBtn">📱 تأیید شماره با تلگرام</button>
+      <p class="sub">تلگرام ازت می‌پرسه شماره‌ت رو با ربات به اشتراک بذاری یا نه؛ بعد خودکار با لیست ثبت‌نام چک می‌شه.</p>
+    </div>
+    <div id="claimHelp" class="claim-help" hidden></div>
+    <div id="openInTgBox" class="claim-box" hidden>
+      <a class="btn primary big" id="openInTgBtn" target="_blank" rel="noopener">باز کردن ربات در تلگرام</a>
+      <p class="sub">ورود شرکت‌کننده‌ها فقط از داخل تلگرامه تا شماره‌ت از خود تلگرام تأیید بشه. توی ربات دکمه‌ی «ورود به سایت» رو بزن.</p>
+    </div>
     <details id="emailBox" class="email-box">
       <summary>ورود با ایمیل</summary>
       <form id="loginForm" novalidate>
@@ -432,6 +443,11 @@ body:not(.can-admin) .need-admin{display:none!important}
         <input class="field" id="setHead" inputmode="numeric" placeholder="مثلاً ۲۵"></label>
       <label class="lbl">واحد پول<select class="field" id="setCur"><option>تومان</option><option>ریال</option></select></label>
       <p class="hint" id="setMeta" style="color:var(--muted);font-size:13px;margin:0"></p>
+      <div class="lbl need-admin">ربات تلگرام
+        <span class="hint">یک بار بزن: بعدش هر کس ربات رو Start کنه، پیام خوش‌آمد با دکمه‌ی «ورود به سایت» می‌گیره و دکمه‌ی منوی ربات هم همین سایت رو باز می‌کنه. این کار رو از آدرس اصلی سایت انجام بده؛ اگه آدرس سایت عوض شد، دوباره بزن.</span>
+        <div class="row-btns"><button class="btn" type="button" data-act="setup-bot">راه‌اندازی دکمه‌ی ربات</button></div>
+        <span class="sub" id="botSetupMsg" aria-live="polite"></span>
+      </div>
     </div>
   </section>
 </div>
@@ -669,7 +685,15 @@ function canonPhone(s){
   const one = t => { const m = /^(?:0098|98|0)?(9\d{9})$/.exec(toLatin(t).replace(/\D/g, '')); return m ? '0' + m[1] : null; };
   return [s, ...String(s ?? '').split(/[\/,،;|\n]|\s[-–]\s|\s{2,}/)].map(one).find(Boolean) || null;
 }
-const isPhoneId = s => /^09\d{9}$/.test(s || '');
+// Several people can register with one number (e.g. someone signs up a friend too). The number column has to stay
+// unique, so they're stored as 0912…, 0912…#2, 0912…#3; the number's owner logs in once and switches between them.
+const baseNo = s => String(s ?? '').split('#')[0];
+const shareNo = s => +(String(s ?? '').split('#')[1] || 1);
+const sameNumber = (a, b) => baseNo(a) === baseNo(b);
+const normName = s => String(s ?? '').replace(/\u200c/g, ' ').replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/\s+/g, ' ').trim();
+// the stored key for one more person on this number (taken: keys already in use)
+function freeKey(base, taken){ if (!taken.has(base)) return base; let k = 2; while (taken.has(`${base}#${k}`)) k++; return `${base}#${k}`; }
+const isPhoneId = s => /^09\d{9}$/.test(baseNo(s));
 // Guest count as people write it: "2", "۲ نفر", "دو نفر", "ندارم", "-".
 // sure=false when the cell had more than a plain count (e.g. "۲ نفر (پدر و مادر)") or couldn't be read, so the admin can check it.
 const GUEST_WORDS = {'صفر':0, 'یک':1, 'یه':1, 'دو':2, 'سه':3, 'چهار':4, 'پنج':5, 'شش':6, 'شیش':6, 'هفت':7, 'هشت':8, 'ده':10};
@@ -829,7 +853,10 @@ const tgWA = (() => {
   if (!init) return null;
   let user = null; try { user = JSON.parse(new URLSearchParams(init).get('user')); } catch(e){}
   const s = document.createElement('script'); s.async = true; s.src = 'https://telegram.org/js/telegram-web-app.js';
-  s.onload = () => { try { const W = window.Telegram.WebApp; W.ready(); W.expand(); document.documentElement.dataset.theme = W.colorScheme === 'dark' ? 'dark' : 'light'; } catch(e){} };
+  s.onload = () => {
+    try { const W = window.Telegram.WebApp; W.ready(); W.expand(); document.documentElement.dataset.theme = W.colorScheme === 'dark' ? 'dark' : 'light'; } catch(e){}
+    if (gateMode === 'claim' && !$('#gate').hidden) setClaimMode(); // the claim screen may already be up
+  };
   document.head.appendChild(s);
   return {initData:init, user};
 })();
@@ -838,12 +865,18 @@ function gateState(state, msg, err){
   $('#gateMsg').innerHTML = msg || '';
   $('#loginErr').textContent = err || '';
   $('#waitBox').hidden = state !== 'wait' && state !== 'claim';
-  $('#claimForm').hidden = state !== 'claim';
+  gateMode = state; $('#tgPhoneBox').hidden = true; $('#openInTgBox').hidden = true; $('#claimHelp').hidden = true;
+  if (state === 'claim') setClaimMode();
   $('#payApp').hidden = true;
   $('#tgBox').hidden = state !== 'login';
-  $('#emailBox').hidden = state !== 'login' || !!tgWA;
-  if (state === 'login'){ mountTelegramWidget(); if (!cfg.telegramBot || /YOUR/.test(cfg.telegramBot)) $('#emailBox').open = true; }
+  $('#emailBox').hidden = state !== 'login' || !!tgWA || !emailLogin;
+  if (state === 'login'){ mountTelegramWidget(); if (!botConfigured) $('#emailBox').open = true; }
 }
+// Everyone logs in with Telegram. Email login (the admin account made in Supabase) is only offered at <site>?email,
+// or before a bot is configured.
+const botConfigured = !!cfg.telegramBot && !/YOUR/.test(cfg.telegramBot);
+const emailLogin = !botConfigured || new URLSearchParams(location.search).has('email');
+let gateMode = '';
 let widgetMounted = false;
 function mountTelegramWidget(){
   if (widgetMounted) return;
@@ -904,7 +937,7 @@ async function enter(session){
     const { data: part } = await sb.from('participants').select('id').eq('user_id', me.id).maybeSingle();
     if (seq !== enterSeq) return;
     if (part) return enterParticipant();
-    gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره موبایلی که موقع ثبت‌نام دادی رو بزن تا مبلغ و اطلاعات پرداخت رو ببینی.` + (role0 === 'pending' ? '<br><span class="sub">اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی.</span>' : ''));
+    gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره‌ت با لیست ثبت‌نام چک می‌شه تا مبلغ و اطلاعات پرداخت رو ببینی.` + (role0 === 'pending' ? '<br><span class="sub">اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی.</span>' : ''));
     watchOwnRow(); return;
   }
   stopOwnWatch();
@@ -920,29 +953,50 @@ async function enterParticipant(){
   try { await loadParticipantData(); subscribe(); }
   catch(e){ fail(e, 'load'); }
 }
-$('#claimForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  const f = e.target.elements, btn = $('#claimBtn'), plain = normNo(f.no.value), phone = canonPhone(f.no.value);
-  if (!plain){ f.no.focus(); return; }
-  btn.disabled = true; $('#loginErr').textContent = '';
-  // send the same normalized form the list is stored in (Persian digits, spaces, +98 typed by people otherwise never match).
-  // A bare 10-digit number starting with 9 is either a student number or a phone missing its 0, so try both.
-  const tries = !phone ? [plain] : /^9\d{9}$/.test(plain) ? [plain, phone] : [phone];
-  let data, error;
-  for (const no of tries){
-    ({ data, error } = await sb.rpc('claim_student', {p_no:no, p_code:last4(f.code.value) || null}));
-    if (error || !data || data.error !== 'not_found') break;
-  }
-  btn.disabled = false;
-  if (error){ $('#loginErr').textContent = 'بررسی شماره انجام نشد؛ دوباره امتحان کن.'; return; }
+// "message the people announced in the group", with their Telegram links when config.js lists them
+function askAdmins(){
+  const ids = (Array.isArray(cfg.supportIds) ? cfg.supportIds : []).map(x => String(x).trim().replace(/^@/, '')).filter(x => /^[A-Za-z0-9_]{4,32}$/.test(x));
+  return 'به آیدی‌هایی که توی گروه اعلام شده پیام بده تا درستش کنن' + (ids.length ? ': ' + ids.map(x => `<a href="https://t.me/${x}" target="_blank" rel="noopener" dir="ltr">@${x}</a>`).join('، ') : '') + '.';
+}
+function showClaimHelp(html){ const h = $('#claimHelp'); h.innerHTML = html; h.hidden = false; }
+// result of linking through the number Telegram confirmed
+async function claimResult(data, phone){
+  $('#claimHelp').hidden = true; $('#loginErr').textContent = '';
   if (data && data.ok){ const s = await sb.auth.getSession(); if (s.data.session) enter(s.data.session); return; }
-  const MSG = {not_found:'این شماره توی لیست نیست. همون شماره‌ای رو بزن که موقع ثبت‌نام دادی؛ اگه مطمئنی درسته، به مسئول مالی خبر بده.',
-    taken:'این شماره قبلاً به یه حساب تلگرام دیگه وصل شده. اگه مال خودته، به مسئول مالی خبر بده.',
-    already_linked:'حسابت قبلاً به یه شماره‌ی دیگه وصل شده.', need_code:'برای تأیید، ۴ رقم آخر شماره موبایلت رو هم بزن.',
-    bad_code:'۴ رقم آخر موبایل با لیست نمی‌خونه.', too_many:'تلاش‌ها زیاد شد؛ یک ساعت دیگه دوباره امتحان کن.'};
-  const code = data && data.error;
-  if (code === 'need_code' || code === 'bad_code'){ $('#codeWrap').hidden = false; f.code.focus(); }
-  $('#loginErr').textContent = MSG[code] || 'انجام نشد.';
+  const code = data && data.error, shown = phone ? `<span dir="ltr">${esc(phone)}</span>` : 'این شماره';
+  if (code === 'too_many') return showClaimHelp('تلاش‌ها زیاد شد؛ یک ساعت دیگه دوباره امتحان کن.');
+  showClaimHelp((code === 'not_found' ? `شماره‌ی ${shown} توی لیست شرکت‌کننده‌ها نیست.`
+    : code === 'taken' ? `شماره‌ی ${shown} قبلاً به یه حساب تلگرام دیگه وصل شده.`
+    : code === 'already_linked' ? 'حسابت قبلاً به یه شماره‌ی دیگه وصل شده.' : 'شماره‌ت تأیید نشد.') + ' ' + askAdmins());
+}
+// Participants link their account only through the number Telegram itself confirms (Mini App, client 6.9+).
+// Nobody types a number: outside Telegram they're sent to the bot.
+const canAskPhone = () => { try { return !!tgWA && window.Telegram.WebApp.isVersionAtLeast('6.9'); } catch(e){ return false; } };
+function setClaimMode(){
+  const ask = canAskPhone();
+  $('#tgPhoneBox').hidden = !ask; $('#openInTgBox').hidden = !!tgWA;
+  const bot = botConfigured ? cfg.telegramBot.replace(/^@/, '') : '';
+  $('#openInTgBtn').hidden = !bot; if (bot) $('#openInTgBtn').href = `https://t.me/${bot}`;
+  if (ask) $('#claimHelp').hidden = true;
+  else if (tgWA) showClaimHelp('تأیید شماره توی این نسخه‌ی تلگرام در دسترس نیست؛ تلگرام رو به‌روز کن و دوباره از ربات وارد شو.');
+}
+$('#tgPhoneBtn').addEventListener('click', () => {
+  const btn = $('#tgPhoneBtn'); $('#loginErr').textContent = ''; $('#claimHelp').hidden = true;
+  try {
+    window.Telegram.WebApp.requestContact(async (shared, ev) => {
+      if (!shared || !ev || !ev.response){ $('#loginErr').textContent = 'برای دیدن مبلغ و پرداخت، باید شماره‌ت رو با ربات به اشتراک بذاری.'; return; }
+      const label = btn.textContent; btn.disabled = true; btn.textContent = 'در حال بررسی…';
+      try {
+        const { data, error } = await sb.functions.invoke('telegram-auth', {body:{contact:ev.response}});
+        if (error){
+          let code = ''; try { code = (await error.context.json()).error; } catch(e){}
+          console.error('telegram phone', code, error);
+          return showClaimHelp('تأیید شماره انجام نشد. یه بار دیگه دکمه رو بزن؛ اگه باز نشد، ' + askAdmins());
+        }
+        await claimResult(data, data && data.phone);
+      } finally { btn.disabled = false; btn.textContent = label; }
+    });
+  } catch(e){ console.error('requestContact', e); showClaimHelp('تأیید شماره توی این نسخه‌ی تلگرام در دسترس نیست؛ تلگرام رو به‌روز کن و دوباره از ربات وارد شو.'); }
 });
 function watchOwnRow(){
   if (ownChannel) sb.removeChannel(ownChannel);
@@ -964,7 +1018,7 @@ $('#loginForm').addEventListener('submit', async e => {
 function resetSession(){
   enterSeq++; // cancel any enter() still in flight
   [channel, ownChannel].forEach(c => c && sb.removeChannel(c)); channel = ownChannel = null;
-  me = null; ready = false; myRole = null; canEdit = canAdmin = false;
+  me = null; ready = false; myRole = null; canEdit = canAdmin = false; payForId = null;
   document.body.classList.remove('can-edit', 'can-admin');
   if (draftReceipt){ URL.revokeObjectURL(draftReceipt.url); draftReceipt = null; }
   S = emptyState();
@@ -1449,21 +1503,30 @@ const kb = n => fmt(Math.max(1, Math.round(n / 1024))) + ' کیلوبایت';
 /* participant's own payment page (full page for participants, a tab for staff who are also participants) */
 let draftReceipt = null; // {blob, url, origSize}
 // "your share + 2 guests × price" under the amount, so people see why their total is what it is
-function guestLine(p, m){
+function guestLine(p, m, own = true){
   const g = guestsOf(p), price = Number(S.payInfo.guest_amount || 0); if (!g) return '';
   if (p.amount !== null && p.amount !== undefined) return `<span class="sub">با ${fmt(g)} مهمان</span>`;
-  return `<span class="sub">${price ? `سهم خودت ${m(S.payInfo.default_amount || 0)} + ${fmt(g)} مهمان × ${m(price)}` : `با ${fmt(g)} مهمان`}</span>`;
+  return `<span class="sub">${price ? `${own ? 'سهم خودت' : 'سهم خودش'} ${m(S.payInfo.default_amount || 0)} + ${fmt(g)} مهمان × ${m(price)}` : `با ${fmt(g)} مهمان`}</span>`;
 }
+// Everyone registered on the logged-in person's number (see baseNo); the payment page shows one of them at a time.
+// Others on the number are only visible once the database allows it; until then this is just the person themself.
+const myGroup = () => { const me0 = myParticipant(); return me0 ? Object.values(S.participants).filter(x => sameNumber(x.student_no, me0.student_no)).sort((a,b) => shareNo(a.student_no) - shareNo(b.student_no)) : []; };
+let payForId = null;
+const payee = () => myGroup().find(x => x.id === payForId) || myParticipant();
 function renderMyPay(el){
-  const p = myParticipant(); if (!el) return;
+  const me0 = myParticipant(), p = payee(); if (!el) return;
   const keepA = el.querySelector('#rdAmount')?.value, keepT = el.querySelector('#rdTrack')?.value;
   queueMicrotask(() => { if (draftReceipt){ const a = el.querySelector('#rdAmount'), t = el.querySelector('#rdTrack'); if (a && keepA !== undefined) a.value = keepA; if (t && keepT !== undefined) t.value = keepT; } });
   if (!p){ el.innerHTML = ''; return; }
-  const info = S.payInfo, st = payState(p), ps = paysOf(p.id), cur = S.settings.currency || 'تومان';
+  const info = S.payInfo, st = payState(p), ps = paysOf(p.id), cur = S.settings.currency || 'تومان', group = myGroup();
+  const own = p.id === me0.id, whose = own ? 'سهمت' : `سهم ${esc(p.full_name || '')}`;
   const m = n => fmt(n) + ' ' + cur;
-  const statusLine = st.key === 'settled' ? `<div class="pay-status ok">سهمت کامل پرداخت و تأیید شده. ممنون!</div>`
-    : st.pending ? `<div class="pay-status warn">فیشت رسید و در انتظار بررسیه.</div>`
-    : st.due ? `<div class="pay-status">مبلغ باقی‌مونده: <b>${m(st.remaining)}</b></div>` : `<div class="pay-status">مبلغ سهمت هنوز تعیین نشده.</div>`;
+  const statusLine = st.key === 'settled' ? `<div class="pay-status ok">${whose} کامل پرداخت و تأیید شده. ممنون!</div>`
+    : st.pending ? `<div class="pay-status warn">فیش رسید و در انتظار بررسیه.</div>`
+    : st.due ? `<div class="pay-status">مبلغ باقی‌مونده: <b>${m(st.remaining)}</b></div>` : `<div class="pay-status">مبلغ ${whose} هنوز تعیین نشده.</div>`;
+  // several people on this number: pick whose share this page is about
+  const switcher = group.length > 1 ? `<div class="pay-for"><span class="sub">این ${fmt(group.length)} نفر با شماره‌ی تو ثبت‌نام کردن؛ برای هر کدوم جدا پرداخت کن:</span>
+      <div class="chips">${group.map(x => `<button class="chip${x.id === p.id ? ' on' : ''}" type="button" data-pay-for="${esc(x.id)}" aria-pressed="${x.id === p.id}">${esc(x.full_name || '—')}<small>${STATE_LABEL[payState(x).key]}</small></button>`).join('')}</div></div>` : '';
   const cardRow = info.card_number ? `<div class="pay-card">
       <span class="k">شماره کارت</span><b class="num" dir="ltr">${esc(cardFmt(info.card_number))}</b>
       <button class="btn small" type="button" data-copy="${esc(toLatin(info.card_number).replace(/\D/g, ''))}" data-copy-label="شماره کارت">کپی</button>
@@ -1476,20 +1539,21 @@ function renderMyPay(el){
         <span class="sub">حجم بعد از فشرده‌سازی: ${kb(draftReceipt.blob.size)} (اصل: ${kb(draftReceipt.origSize)})</span>
         <label class="lbl">مبلغ واریزی<input class="field" id="rdAmount" inputmode="numeric" value="${fmt(st.remaining || st.due)}"></label>
         <label class="lbl">کد پیگیری <span class="hint">اختیاری</span><input class="field" id="rdTrack" inputmode="numeric" dir="ltr" maxlength="40"></label>
-        <div class="row-btns"><button class="btn primary" type="button" data-act="send-receipt">ارسال فیش</button><button class="btn" type="button" data-act="cancel-receipt">انصراف</button></div>
+        <div class="row-btns"><button class="btn primary" type="button" data-act="send-receipt">${group.length > 1 ? `ارسال فیش برای ${esc(p.full_name || '')}` : 'ارسال فیش'}</button><button class="btn" type="button" data-act="cancel-receipt">انصراف</button></div>
       </div></div>`
     : (st.key !== 'settled' ? `<button class="btn primary big" type="button" data-act="pick-receipt">آپلود عکس فیش</button><p class="sub">اسکرین‌شات رسید بانکی کافیه؛ قبل از ارسال خودکار فشرده می‌شه.</p>` : '');
   el.innerHTML = `<div class="pay-wrap">
-    <div class="pay-hello"><h2>سلام ${esc(p.full_name || '')}</h2><span class="sub">${isPhoneId(p.student_no) ? 'موبایل' : 'شماره دانشجویی'} <span dir="ltr">${esc(p.student_no)}</span>${p.major ? ' · ' + esc(p.major) : ''}</span></div>
+    <div class="pay-hello"><h2>سلام ${esc(me0.full_name || '')}</h2><span class="sub">${isPhoneId(me0.student_no) ? 'موبایل' : 'شماره دانشجویی'} <span dir="ltr">${esc(baseNo(me0.student_no))}</span>${me0.major ? ' · ' + esc(me0.major) : ''}</span></div>
+    ${switcher}
     ${statusLine}
-    <div class="pay-amount"><span class="k">مبلغ سهم</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${st.remaining || st.due}" data-copy-label="مبلغ">کپی مبلغ</button>` : ''}
-      ${guestLine(p, m)}
+    <div class="pay-amount"><span class="k">${own ? 'مبلغ سهم' : `مبلغ سهم ${esc(p.full_name || '')}`}</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${st.remaining || st.due}" data-copy-label="مبلغ">کپی مبلغ</button>` : ''}
+      ${guestLine(p, m, own)}
       ${st.approved || st.pending ? `<span class="sub">تأییدشده ${m(st.approved)}${st.pending ? ` · در انتظار بررسی ${m(st.pending)}` : ''}</span>` : ''}</div>
     ${cardRow}${shebaRow}
     ${info.deadline ? `<p class="sub">مهلت پرداخت: <b>${esc(info.deadline)}</b></p>` : ''}
     ${info.note ? `<p class="pay-note">${esc(info.note)}</p>` : ''}
     <div class="pay-upload">${upload}</div>
-    ${ps.length ? `<h3 class="pay-h">فیش‌های من</h3><div class="list">${ps.map(x => `<div class="rcpt" style="--c:${PAY_COLOR[x.status]}">
+    ${ps.length ? `<h3 class="pay-h">${own ? 'فیش‌های من' : `فیش‌های ${esc(p.full_name || '')}`}</h3><div class="list">${ps.map(x => `<div class="rcpt" style="--c:${PAY_COLOR[x.status]}">
         ${receiptThumb(x)}<div><b>${m(x.amount)}</b><span class="sub">${faDate(x.created_at)}${x.tracking_code ? ' · پیگیری ' + esc(x.tracking_code) : ''}</span>
         ${x.status === 'rejected' && x.review_note ? `<span class="sub bad">دلیل: ${esc(x.review_note)}</span>` : ''}</div>
         <span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span></div>`).join('')}</div>` : ''}
@@ -1518,7 +1582,7 @@ receiptInput.addEventListener('change', async () => {
   } catch(e){ toast('این عکس خونده نشد؛ یه اسکرین‌شات بگیر و دوباره امتحان کن'); }
 });
 async function sendReceipt(btn){
-  const p = myParticipant(); if (!p || !draftReceipt) return;
+  const p = payee(); if (!p || !draftReceipt) return;
   const box = btn.closest('.receipt-draft'), amount = parseNum(box.querySelector('#rdAmount').value), track = toLatin(box.querySelector('#rdTrack').value).trim();
   if (!amount){ toast('مبلغ واریزی رو بنویس'); box.querySelector('#rdAmount').focus(); return; }
   btn.disabled = true; btn.textContent = 'در حال ارسال…';
@@ -1550,16 +1614,20 @@ function renderPeople(){
     ${hasGuestCols || !ready ? '' : '<p class="sub bad need-admin" style="grid-column:1/-1;margin:0">ستون‌های گرایش، تعداد مهمان و مبلغ هر مهمان هنوز در دیتابیس ساخته نشدن؛ دستور SQL مربوط به مهمان‌ها رو در SQL Editor سوپابیس اجرا کن و صفحه رو تازه کن.</p>'}
   </div>`;
   const states = all.map(p => [p, payState(p)]);
+  // people sharing a number: how many per number, and whose number's owner has already logged in
+  const perNo = new Map(); all.forEach(p => perNo.set(baseNo(p.student_no), (perNo.get(baseNo(p.student_no)) || 0) + 1));
+  const linkedNos = new Set(all.filter(p => p.user_id).map(p => baseNo(p.student_no)));
+  const isLinked = p => !!p.user_id || linkedNos.has(baseNo(p.student_no));
   const sum = k => states.reduce((a,[,s]) => a + s[k], 0);
   const cnt = k => states.filter(([,s]) => s.key === k).length;
   const guests = all.reduce((a,p) => a + guestsOf(p), 0);
-  $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span>${guests ? `<span>مهمان ${fmt(guests)}</span><span>کل حضور ${fmt(all.length + guests)}</span>` : ''}<span>تسویه ${fmt(cnt('settled'))}</span><span>وصل‌شده ${fmt(all.filter(p => p.user_id).length)}</span><span>تأییدشده ${fmt(sum('approved'))}</span><span>مانده ${fmt(states.reduce((a,[,s]) => a + Math.max(0, s.due - s.approved), 0))}</span>` : '';
+  $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span>${guests ? `<span>مهمان ${fmt(guests)}</span><span>کل حضور ${fmt(all.length + guests)}</span>` : ''}<span>تسویه ${fmt(cnt('settled'))}</span><span>وصل‌شده ${fmt(all.filter(isLinked).length)}</span><span>تأییدشده ${fmt(sum('approved'))}</span><span>مانده ${fmt(states.reduce((a,[,s]) => a + Math.max(0, s.due - s.approved), 0))}</span>` : '';
 
   const queue = Object.values(S.payments).filter(x => x.status === 'submitted').sort((a,b) => ts(a.created_at) - ts(b.created_at));
   const nPeople = $('#nPeople'); nPeople.textContent = queue.length ? fmt(queue.length) + ' فیش' : fmt(all.length); nPeople.classList.toggle('alert', !!queue.length);
   $('#reviewQueue').innerHTML = queue.length ? `<div class="group" style="--c:var(--warn)"><div class="group-head"><h4>فیش‌های در انتظار بررسی</h4><span class="sum">${fmt(queue.length)}</span></div><div class="list">${queue.map(x => {
       const p = S.participants[x.participant_id] || {};
-      return `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:var(--warn)">${receiptThumb(x)}<div><b>${esc(p.full_name || p.student_no || '')}</b><span class="sub"><span dir="ltr">${esc(p.student_no || '')}</span> · ${faDate(x.created_at)}</span></div><b class="num">${fmt(x.amount)}</b></button>`;
+      return `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:var(--warn)">${receiptThumb(x)}<div><b>${esc(p.full_name || baseNo(p.student_no))}</b><span class="sub"><span dir="ltr">${esc(baseNo(p.student_no))}</span> · ${faDate(x.created_at)}</span></div><b class="num">${fmt(x.amount)}</b></button>`;
     }).join('')}</div></div>` : '';
 
   // major filter: options follow whatever majors are in the list; keep the current choice across re-renders
@@ -1569,7 +1637,7 @@ function renderPeople(){
   ms.innerHTML = '<option value="">همه گرایش‌ها</option>' + majors.map(m => `<option${m === mv ? ' selected' : ''}>${esc(m)}</option>`).join('');
   const q = toLatin($('#pq').value).trim().toLowerCase(), f = $('#pFilter').value;
   const rows = states.filter(([p, s]) => {
-    if (f === 'unclaimed' ? p.user_id : f && s.key !== f) return false;
+    if (f === 'unclaimed' ? isLinked(p) : f && s.key !== f) return false;
     if (mv && (p.major || '').trim() !== mv) return false;
     if (q && !toLatin([p.full_name, p.student_no, p.major, p.note].join(' ')).toLowerCase().includes(q)) return false;
     return true;
@@ -1578,7 +1646,7 @@ function renderPeople(){
     ? `<div class="empty"><h3>هنوز شرکت‌کننده‌ای ثبت نشده</h3>فایل اکسل یا CSV لیست ثبت‌نام رو وارد کن؛ کافیه ستون «شماره تماس» (یا «شماره دانشجویی») و «نام» داشته باشه. «گرایش» و «تعداد مهمان» هم خونده می‌شن.<div class="chips need-edit"><button class="chip" type="button" data-act="import-people">ورود از شیت</button><button class="chip" type="button" data-act="add-person">افزودن دستی</button></div></div>`
     : rows.map(([p, s]) => `<button class="row" type="button" data-person="${esc(p.id)}" style="--c:${STATE_COLOR[s.key]}">
         <span class="stripe"></span>
-        <span><span class="t">${esc(p.full_name || '—')}</span><span class="meta"><span class="tag" dir="ltr">${esc(p.student_no)}</span>${p.major ? `<span class="tag">${esc(p.major)}</span>` : ''}${guestsOf(p) ? `<span class="tag">${fmt(guestsOf(p))} مهمان</span>` : ''}<span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${p.user_id ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}</span></span>
+        <span><span class="t">${esc(p.full_name || '—')}</span><span class="meta"><span class="tag" dir="ltr">${esc(baseNo(p.student_no))}</span>${perNo.get(baseNo(p.student_no)) > 1 ? `<span class="tag warn">شماره‌ی مشترک ${fmt(perNo.get(baseNo(p.student_no)))} نفر</span>` : ''}${p.major ? `<span class="tag">${esc(p.major)}</span>` : ''}${guestsOf(p) ? `<span class="tag">${fmt(guestsOf(p))} مهمان</span>` : ''}<span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${isLinked(p) ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}</span></span>
         <span></span>
         <span class="amt"><b>${fmt(s.approved)}</b><small>از ${fmt(s.due)}</small></span>
       </button>`).join('') || '<div class="empty">موردی با این فیلتر پیدا نشد.</div>';
@@ -1591,7 +1659,7 @@ function openPerson(id){
   editingPerson = id ? S.participants[id] : null;
   const p = editingPerson || {student_no:'', full_name:'', amount:null, verify_code:'', note:'', major:'', guests:0};
   const f = personForm.elements;
-  f.student_no.value = p.student_no || ''; f.full_name.value = p.full_name || '';
+  f.student_no.value = baseNo(p.student_no); f.full_name.value = p.full_name || '';
   f.major.value = p.major || ''; f.guests.value = guestsOf(p) ? fmt(guestsOf(p)) : '';
   $('#personExtra').hidden = !hasGuestCols;
   f.amount.value = p.amount !== null && p.amount !== undefined ? fmt(p.amount) : '';
@@ -1600,9 +1668,13 @@ function openPerson(id){
   $('#personDlgTitle').textContent = editingPerson ? (p.full_name || 'شرکت‌کننده') : 'شرکت‌کننده‌ی جدید';
   $('#personDel').hidden = !editingPerson;
   const linked = p.user_id ? (S.members[p.user_id]?.display_name || 'متصل') : '';
+  const sharing = editingPerson ? Object.values(S.participants).filter(x => x.id !== p.id && sameNumber(x.student_no, p.student_no) && isPhoneId(p.student_no)) : [];
+  const viaShared = !p.user_id && sharing.find(x => x.user_id);
   $('#personLink').innerHTML = editingPerson ? (p.user_id
     ? `<span class="tag ok">حساب تلگرام: ${esc(linked)}</span> <button class="btn small danger need-admin" type="button" data-act="unlink-person">جدا کردن حساب</button>`
-    : '<span class="tag">هنوز وارد نشده</span>') : '';
+    : viaShared ? `<span class="tag ok">صاحب شماره (حساب «${esc(S.members[viaShared.user_id]?.display_name || viaShared.full_name || '')}») براش پرداخت می‌کنه</span>`
+    : '<span class="tag">هنوز وارد نشده</span>')
+    + (sharing.length ? ` <span class="tag warn">با همین شماره: ${esc(sharing.map(x => x.full_name || '—').join('، '))}</span>` : '') : '';
   renderPersonPays();
   resetManualPay();
   $('#personMeta').textContent = metaLine(editingPerson);
@@ -1668,10 +1740,19 @@ personForm.addEventListener('submit', async e => {
   e.preventDefault();
   const f = personForm.elements, plain = normNo(f.student_no.value), phone = canonPhone(f.student_no.value);
   // store phones as 09xxxxxxxxx like the import does; a bare 10-digit "9…" is only taken as a phone in a phone-based list
-  const no = phone && (!/^9\d{9}$/.test(plain) || phoneList()) ? phone : plain;
-  if (!no){ f.student_no.focus(); toast('شماره موبایل یا دانشجویی رو بنویس'); return; }
-  const dup = Object.values(S.participants).find(x => x.student_no === no && (!editingPerson || x.id !== editingPerson.id));
-  if (dup){ toast(`این شماره قبلاً برای «${dup.full_name || no}» ثبت شده`); return; }
+  const base = baseNo(phone && (!/^9\d{9}$/.test(plain) || phoneList()) ? phone : plain);
+  if (!base){ f.student_no.focus(); toast('شماره موبایل یا دانشجویی رو بنویس'); return; }
+  let no = base;
+  if (editingPerson && sameNumber(editingPerson.student_no, base)) no = editingPerson.student_no; // number unchanged: keep its key
+  else {
+    const others = Object.values(S.participants).filter(x => sameNumber(x.student_no, base) && (!editingPerson || x.id !== editingPerson.id));
+    if (others.length){
+      // only a phone can be shared; a student number belongs to one person
+      if (!isPhoneId(base)){ toast(`این شماره قبلاً برای «${others[0].full_name || base}» ثبت شده`); return; }
+      if (!confirm(`این شماره برای «${others.map(x => x.full_name || '—').join('، ')}» هم ثبت شده.\nاگه واقعاً با یک شماره ثبت‌نام کردن، هر کدوم جدا ذخیره می‌شه و صاحب شماره بعد از ورود می‌تونه بینشون جابه‌جا بشه و برای هر کدوم جدا پرداخت کنه. ادامه؟`)) return;
+      no = freeKey(base, new Set(Object.values(S.participants).map(x => x.student_no)));
+    }
+  }
   const amt = f.amount.value.trim() ? parseNum(f.amount.value) : null;
   const obj = {id: editingPerson ? editingPerson.id : newId(), student_no:no, full_name:f.full_name.value.trim(), amount:amt,
     verify_code: last4(f.verify_code.value) || null, note:f.note.value.trim()};
@@ -1685,7 +1766,11 @@ $('#personDel').addEventListener('click', async () => {
   const pays = paysOf(p.id);
   if (!confirm(`«${p.full_name || p.student_no}» حذف بشه؟` + (pays.length ? `\n${fmt(pays.length)} فیش ثبت‌شده‌ش هم حذف می‌شه (سهم‌های تأییدشده در بودجه می‌مونن).` : ''))) return;
   personDlg.close(); pays.forEach(x => delete S.payments[x.id]);
-  if (await del('participants', p.id)) toast('حذف شد'); else resync('payments');
+  if (!await del('participants', p.id)){ resync('payments'); return; }
+  toast('حذف شد');
+  // if the number's first entry went, the next person on that number takes over the plain number (logins look that one up)
+  const next = Object.values(S.participants).filter(x => sameNumber(x.student_no, p.student_no)).sort((a,b) => shareNo(a.student_no) - shareNo(b.student_no))[0];
+  if (p.student_no === baseNo(p.student_no) && next && next.student_no !== p.student_no) patch('participants', next.id, {student_no:p.student_no});
 });
 async function unlinkPerson(){
   const p = editingPerson; if (!p || !confirm('حساب تلگرام از این شماره جدا بشه؟ بعدش هر کسی می‌تونه دوباره با این شماره وارد بشه.')) return;
@@ -1698,8 +1783,8 @@ const receiptDlg = $('#receiptDlg'); let reviewing = null;
 async function openReceipt(id){
   const x = S.payments[id]; if (!x) return; reviewing = x;
   const p = S.participants[x.participant_id] || {}, st = payState(p.id ? p : {id:null});
-  $('#rcTitle').textContent = `فیش ${p.full_name || p.student_no || ''}`;
-  $('#rcInfo').innerHTML = `<span dir="ltr" class="tag">${esc(p.student_no || '')}</span> <span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span>
+  $('#rcTitle').textContent = `فیش ${p.full_name || baseNo(p.student_no)}`;
+  $('#rcInfo').innerHTML = `<span dir="ltr" class="tag">${esc(baseNo(p.student_no))}</span> <span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span>
     <span class="sub">سهم ${fmt(p.id ? dueOf(p) : 0)} · تأییدشده قبلی ${fmt(st.approved)}${x.tracking_code ? ` · پیگیری <span dir="ltr">${esc(x.tracking_code)}</span>` : ''} · ارسال ${faDate(x.created_at)}</span>
     ${x.reviewed_by ? `<span class="sub">بررسی: ${esc(x.reviewed_by)}</span>` : ''}`;
   $('#rcAmount').value = fmt(x.amount); $('#rcAmount').disabled = !canEdit || (x.status === 'approved' && !canAdmin);
@@ -1806,9 +1891,10 @@ async function readSheet(file){
   // with a student-number column the phone only gives the 4-digit check code; otherwise the phone itself is what people log in with
   const byPhone = col.student_no === undefined;
   const cell = (r, k) => col[k] === undefined ? '' : String(r[col[k]] ?? '').trim();
-  const seen = new Map(), bad = [], dups = [], unsure = [];
+  const parsed = [], bad = [], unsure = [];
   aoa.slice(hi + 1).forEach(r => {
-    const name = cell(r, 'full_name') || [cell(r, 'first'), cell(r, 'last')].filter(Boolean).join(' ');
+    // Arabic-keyboard ي/ك become Persian ی/ک, so names match searches and each other
+    const name = (cell(r, 'full_name') || [cell(r, 'first'), cell(r, 'last')].filter(Boolean).join(' ')).replace(/ي/g, 'ی').replace(/ك/g, 'ک');
     const no = byPhone ? canonPhone(cell(r, 'phone')) : normNo(cell(r, 'student_no'));
     if (!no){ if (byPhone && (name || cell(r, 'phone'))) bad.push(`${name || '—'} (${cell(r, 'phone') || 'بدون شماره'})`); return; }
     const row = {student_no:no, full_name:name.slice(0, 80)};
@@ -1817,17 +1903,41 @@ async function readSheet(file){
     if (col.note !== undefined) row.note = cell(r, 'note').slice(0, 140);
     if (col.major !== undefined) row.major = cell(r, 'major').slice(0, 80);
     if (col.guests !== undefined){ const g = parseGuests(cell(r, 'guests')); row.guests = g.n; if (!g.sure) unsure.push({name:name || no, raw:cell(r, 'guests'), n:g.n}); }
-    if (seen.has(no)) dups.push(name || no);
-    seen.set(no, row);
+    parsed.push({row, nn:normName(name)});
   });
-  return {rows:[...seen.values()], col, byPhone, bad, dups, unsure};
+  // Rows on one phone number: the same name again is a repeated registration (the last row wins);
+  // a different name is another person, stored under the next free key (0912…#2) so both are kept.
+  // A student number always means one person.
+  const keyOf = new Map(), shared = [];
+  if (byPhone){
+    const groups = new Map();
+    parsed.forEach(x => { const g = groups.get(x.row.student_no) || []; g.push(x); groups.set(x.row.student_no, g); });
+    groups.forEach((list, base) => {
+      const names = [...new Set(list.map(x => x.nn))], ex = Object.values(S.participants).filter(p => baseNo(p.student_no) === base);
+      const keys = new Map(), used = new Set();
+      // one person on this number before and after: keep it even if the name's spelling changed
+      if (names.length === 1 && ex.length === 1) keys.set(names[0], ex[0].student_no);
+      else names.forEach(nn => { const m = ex.find(p => normName(p.full_name) === nn && !used.has(p.student_no)); if (m){ keys.set(nn, m.student_no); used.add(m.student_no); } });
+      const taken = new Set(ex.map(p => p.student_no));
+      names.forEach(nn => { if (!keys.has(nn)){ const k = freeKey(base, taken); taken.add(k); keys.set(nn, k); } });
+      list.forEach(x => keyOf.set(x, keys.get(x.nn)));
+      if (names.length > 1) shared.push(`${base}: ${[...new Set(list.map(x => x.row.full_name || '—'))].join(' و ')}`);
+    });
+  }
+  const seen = new Map(), dups = [];
+  parsed.forEach(x => {
+    const key = keyOf.get(x) || x.row.student_no;
+    if (seen.has(key)) dups.push(x.row.full_name || baseNo(key));
+    seen.set(key, {...x.row, student_no:key});
+  });
+  return {rows:[...seen.values()], col, byPhone, bad, dups, unsure, shared};
 }
 function openImport(){ importRows = null; $('#importInfo').innerHTML = ''; $('#importGo').disabled = true; $('#importFile').value = ''; importDlg.showModal(); }
 $('#importFile').addEventListener('change', async e => {
   const file = e.target.files[0]; if (!file) return;
   importRows = null; $('#importGo').disabled = true;
   try {
-    const {rows, col, byPhone, bad, dups, unsure} = await readSheet(file); importRows = rows;
+    const {rows, col, byPhone, bad, dups, unsure, shared} = await readSheet(file); importRows = rows;
     const known = new Set(Object.values(S.participants).map(p => p.student_no)), existing = rows.filter(r => known.has(r.student_no)).length;
     const guests = rows.reduce((a, r) => a + (r.guests || 0), 0);
     const colNames = {student_no:'شماره دانشجویی', phone: byPhone ? 'شماره تماس (برای ورود)' : 'موبایل (برای ۴ رقم تأیید)', full_name:'نام', first:'نام', last:'نام خانوادگی', major:'گرایش', guests:'تعداد مهمان', amount:'مبلغ', note:'توضیحات'};
@@ -1837,10 +1947,11 @@ $('#importFile').addEventListener('change', async e => {
       <p class="sub">${byPhone ? 'هر نفر بعداً با همین شماره موبایل وارد می‌شه.' : col.phone !== undefined ? 'چون ستون موبایل هست، هر نفر موقع ورود باید ۴ رقم آخر موبایلش رو هم بزنه.' : 'ستون موبایل نیست؛ ورود فقط با شماره دانشجویی انجام می‌شه.'}</p>
       ${col.amount === undefined ? `<p class="sub">ستون مبلغ نیست؛ مبلغ هر نفر از «اطلاعات پرداخت» حساب می‌شه${col.guests !== undefined ? ' (سهم خودش + تعداد مهمان × مبلغ هر مهمان)' : ''}.</p>` : ''}
       ${bad.length ? `<p class="sub bad">${fmt(bad.length)} ردیف شماره موبایل درست نداشت و وارد نمی‌شه: ${few(bad)}</p>` : ''}
-      ${dups.length ? `<p class="sub">${fmt(dups.length)} شماره تکراری بود و آخرین ردیفش ملاک شد: ${few(dups)}</p>` : ''}
+      ${dups.length ? `<p class="sub">${fmt(dups.length)} نفر دو بار ثبت‌نام کرده بودن (همون شماره و همون اسم) و آخرین ردیفشون ملاک شد: ${few(dups)}</p>` : ''}
+      ${shared.length ? `<p class="sub">${fmt(shared.length)} شماره برای بیش از یک نفر ثبت شده؛ هر نفر جدا ثبت می‌شه و صاحب شماره بعد از ورود می‌تونه بینشون جابه‌جا بشه و برای هر کدوم جدا پرداخت کنه: ${few(shared, 4)}</p>` : ''}
       ${unsure.length ? `<p class="sub bad">تعداد مهمان این‌ها دقیق خونده نشد؛ بعد از ورود چک کن:</p><ul class="lines">${unsure.slice(0, 8).map(u => `<li><span>${esc(u.name)}: «${esc(u.raw)}»</span><span>${fmt(u.n)} مهمان</span></li>`).join('')}</ul>${unsure.length > 8 ? `<p class="sub">و ${fmt(unsure.length - 8)} مورد دیگه</p>` : ''}` : ''}
       ${(col.guests !== undefined || col.major !== undefined) && !hasGuestCols ? '<p class="sub bad">گرایش و تعداد مهمان ذخیره نمی‌شن، چون ستون‌هاشون هنوز در دیتابیس ساخته نشده (دستور SQL مربوط به مهمان‌ها رو اجرا کن).</p>' : ''}
-      <ul class="lines">${rows.slice(0, 5).map(r => `<li><span>${esc(r.full_name || '—')}${r.major ? ' · ' + esc(r.major) : ''}${r.guests ? ` · ${fmt(r.guests)} مهمان` : ''}</span><span dir="ltr">${esc(r.student_no)}</span></li>`).join('')}</ul>`;
+      <ul class="lines">${rows.slice(0, 5).map(r => `<li><span>${esc(r.full_name || '—')}${r.major ? ' · ' + esc(r.major) : ''}${r.guests ? ` · ${fmt(r.guests)} مهمان` : ''}</span><span dir="ltr">${esc(baseNo(r.student_no))}</span></li>`).join('')}</ul>`;
     $('#importGo').disabled = !rows.length;
   } catch(err){ console.error('import', err); $('#importInfo').innerHTML = `<p class="sub bad">${esc(err.message || 'فایل خونده نشد')}</p>`; }
 });
@@ -2018,7 +2129,9 @@ document.addEventListener('click', e => {
     if (a === 'import-people') return openImport();
     if (a === 'add-person') return openPerson();
     if (a === 'unlink-person') return unlinkPerson();
-    if (a === 'manual-pay') return recordPayment(el); }
+    if (a === 'manual-pay') return recordPayment(el);
+    if (a === 'setup-bot') return setupBot(el); }
+  if ((el = g('[data-pay-for]'))){ payForId = el.dataset.payFor; return render(); }
   if ((el = g('[data-copy]'))) return copyText(el.dataset.copy, el.dataset.copyLabel);
   if ((el = g('[data-receipt]'))) return openReceipt(el.dataset.receipt);
   if ((el = g('[data-person]'))) return openPerson(el.dataset.person);
@@ -2052,6 +2165,27 @@ $('#setHead').addEventListener('input', liveFormat);
 $('#setBudget').addEventListener('change', e => saveSettings({budget: parseNum(e.target.value)}));
 $('#setHead').addEventListener('change', e => saveSettings({headcount: parseNum(e.target.value)}));
 $('#setCur').addEventListener('change', e => saveSettings({currency: e.target.value}));
+// connects the bot to telegram-auth (welcome message with an "open the site" button on /start) and sets its menu button
+async function setupBot(btn){
+  if (!canAdmin) return;
+  const out = $('#botSetupMsg'), site = location.origin + location.pathname.replace(/index\.html$/, '');
+  out.className = 'sub';
+  if (location.protocol !== 'https:'){ out.classList.add('bad'); out.textContent = 'این کار رو از آدرس اصلی سایت (https://…) انجام بده، نه از نسخه‌ی محلی.'; return; }
+  btn.disabled = true; out.textContent = 'در حال راه‌اندازی…';
+  try {
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{setup_bot:true, site}});
+    if (error){
+      let b = {}; try { b = await error.context.json(); } catch(e){}
+      throw new Error(b.error === 'not_admin' ? 'فقط مدیر می‌تونه ربات رو راه‌اندازی کنه.'
+        : b.error === 'telegram_failed' ? 'تلگرام قبول نکرد' + (b.detail ? ': ' + b.detail : '.')
+        : b.error === 'bot_token_missing' ? 'توکن ربات در Supabase تنظیم نشده.'
+        : 'تابع telegram-auth جواب درست نداد؛ مطمئن شو نسخه‌ی جدیدش Deploy شده.');
+    }
+    out.classList.add('pos');
+    out.textContent = 'انجام شد. ربات رو توی تلگرام Start کن تا پیام و دکمه‌ی «ورود به سایت» رو ببینی.' + (data && data.menu === false ? ' (دکمه‌ی منوی ربات تنظیم نشد؛ می‌تونی از BotFather تنظیمش کنی.)' : '');
+  } catch(e){ out.classList.add('bad'); out.textContent = e.message; }
+  finally { btn.disabled = false; }
+}
 
 /* ---------- excel ---------- */
 function sheetFrom(aoa, widths, numCols){
@@ -2102,7 +2236,7 @@ function exportXlsx(){
   const parts = Object.values(S.participants).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||'','fa'));
   if (parts.length){
     const a6 = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','تعداد مهمان','مبلغ سهم','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت']];
-    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, p.student_no, p.full_name||'', p.major||'', guestsOf(p), s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'']); });
+    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, baseNo(p.student_no), p.full_name||'', p.major||'', guestsOf(p), s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'']); });
     const guests = parts.reduce((a,p) => a + guestsOf(p), 0);
     a6.push([]); a6.push(['','','جمع','', guests, parts.reduce((a,p) => a + dueOf(p), 0), parts.reduce((a,p) => a + payState(p).approved, 0)]);
     a6.push(['','','کل حضور (نفرات + مهمان‌ها)','', parts.length + guests]);
