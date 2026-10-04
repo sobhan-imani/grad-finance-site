@@ -439,6 +439,11 @@ body:not(.can-admin) .need-admin{display:none!important}
         <input class="field" id="setHead" inputmode="numeric" placeholder="مثلاً ۲۵"></label>
       <label class="lbl">واحد پول<select class="field" id="setCur"><option>تومان</option><option>ریال</option></select></label>
       <p class="hint" id="setMeta" style="color:var(--muted);font-size:13px;margin:0"></p>
+      <div class="lbl need-admin">ربات تلگرام
+        <span class="hint">یک بار بزن: بعدش هر کس ربات رو Start کنه، پیام خوش‌آمد با دکمه‌ی «ورود به سایت» می‌گیره و دکمه‌ی منوی ربات هم همین سایت رو باز می‌کنه. این کار رو از آدرس اصلی سایت انجام بده؛ اگه آدرس سایت عوض شد، دوباره بزن.</span>
+        <div class="row-btns"><button class="btn" type="button" data-act="setup-bot">راه‌اندازی دکمه‌ی ربات</button></div>
+        <span class="sub" id="botSetupMsg" aria-live="polite"></span>
+      </div>
     </div>
   </section>
 </div>
@@ -2067,7 +2072,8 @@ document.addEventListener('click', e => {
     if (a === 'import-people') return openImport();
     if (a === 'add-person') return openPerson();
     if (a === 'unlink-person') return unlinkPerson();
-    if (a === 'manual-pay') return recordPayment(el); }
+    if (a === 'manual-pay') return recordPayment(el);
+    if (a === 'setup-bot') return setupBot(el); }
   if ((el = g('[data-copy]'))) return copyText(el.dataset.copy, el.dataset.copyLabel);
   if ((el = g('[data-receipt]'))) return openReceipt(el.dataset.receipt);
   if ((el = g('[data-person]'))) return openPerson(el.dataset.person);
@@ -2101,6 +2107,27 @@ $('#setHead').addEventListener('input', liveFormat);
 $('#setBudget').addEventListener('change', e => saveSettings({budget: parseNum(e.target.value)}));
 $('#setHead').addEventListener('change', e => saveSettings({headcount: parseNum(e.target.value)}));
 $('#setCur').addEventListener('change', e => saveSettings({currency: e.target.value}));
+// connects the bot to telegram-auth (welcome message with an "open the site" button on /start) and sets its menu button
+async function setupBot(btn){
+  if (!canAdmin) return;
+  const out = $('#botSetupMsg'), site = location.origin + location.pathname.replace(/index\.html$/, '');
+  out.className = 'sub';
+  if (location.protocol !== 'https:'){ out.classList.add('bad'); out.textContent = 'این کار رو از آدرس اصلی سایت (https://…) انجام بده، نه از نسخه‌ی محلی.'; return; }
+  btn.disabled = true; out.textContent = 'در حال راه‌اندازی…';
+  try {
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{setup_bot:true, site}});
+    if (error){
+      let b = {}; try { b = await error.context.json(); } catch(e){}
+      throw new Error(b.error === 'not_admin' ? 'فقط مدیر می‌تونه ربات رو راه‌اندازی کنه.'
+        : b.error === 'telegram_failed' ? 'تلگرام قبول نکرد' + (b.detail ? ': ' + b.detail : '.')
+        : b.error === 'bot_token_missing' ? 'توکن ربات در Supabase تنظیم نشده.'
+        : 'تابع telegram-auth جواب درست نداد؛ مطمئن شو نسخه‌ی جدیدش Deploy شده.');
+    }
+    out.classList.add('pos');
+    out.textContent = 'انجام شد. ربات رو توی تلگرام Start کن تا پیام و دکمه‌ی «ورود به سایت» رو ببینی.' + (data && data.menu === false ? ' (دکمه‌ی منوی ربات تنظیم نشد؛ می‌تونی از BotFather تنظیمش کنی.)' : '');
+  } catch(e){ out.classList.add('bad'); out.textContent = e.message; }
+  finally { btn.disabled = false; }
+}
 
 /* ---------- excel ---------- */
 function sheetFrom(aoa, widths, numCols){

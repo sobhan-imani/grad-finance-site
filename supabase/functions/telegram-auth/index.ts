@@ -6,6 +6,9 @@
 // کار دوم: وقتی سایت داخل تلگرام بازه، شرکت‌کننده با یک دکمه شماره‌ی تلگرامش رو می‌فرسته (requestContact).
 // این تابع امضای اون رو بررسی می‌کنه و با همون منطق «زدن شماره» (claim_student) به لیست وصلش می‌کنه.
 //
+// کار سوم: ربات. هر کس ربات رو Start کنه، پیام خوش‌آمد با دکمه‌ی «ورود به سایت» می‌گیره.
+// تلگرام پیام‌های ربات رو به همین تابع می‌فرسته (webhook)؛ مدیر یک بار از تب «تنظیمات» سایت راه‌اندازیش می‌کنه.
+//
 // Secrets لازم (Edge Functions → Secrets):  TELEGRAM_BOT_TOKEN
 // SUPABASE_URL، SUPABASE_ANON_KEY و SUPABASE_SERVICE_ROLE_KEY خودکار در دسترس‌اند.
 // تنظیم مهم: «Verify JWT» / «Enforce JWT verification» برای این تابع خاموش باشه.
@@ -90,10 +93,15 @@ function canonPhone(s: string): string | null {
   const m = /^(?:0098|98|0)?(9\d{9})$/.exec(s.replace(/\D/g, ""));
   return m ? "0" + m[1] : null;
 }
-async function linkByPhone(req: Request, raw: string): Promise<Response> {
+// کاربرِ سایت که این درخواست رو فرستاده (از روی توکن نشستش)
+async function caller(req: Request) {
   const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-  const { data: who } = await admin.auth.getUser(jwt);
-  const tgId = /^tg(\d+)@telegram\.local$/.exec(who?.user?.email ?? "")?.[1];
+  const { data } = await admin.auth.getUser(jwt);
+  return { jwt, user: data?.user ?? null };
+}
+async function linkByPhone(req: Request, raw: string): Promise<Response> {
+  const { jwt, user } = await caller(req);
+  const tgId = /^tg(\d+)@telegram\.local$/.exec(user?.email ?? "")?.[1];
   if (!tgId) return json({ error: "not_logged_in" }, 401);
   const contact = await verifyContact(raw);
   // فقط شماره‌ی خودِ همین حساب تلگرام قبوله، نه کارت تماس کس دیگه
@@ -110,14 +118,65 @@ async function linkByPhone(req: Request, raw: string): Promise<Response> {
   return json({ ...(data ?? {}), phone });
 }
 
+// ---------- ربات ----------
+const OPEN_SITE = "ورود به سایت";
+// رمز webhook از خود توکن ربات ساخته می‌شه، پس secret جدایی لازم نیست
+const webhookSecret = async () => hex(await hmac(enc.encode(BOT_TOKEN), "telegram-webhook"));
+
+// پیامی که تلگرام برای ربات می‌فرسته. جواب مستقیم در خود پاسخ webhook برمی‌گرده و تلگرام اجراش می‌کنه.
+async function onTelegramUpdate(req: Request): Promise<Response> {
+  if (!safeEqual(req.headers.get("x-telegram-bot-api-secret-token") ?? "", await webhookSecret())) return json({ error: "forbidden" }, 401);
+  const site = new URL(req.url).searchParams.get("site") ?? "";
+  let update: { message?: Record<string, any> };
+  try { update = await req.json(); } catch { return new Response("ok"); }
+  const msg = update.message;
+  // فقط چت خصوصی؛ پیام «شماره» که دکمه‌ی تأیید شماره‌ی سایت می‌فرسته جواب نمی‌گیره
+  if (!msg || msg.chat?.type !== "private" || msg.contact || !site.startsWith("https://")) return new Response("ok");
+  const name = msg.from?.first_name ? ` ${msg.from.first_name}` : "";
+  return json({
+    method: "sendMessage",
+    chat_id: msg.chat.id,
+    text: `سلام${name}! 👋\nبرای دیدن مبلغ سهمت از جشن و فرستادن فیش واریز، دکمه‌ی «${OPEN_SITE}» رو بزن.`,
+    reply_markup: { inline_keyboard: [[{ text: OPEN_SITE, web_app: { url: site } }]] },
+  });
+}
+
+// راه‌اندازی یک‌باره توسط مدیر: تلگرام پیام‌های ربات رو به این تابع بفرسته، و دکمه‌ی منوی ربات همین سایت رو باز کنه.
+// آدرس سایت از مرورگر مدیر میاد و داخل آدرس webhook نگه داشته می‌شه.
+async function setupBot(req: Request, siteRaw: string): Promise<Response> {
+  const { user } = await caller(req);
+  if (!user) return json({ error: "not_logged_in" }, 401);
+  const { data: me } = await admin.from("members").select("role").eq("user_id", user.id).maybeSingle();
+  if (me?.role !== "admin") return json({ error: "not_admin" }, 403);
+  let site: URL;
+  try { site = new URL(siteRaw); } catch { return json({ error: "bad_site" }, 400); }
+  if (site.protocol !== "https:") return json({ error: "bad_site" }, 400);
+  site.hash = ""; site.search = "";
+  const tg = async (method: string, params: unknown) => {
+    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params),
+    });
+    return await r.json() as { ok: boolean; description?: string };
+  };
+  const hook = await tg("setWebhook", {
+    url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/telegram-auth?site=${encodeURIComponent(site.href)}`,
+    secret_token: await webhookSecret(), allowed_updates: ["message"], drop_pending_updates: true,
+  });
+  if (!hook.ok) return json({ error: "telegram_failed", detail: hook.description }, 502);
+  const menu = await tg("setChatMenuButton", { menu_button: { type: "web_app", text: OPEN_SITE, web_app: { url: site.href } } });
+  return json({ ok: true, site: site.href, menu: menu.ok, detail: menu.ok ? undefined : menu.description });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!BOT_TOKEN) return json({ error: "bot_token_missing" }, 500);
+  if (req.headers.has("x-telegram-bot-api-secret-token")) return onTelegramUpdate(req);
 
-  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string };
+  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string; setup_bot?: boolean; site?: string };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
   if (typeof body.contact === "string") return linkByPhone(req, body.contact);
+  if (body.setup_bot) return setupBot(req, String(body.site ?? ""));
 
   const tg = body.initData ? await verifyInitData(body.initData)
            : body.widget ? await verifyWidget(body.widget) : null;
