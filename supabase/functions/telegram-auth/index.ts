@@ -97,10 +97,17 @@ function canonPhone(s: string): string | null {
 async function caller(req: Request) {
   const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   const { data } = await admin.auth.getUser(jwt);
-  return { jwt, user: data?.user ?? null };
+  // همون کلید عمومی که خود سایت می‌فرسته (anon یا publishable)
+  const apikey = req.headers.get("apikey") || Deno.env.get("SUPABASE_ANON_KEY")!;
+  return { jwt, apikey, user: data?.user ?? null };
 }
+// کلاینتی که مثل خود کاربر به دیتابیس وصل می‌شه (با همون قوانین RLS و دسترسی‌هایی که سایت داره)
+const asUser = ({ jwt, apikey }: { jwt: string; apikey: string }) => createClient(Deno.env.get("SUPABASE_URL")!, apikey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+  global: { headers: { Authorization: `Bearer ${jwt}` } },
+});
 async function linkByPhone(req: Request, raw: string): Promise<Response> {
-  const { jwt, user } = await caller(req);
+  const who = await caller(req), user = who.user;
   const tgId = /^tg(\d+)@telegram\.local$/.exec(user?.email ?? "")?.[1];
   if (!tgId) return json({ error: "not_logged_in" }, 401);
   const contact = await verifyContact(raw);
@@ -116,11 +123,7 @@ async function linkByPhone(req: Request, raw: string): Promise<Response> {
     return json({ error: "claim_failed", detail: verified.error.message }, 500);
   }
   // اون دستور هنوز اجرا نشده: با همون claim_student، به‌عنوان خود کاربر
-  const asUser = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${jwt}` } },
-  });
-  const { data, error } = await asUser.rpc("claim_student", { p_no: phone, p_code: phone.slice(-4) });
+  const { data, error } = await asUser(who).rpc("claim_student", { p_no: phone, p_code: phone.slice(-4) });
   if (error) return json({ error: "claim_failed", detail: error.message }, 500);
   return json({ ...(data ?? {}), phone });
 }
@@ -151,10 +154,12 @@ async function onTelegramUpdate(req: Request): Promise<Response> {
 // راه‌اندازی یک‌باره توسط مدیر: تلگرام پیام‌های ربات رو به این تابع بفرسته، و دکمه‌ی منوی ربات همین سایت رو باز کنه.
 // آدرس سایت از مرورگر مدیر میاد و داخل آدرس webhook نگه داشته می‌شه.
 async function setupBot(req: Request, siteRaw: string): Promise<Response> {
-  const { user } = await caller(req);
+  const who = await caller(req), user = who.user;
   if (!user) return json({ error: "not_logged_in" }, 401);
-  const { data: me } = await admin.from("members").select("role").eq("user_id", user.id).maybeSingle();
-  if (me?.role !== "admin") return json({ error: "not_admin" }, 403);
+  // نقش رو مثل خود سایت (با نشست خود کاربر) می‌خونیم؛ دسترسی service role به جدول members لازم نیست
+  const { data: me, error } = await asUser(who).from("members").select("role").eq("user_id", user.id).maybeSingle();
+  if (error) return json({ error: "role_check_failed", detail: error.message }, 500);
+  if (me?.role !== "admin") return json({ error: "not_admin", role: me?.role ?? null }, 403);
   let site: URL;
   try { site = new URL(siteRaw); } catch { return json({ error: "bad_site" }, 400); }
   if (site.protocol !== "https:") return json({ error: "bad_site" }, 400);
