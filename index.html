@@ -861,16 +861,22 @@ function lockForm(form){ form.querySelectorAll('input,select,textarea').forEach(
 
 /* ---------- auth ---------- */
 // Mini App: Telegram passes the signed login data in the URL hash (tgWebAppData)
+let tgScript = 'loading'; // Telegram's Mini App script: 'loading' | 'ready' | 'failed'
 const tgWA = (() => {
   let init = '';
   try { init = new URLSearchParams(location.hash.slice(1)).get('tgWebAppData') || ''; } catch(e){}
   if (!init) return null;
   let user = null; try { user = JSON.parse(new URLSearchParams(init).get('user')); } catch(e){}
-  const s = document.createElement('script'); s.async = true; s.src = 'https://telegram.org/js/telegram-web-app.js';
+  // Telegram's official Mini App script ships with the site (vendor/) instead of loading from telegram.org:
+  // telegram.org is filtered for many users, and while the Telegram app reaches its servers through its own proxy,
+  // this page loads files over the phone's normal connection, so the share-number button would never appear.
+  const s = document.createElement('script'); s.async = true; s.src = 'vendor/telegram-web-app.js';
+  const settled = state => { tgScript = state; if (gateMode === 'claim' && !$('#gate').hidden) setClaimMode(); }; // the claim screen may already be up
   s.onload = () => {
     try { const W = window.Telegram.WebApp; W.ready(); W.expand(); document.documentElement.dataset.theme = W.colorScheme === 'dark' ? 'dark' : 'light'; } catch(e){}
-    if (gateMode === 'claim' && !$('#gate').hidden) setClaimMode(); // the claim screen may already be up
+    settled('ready');
   };
+  s.onerror = () => settled('failed');
   document.head.appendChild(s);
   return {initData:init, user};
 })();
@@ -993,8 +999,13 @@ function setClaimMode(){
   $('#tgPhoneBox').hidden = !ask; $('#openInTgBox').hidden = !!tgWA;
   const bot = botConfigured ? cfg.telegramBot.replace(/^@/, '') : '';
   $('#openInTgBtn').hidden = !bot; if (bot) $('#openInTgBtn').href = `https://t.me/${bot}`;
-  if (ask) $('#claimHelp').hidden = true;
-  else if (tgWA) showClaimHelp('تأیید شماره توی این نسخه‌ی تلگرام در دسترس نیست؛ تلگرام رو به‌روز کن و دوباره از ربات وارد شو.');
+  if (ask || (tgWA && tgScript === 'loading')) $('#claimHelp').hidden = true;
+  else if (tgWA) showClaimHelp(tgScript === 'failed' ? 'ابزار تلگرام روی این صفحه بارگذاری نشد؛ صفحه رو ببند و دوباره از ربات «ورود به سایت» رو بزن.' : oldClientText());
+}
+// "update Telegram", with the version and platform Telegram reported, so a wrong guess is easy to spot
+function oldClientText(){
+  let v = ''; try { const W = window.Telegram.WebApp; v = [W.version, W.platform].filter(Boolean).join(' · '); } catch(e){}
+  return 'تأیید شماره توی این نسخه‌ی تلگرام در دسترس نیست؛ تلگرام رو به‌روز کن و دوباره از ربات وارد شو.' + (v ? ` <span class="sub" dir="ltr">(Telegram ${esc(v)})</span>` : '');
 }
 $('#tgPhoneBtn').addEventListener('click', () => {
   const btn = $('#tgPhoneBtn'); $('#loginErr').textContent = ''; $('#claimHelp').hidden = true;
@@ -1012,7 +1023,7 @@ $('#tgPhoneBtn').addEventListener('click', () => {
         await claimResult(data, data && data.phone);
       } finally { btn.disabled = false; btn.textContent = label; }
     });
-  } catch(e){ console.error('requestContact', e); showClaimHelp('تأیید شماره توی این نسخه‌ی تلگرام در دسترس نیست؛ تلگرام رو به‌روز کن و دوباره از ربات وارد شو.'); }
+  } catch(e){ console.error('requestContact', e); showClaimHelp(oldClientText()); }
 });
 function watchOwnRow(){
   if (ownChannel) sb.removeChannel(ownChannel);
