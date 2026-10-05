@@ -483,6 +483,11 @@ create policy "shared number: send their receipts" on public.payments for insert
 drop policy if exists "finance staff record payments" on public.payments;
 create policy "finance staff record payments" on public.payments
   for insert to authenticated with check (public.finance_staff());
+-- حذف فیش فقط کار مدیره، و فقط وقتی تأییدشده نیست؛ سایت فیش تأییدشده رو اول با review_payment به بررسی
+-- برمی‌گردونه تا مبلغش از «سهم نفرات» کم بشه
+drop policy if exists "admin deletes receipts" on public.payments;
+create policy "admin deletes receipts" on public.payments
+  for delete to authenticated using (public.has_role('admin') and status <> 'approved');
 
 drop policy if exists activity_select on public.activity;
 create policy activity_select on public.activity for select to authenticated using (public.has_role('viewer'));

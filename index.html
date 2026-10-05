@@ -604,6 +604,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
       <label class="lbl">یادداشت بررسی <span class="hint">اگه رد می‌کنی، دلیلش برای خود شخص نمایش داده می‌شه</span><input class="field" id="rcNote" maxlength="200"></label>
     </div>
     <div class="dlg-foot need-edit">
+      <button class="btn danger need-admin" type="button" id="rcDelete">حذف فیش</button>
       <button class="btn" type="button" id="rcReset">برگرداندن به بررسی</button>
       <span class="spacer"></span>
       <button class="btn danger" type="button" id="rcReject">رد</button>
@@ -1915,6 +1916,41 @@ $('#rcReject').addEventListener('click', () => review('rejected'));
 $('#rcReset').addEventListener('click', () => review('submitted'));
 $('#rcAmountSave').addEventListener('click', () => review('approved'));
 $('#rcAmount').addEventListener('input', liveFormat);
+// Deleting a receipt (admin only). An approved one is first returned to review through review_payment, exactly like
+// «برگرداندن به بررسی», so its amount leaves the budget the usual way; the database only deletes unapproved receipts.
+$('#rcDelete').addEventListener('click', async () => {
+  const x = reviewing; if (!x || reviewBusy || !canAdmin) return;
+  const p = S.participants[x.participant_id] || {}, approved = x.status === 'approved';
+  if (!confirm(`فیش ${money(x.amount)} «${p.full_name || shownNo(p.student_no) || '—'}» برای همیشه حذف بشه؟`
+    + (approved ? '\nاین فیش تأیید شده؛ مبلغش از سهم نفرات در بودجه هم کم می‌شه.' : ''))) return;
+  const btns = receiptDlg.querySelectorAll('.dlg-foot button');
+  reviewBusy = true; btns.forEach(b => b.disabled = true);
+  let step = 'revert', error = null, gone = false;
+  try {
+    if (approved) ({ error } = await sb.rpc('review_payment', {p_id:x.id, p_status:'submitted', p_note:x.review_note || '', p_amount:null}));
+    if (!error){
+      step = 'delete';
+      let data; ({ data, error } = await sb.from('payments').delete().eq('id', x.id).select('id'));
+      gone = !error && !!data && data.length > 0;
+    }
+  } catch(e){ error = e; }
+  finally { reviewBusy = false; btns.forEach(b => b.disabled = false); }
+  try { await Promise.all([reload('payments'), approved ? reload('funds') : null]); } catch(e){ console.error('reload', e); }
+  render();
+  if (!gone){
+    console.error('delete receipt', step, error);
+    const back = approved && step === 'delete' ? 'فیش به حالت بررسی برگشت ولی ' : '';
+    // row-level security drops a forbidden delete silently: no error, nothing deleted
+    if (step === 'delete' && !error) toast(back + 'حذف نشد؛ دیتابیس هنوز اجازه‌ی حذف فیش رو نمی‌ده (دستور SQL حذف فیش رو در SQL Editor اجرا کن)');
+    else if (back) toast(back + 'حذف نشد؛ دوباره امتحان کن');
+    else fail(error, 'receipt');
+    if (back && S.payments[x.id]) openReceipt(x.id);
+    return;
+  }
+  receiptDlg.close();
+  if (hasFile(x)){ const { error: fileErr } = await sb.storage.from('receipts').remove([x.file_path]); if (fileErr) console.warn(fileErr); }
+  toast('فیش حذف شد');
+});
 
 /* payment info dialog */
 const payInfoDlg = $('#payInfoDlg'), payInfoForm = $('#payInfoForm');
