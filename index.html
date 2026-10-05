@@ -1007,23 +1007,62 @@ function oldClientText(){
   let v = ''; try { const W = window.Telegram.WebApp; v = [W.version, W.platform].filter(Boolean).join(' · '); } catch(e){}
   return 'تأیید شماره توی این نسخه‌ی تلگرام در دسترس نیست؛ تلگرام رو به‌روز کن و دوباره از ربات وارد شو.' + (v ? ` <span class="sub" dir="ltr">(Telegram ${esc(v)})</span>` : '');
 }
-$('#tgPhoneBtn').addEventListener('click', () => {
-  const btn = $('#tgPhoneBtn'); $('#loginErr').textContent = ''; $('#claimHelp').hidden = true;
+// Asking Telegram for the user's number. This talks to Telegram directly (the same messages WebApp.requestContact
+// sends) because requestContact refuses a second request while the first got no answer, and some Android clients
+// never answer when the share dialog is closed; a second tap then just asks again.
+// One listener, registered once, answers the newest tap (removing listeners while Telegram's script is calling them
+// would make it skip the next one).
+let phoneWaiter = null, phoneListening = false;
+function askTelegramPhone(){
+  const V = window.Telegram.WebView;
+  if (!phoneListening){
+    phoneListening = true;
+    V.onEvent('phone_requested', (type, data) => { const w = phoneWaiter; phoneWaiter = null; if (w) w(data && data.status); });
+  }
+  return new Promise(resolve => { phoneWaiter = resolve; V.postEvent('web_app_request_phone'); });
+}
+// After the user shares, Telegram's servers hand over the signed number; over a slow proxy that can take several
+// seconds (Telegram's own script gives up after 3), so keep asking for up to ~20s. Empty string if it never came.
+async function fetchSignedContact(stillWanted){
+  const W = window.Telegram.WebApp, end = Date.now() + 20000;
+  const once = () => new Promise(done => {
+    const t = setTimeout(() => done(''), 5000);
+    try { W.invokeCustomMethod('getRequestedContact', {}, (err, res) => { clearTimeout(t); done(!err && res ? String(res) : ''); }); }
+    catch(e){ clearTimeout(t); done(''); }
+  });
+  for (let wait = 300; Date.now() < end && stillWanted(); wait = Math.min(wait + 300, 1500)){
+    const raw = await once(); if (raw) return raw;
+    await new Promise(r => setTimeout(r, wait));
+  }
+  return '';
+}
+let phoneAttempt = 0;
+$('#tgPhoneBtn').addEventListener('click', async () => {
+  const btn = $('#tgPhoneBtn'), id = ++phoneAttempt, current = () => id === phoneAttempt, label = '📱 تأیید شماره با تلگرام';
+  $('#loginErr').textContent = ''; $('#claimHelp').hidden = true;
+  // no answer from Telegram for a while: the dialog may not have opened, or was closed without Telegram saying so
+  const nudge = setTimeout(() => { if (current()) $('#loginErr').textContent = 'اگه پنجره‌ی تلگرام باز نشد یا بستیش، دوباره دکمه رو بزن.'; }, 8000);
+  let status;
+  try { status = await askTelegramPhone(); }
+  catch(e){ clearTimeout(nudge); console.error('request phone', e); return showClaimHelp('درخواست شماره به تلگرام فرستاده نشد. صفحه رو ببند و دوباره از ربات «ورود به سایت» رو بزن؛ اگه باز نشد، ' + askAdmins()); }
+  clearTimeout(nudge);
+  if (!current()) return; // an older tap; the newer one handles it
+  $('#loginErr').textContent = '';
+  if (status !== 'sent'){ $('#loginErr').textContent = 'برای دیدن مبلغ و پرداخت، باید شماره‌ت رو با ربات به اشتراک بذاری.'; return; }
+  btn.disabled = true; btn.textContent = 'در حال دریافت شماره از تلگرام…';
   try {
-    window.Telegram.WebApp.requestContact(async (shared, ev) => {
-      if (!shared || !ev || !ev.response){ $('#loginErr').textContent = 'برای دیدن مبلغ و پرداخت، باید شماره‌ت رو با ربات به اشتراک بذاری.'; return; }
-      const label = btn.textContent; btn.disabled = true; btn.textContent = 'در حال بررسی…';
-      try {
-        const { data, error } = await sb.functions.invoke('telegram-auth', {body:{contact:ev.response}});
-        if (error){
-          let code = ''; try { code = (await error.context.json()).error; } catch(e){}
-          console.error('telegram phone', code, error);
-          return showClaimHelp('تأیید شماره انجام نشد. یه بار دیگه دکمه رو بزن؛ اگه باز نشد، ' + askAdmins());
-        }
-        await claimResult(data, data && data.phone);
-      } finally { btn.disabled = false; btn.textContent = label; }
-    });
-  } catch(e){ console.error('requestContact', e); showClaimHelp(oldClientText()); }
+    const raw = await fetchSignedContact(current);
+    if (!current()) return;
+    if (!raw) return showClaimHelp('تلگرام شماره رو نفرستاد (احتمالاً اینترنت کند بود). یه بار دیگه دکمه رو بزن؛ اگه باز نشد، ' + askAdmins());
+    btn.textContent = 'در حال بررسی…';
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{contact:raw}});
+    if (error){
+      let code = ''; try { code = (await error.context.json()).error; } catch(e){}
+      console.error('telegram phone', code, error);
+      return showClaimHelp('تأیید شماره انجام نشد. یه بار دیگه دکمه رو بزن؛ اگه باز نشد، ' + askAdmins());
+    }
+    await claimResult(data, data && data.phone);
+  } finally { btn.disabled = false; btn.textContent = label; }
 });
 function watchOwnRow(){
   if (ownChannel) sb.removeChannel(ownChannel);
