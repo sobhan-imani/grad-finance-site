@@ -8,6 +8,7 @@
 //
 // کار سوم: ربات. هر کس ربات رو Start کنه، پیام خوش‌آمد با دکمه‌ی «ورود به سایت» می‌گیره.
 // تلگرام پیام‌های ربات رو به همین تابع می‌فرسته (webhook)؛ مدیر یک بار از تب «تنظیمات» سایت راه‌اندازیش می‌کنه.
+// متن پیام خوش‌آمد رو مدیر از سایت عوض می‌کنه، و از همون‌جا می‌تونه برای همه‌ی کسایی که ربات رو Start کردن پیام بفرسته.
 //
 // Secrets لازم (Edge Functions → Secrets):  TELEGRAM_BOT_TOKEN
 // SUPABASE_URL، SUPABASE_ANON_KEY و SUPABASE_SERVICE_ROLE_KEY خودکار در دسترس‌اند.
@@ -130,8 +131,40 @@ async function linkByPhone(req: Request, raw: string): Promise<Response> {
 
 // ---------- ربات ----------
 const OPEN_SITE = "ورود به سایت";
+// اگه مدیر متنی ننوشته باشه. {name} جای اسم کوچیک طرف قرار می‌گیره.
+const DEFAULT_WELCOME = `سلام {name}! 👋\nبرای دیدن مبلغ سهمت از جشن و فرستادن فیش واریز، دکمه‌ی «${OPEN_SITE}» رو بزن.`;
 // رمز webhook از خود توکن ربات ساخته می‌شه، پس secret جدایی لازم نیست
 const webhookSecret = async () => hex(await hmac(enc.encode(BOT_TOKEN), "telegram-webhook"));
+
+type TgResult = { ok: boolean; description?: string; error_code?: number; parameters?: { retry_after?: number } };
+async function tg(method: string, params: unknown): Promise<TgResult> {
+  const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params),
+  });
+  return await r.json() as TgResult;
+}
+// {name} → اسم کوچیک؛ بدون اسم، فاصله‌ی قبلش هم برداشته می‌شه («سلام {name}!» → «سلام!»)
+const fillName = (text: string, name: string) =>
+  text.replace(/( ?)\{name\}/g, (_m, sp: string) => (name ? sp + name : ""));
+const siteButton = (site: string) => ({ inline_keyboard: [[{ text: OPEN_SITE, web_app: { url: site } }]] });
+
+// هر کس به ربات پیام بده، برای پیام‌های همگانی نگه داشته می‌شه (اگه قبلاً ربات رو بلاک کرده بود، دوباره فعال حساب می‌شه).
+// جدول‌های ربات رو دستور SQL «ربات» می‌سازه؛ تا اجرا نشده، ربات مثل قبل فقط جواب می‌ده.
+async function rememberBotUser(from: Record<string, any> | undefined) {
+  if (!from?.id || from.is_bot) return;
+  try {
+    await admin.from("bot_users").upsert({
+      telegram_id: from.id, first_name: from.first_name ?? "", username: from.username ?? null,
+      last_seen_at: new Date().toISOString(), blocked: false,
+    }, { onConflict: "telegram_id" });
+  } catch { /* table missing or unreachable: the reply still goes out */ }
+}
+async function welcomeText(): Promise<string> {
+  try {
+    const { data } = await admin.from("bot_settings").select("welcome_text").eq("id", 1).maybeSingle();
+    return String(data?.welcome_text ?? "").trim() || DEFAULT_WELCOME;
+  } catch { return DEFAULT_WELCOME; }
+}
 
 // پیامی که تلگرام برای ربات می‌فرسته. جواب مستقیم در خود پاسخ webhook برمی‌گرده و تلگرام اجراش می‌کنه.
 async function onTelegramUpdate(req: Request): Promise<Response> {
@@ -140,36 +173,44 @@ async function onTelegramUpdate(req: Request): Promise<Response> {
   let update: { message?: Record<string, any> };
   try { update = await req.json(); } catch { return new Response("ok"); }
   const msg = update.message;
-  // فقط چت خصوصی؛ پیام «شماره» که دکمه‌ی تأیید شماره‌ی سایت می‌فرسته جواب نمی‌گیره
-  if (!msg || msg.chat?.type !== "private" || msg.contact || !site.startsWith("https://")) return new Response("ok");
-  const name = msg.from?.first_name ? ` ${msg.from.first_name}` : "";
+  if (!msg || msg.chat?.type !== "private") return new Response("ok");
+  // پیام «شماره» که دکمه‌ی تأیید شماره‌ی سایت می‌فرسته جواب نمی‌گیره، ولی فرستنده‌ش هم ربات رو Start کرده
+  const [, text] = await Promise.all([rememberBotUser(msg.from), msg.contact ? "" : welcomeText()]);
+  if (msg.contact || !site.startsWith("https://")) return new Response("ok");
   return json({
     method: "sendMessage",
     chat_id: msg.chat.id,
-    text: `سلام${name}! 👋\nبرای دیدن مبلغ سهمت از جشن و فرستادن فیش واریز، دکمه‌ی «${OPEN_SITE}» رو بزن.`,
-    reply_markup: { inline_keyboard: [[{ text: OPEN_SITE, web_app: { url: site } }]] },
+    text: fillName(text, String(msg.from?.first_name ?? "")),
+    reply_markup: siteButton(site),
   });
+}
+
+// فقط مدیر. نقش رو مثل خود سایت (با نشست خود کاربر) می‌خونیم؛ دسترسی service role به جدول members لازم نیست.
+async function requireAdmin(req: Request) {
+  const who = await caller(req);
+  if (!who.user) return { res: json({ error: "not_logged_in" }, 401) };
+  const { data: me, error } = await asUser(who).from("members").select("role, telegram_id").eq("user_id", who.user.id).maybeSingle();
+  if (error) return { res: json({ error: "role_check_failed", detail: error.message }, 500) };
+  if (me?.role !== "admin") return { res: json({ error: "not_admin", role: me?.role ?? null }, 403) };
+  return { who, me };
+}
+function httpsSite(raw: unknown): string | null {
+  try {
+    const site = new URL(String(raw ?? ""));
+    if (site.protocol !== "https:") return null;
+    site.hash = ""; site.search = "";
+    return site.href;
+  } catch { return null; }
 }
 
 // راه‌اندازی یک‌باره توسط مدیر: تلگرام پیام‌های ربات رو به این تابع بفرسته، و دکمه‌ی منوی ربات همین سایت رو باز کنه.
 // آدرس سایت از مرورگر مدیر میاد و داخل آدرس webhook نگه داشته می‌شه.
 async function setupBot(req: Request, siteRaw: string): Promise<Response> {
-  const who = await caller(req), user = who.user;
-  if (!user) return json({ error: "not_logged_in" }, 401);
-  // نقش رو مثل خود سایت (با نشست خود کاربر) می‌خونیم؛ دسترسی service role به جدول members لازم نیست
-  const { data: me, error } = await asUser(who).from("members").select("role").eq("user_id", user.id).maybeSingle();
-  if (error) return json({ error: "role_check_failed", detail: error.message }, 500);
-  if (me?.role !== "admin") return json({ error: "not_admin", role: me?.role ?? null }, 403);
-  let site: URL;
-  try { site = new URL(siteRaw); } catch { return json({ error: "bad_site" }, 400); }
-  if (site.protocol !== "https:") return json({ error: "bad_site" }, 400);
-  site.hash = ""; site.search = "";
-  const tg = async (method: string, params: unknown) => {
-    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params),
-    });
-    return await r.json() as { ok: boolean; description?: string };
-  };
+  const auth = await requireAdmin(req);
+  if ("res" in auth) return auth.res!;
+  const href = httpsSite(siteRaw);
+  if (!href) return json({ error: "bad_site" }, 400);
+  const site = new URL(href);
   const hook = await tg("setWebhook", {
     url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/telegram-auth?site=${encodeURIComponent(site.href)}`,
     secret_token: await webhookSecret(), allowed_updates: ["message"], drop_pending_updates: true,
@@ -179,16 +220,87 @@ async function setupBot(req: Request, siteRaw: string): Promise<Response> {
   return json({ ok: true, site: site.href, menu: menu.ok, detail: menu.ok ? undefined : menu.description });
 }
 
+// پیام همگانی از طرف ربات (فقط مدیر). گیرنده‌ها: هر کسی که ربات رو Start کرده و بلاکش نکرده، به‌اضافه‌ی هر کسی که با تلگرام
+// وارد سایت شده (کسی که هیچ‌وقت ربات رو Start نکرده رو تلگرام قبول نمی‌کنه و «نرسید» حساب می‌شه).
+// count_only: فقط تعداد گیرنده‌ها. test: فقط برای خود مدیر، تا قبل از فرستادن برای همه ببینه چطور دیده می‌شه.
+type Broadcast = { text?: unknown; test?: boolean; count_only?: boolean; with_button?: boolean; site?: unknown };
+const MAX_TEXT = 4000;
+const PER_SECOND = 20; // تلگرام حدود ۳۰ پیام در ثانیه رو قبول می‌کنه
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+async function broadcast(req: Request, b: Broadcast): Promise<Response> {
+  const auth = await requireAdmin(req);
+  if ("res" in auth) return auth.res!;
+  const db = asUser(auth.who);
+  let ids: number[];
+  if (b.test) {
+    const own = Number(auth.me?.telegram_id ?? /^tg(\d+)@telegram\.local$/.exec(auth.who.user!.email ?? "")?.[1] ?? 0);
+    if (!Number.isSafeInteger(own) || own <= 0) return json({ error: "no_telegram" }, 400);
+    ids = [own];
+  } else {
+    const [bot, members] = await Promise.all([
+      db.from("bot_users").select("telegram_id, blocked"),
+      db.from("members").select("telegram_id").not("telegram_id", "is", null),
+    ]);
+    if (bot.error) return json({ error: "setup_missing", detail: bot.error.message }, 500);
+    if (members.error) return json({ error: "read_failed", detail: members.error.message }, 500);
+    const blocked = new Set((bot.data ?? []).filter((r) => r.blocked).map((r) => Number(r.telegram_id)));
+    ids = [...new Set([...(bot.data ?? []), ...(members.data ?? [])].map((r) => Number(r.telegram_id)))]
+      .filter((n) => Number.isSafeInteger(n) && n > 0 && !blocked.has(n));
+  }
+  if (b.count_only) return json({ ok: true, total: ids.length });
+
+  const text = String(b.text ?? "").trim();
+  if (!text) return json({ error: "empty" }, 400);
+  if (text.length > MAX_TEXT) return json({ error: "too_long" }, 400);
+  let markup: unknown;
+  if (b.with_button) {
+    const site = httpsSite(b.site);
+    if (!site) return json({ error: "bad_site" }, 400);
+    markup = siteButton(site);
+  }
+  let sent = 0;
+  const unreachable: number[] = [], failed: number[] = [];
+  const sendOne = async (id: number) => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let r: TgResult;
+      try { r = await tg("sendMessage", { chat_id: id, text, reply_markup: markup, link_preview_options: { is_disabled: true } }); }
+      catch { failed.push(id); return; }
+      if (r.ok) { sent++; return; }
+      if (r.error_code === 429 && attempt === 0) { await sleep(Math.min(30, r.parameters?.retry_after ?? 1) * 1000); continue; }
+      // 403: ربات رو بلاک کرده یا هیچ‌وقت Start نکرده
+      (r.error_code === 403 ? unreachable : failed).push(id);
+      return;
+    }
+  };
+  for (let i = 0; i < ids.length; i += PER_SECOND) {
+    const t0 = Date.now();
+    await Promise.all(ids.slice(i, i + PER_SECOND).map(sendOne));
+    if (i + PER_SECOND < ids.length) await sleep(Math.max(0, 1000 - (Date.now() - t0)));
+  }
+  if (b.test) {
+    if (unreachable.length) return json({ error: "start_bot_first" }, 400);
+    if (!sent) return json({ error: "telegram_failed" }, 502);
+    return json({ ok: true, test: true, sent });
+  }
+  if (unreachable.length) {
+    try { await admin.from("bot_users").update({ blocked: true }).in("telegram_id", unreachable); } catch { /* best effort */ }
+  }
+  // سابقه (با نام همین مدیر در تاریخچه‌ی سایت)
+  try { await db.from("bot_broadcasts").insert({ text, sent, failed: unreachable.length + failed.length }); } catch { /* best effort */ }
+  return json({ ok: true, total: ids.length, sent, unreachable: unreachable.length, failed: failed.length });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!BOT_TOKEN) return json({ error: "bot_token_missing" }, 500);
   if (req.headers.has("x-telegram-bot-api-secret-token")) return onTelegramUpdate(req);
 
-  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string; setup_bot?: boolean; site?: string };
+  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string; setup_bot?: boolean; site?: string; broadcast?: Broadcast };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
   if (typeof body.contact === "string") return linkByPhone(req, body.contact);
   if (body.setup_bot) return setupBot(req, String(body.site ?? ""));
+  if (body.broadcast && typeof body.broadcast === "object") return broadcast(req, body.broadcast);
 
   const tg = body.initData ? await verifyInitData(body.initData)
            : body.widget ? await verifyWidget(body.widget) : null;

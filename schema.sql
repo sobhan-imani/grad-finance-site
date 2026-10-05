@@ -535,7 +535,64 @@ create policy receipts_files_delete on storage.objects for delete to authenticat
          or ((storage.foldername(name))[1] = auth.uid()::text
              and not exists (select 1 from public.payments x where x.file_path = objects.name))));
 
--- ۱۸) همگام‌سازی زنده
+-- ۱۸) ربات: متن پیام خوش‌آمد، کسایی که ربات رو Start کردن، و سابقه‌ی پیام‌های همگانی (همه فقط برای مدیر)
+create table if not exists public.bot_settings (
+  id           int  primary key default 1 check (id = 1),
+  welcome_text text not null default '' check (length(welcome_text) <= 2000),
+  title        text generated always as ('پیام خوش‌آمد ربات') stored,   -- عنوان در تاریخچه
+  created_at timestamptz, created_by text, updated_at timestamptz, updated_by text
+);
+insert into public.bot_settings (id) values (1) on conflict do nothing;
+
+-- هر کس به ربات پیام بده (تابع telegram-auth با service role می‌نویسه)
+create table if not exists public.bot_users (
+  telegram_id  bigint primary key,
+  first_name   text   not null default '',
+  username     text,
+  started_at   timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  blocked      boolean not null default false
+);
+
+create table if not exists public.bot_broadcasts (
+  id     uuid primary key default gen_random_uuid(),
+  text   text not null,
+  sent   int  not null default 0,
+  failed int  not null default 0,
+  title  text generated always as (left(text, 60)) stored,             -- عنوان در تاریخچه
+  created_at timestamptz, created_by text, updated_at timestamptz, updated_by text
+);
+
+do $$
+declare t text;
+begin
+  foreach t in array array['bot_settings','bot_broadcasts'] loop
+    execute format('drop trigger if exists %I_stamp on public.%I', t, t);
+    execute format('create trigger %I_stamp before insert or update on public.%I for each row execute function public.stamp()', t, t);
+    execute format('drop trigger if exists %I_log on public.%I', t, t);
+    execute format('create trigger %I_log after insert or update or delete on public.%I for each row execute function public.log_activity()', t, t);
+  end loop;
+end $$;
+
+alter table public.bot_settings   enable row level security;
+alter table public.bot_users      enable row level security;
+alter table public.bot_broadcasts enable row level security;
+grant select, update on public.bot_settings to authenticated;
+grant select on public.bot_users to authenticated;
+grant select, insert on public.bot_broadcasts to authenticated;
+grant all on public.bot_settings, public.bot_users, public.bot_broadcasts to service_role;
+
+drop policy if exists bot_settings_admin on public.bot_settings;
+create policy bot_settings_admin on public.bot_settings for all to authenticated
+  using (public.has_role('admin')) with check (public.has_role('admin'));
+drop policy if exists bot_users_admin on public.bot_users;
+create policy bot_users_admin on public.bot_users for select to authenticated using (public.has_role('admin'));
+drop policy if exists bot_broadcasts_select on public.bot_broadcasts;
+create policy bot_broadcasts_select on public.bot_broadcasts for select to authenticated using (public.has_role('admin'));
+drop policy if exists bot_broadcasts_insert on public.bot_broadcasts;
+create policy bot_broadcasts_insert on public.bot_broadcasts for insert to authenticated with check (public.has_role('admin'));
+
+-- ۱۹) همگام‌سازی زنده
 do $$
 declare t text;
 begin
