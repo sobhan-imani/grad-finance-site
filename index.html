@@ -176,6 +176,11 @@ img{max-width:100%}
 .group-head h4{margin:0;font-size:15px}
 .group-head .sum{margin-inline-start:auto;font-size:13.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 .group-head .sum b{color:var(--ink)}
+.mem-fold > summary{cursor:pointer;list-style:none}
+.mem-fold > summary::-webkit-details-marker{display:none}
+.mem-fold > summary h4::before{content:'◂ ';color:var(--muted)}
+.mem-fold[open] > summary h4::before{content:'▾ '}
+.group > .hint{color:var(--muted);font-size:12.5px;margin:0 2px 8px}
 .inv{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px;display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
 .inv.review{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}
 .thumb{width:64px;height:64px;border-radius:8px;background:var(--sunken);overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--muted);font-size:13px;flex:none}
@@ -885,7 +890,7 @@ function subscribe(){
     if (row && row.user_id === me.id){
       me.member = row;
       // a 'pending' member who claimed a student number is shown the participant page, so that's not a role change
-      const changed = myRole === 'participant' ? !['pending','participant'].includes(row.role) : row.role !== myRole;
+      const changed = myRole === 'participant' ? !NO_PANEL.includes(row.role) : row.role !== myRole;
       if (changed){ enter({user:me}); return; }
     }
     if ((p.eventType === 'DELETE' && oldId === me.id)){ enter({user:me}); return; }
@@ -908,7 +913,10 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('beforeunload', e => { if (uploading.size){ e.preventDefault(); e.returnValue = ''; } });
 
 /* ---------- roles ---------- */
-const ROLE_LABEL = {participant:'شرکت‌کننده', admin:'مدیر', editor:'ویرایشگر', viewer:'بیننده', pending:'در انتظار تأیید'};
+const ROLE_LABEL = {participant:'شرکت‌کننده', admin:'مدیر', editor:'ویرایشگر', viewer:'بیننده', pending:'در انتظار تأیید', rejected:'ردشده', blocked:'مسدود'};
+// roles that don't open the finance team's panel: these people get the participant page (if their number is linked) or the
+// claim screen. rejected: their team request was turned down and they may ask again; blocked: they can't ask again.
+const NO_PANEL = ['pending','participant','rejected','blocked'];
 let myRole = null, canEdit = false, canAdmin = false;
 function applyRole(role){
   myRole = role; canEdit = role === 'admin' || role === 'editor'; canAdmin = role === 'admin';
@@ -1016,12 +1024,21 @@ async function enter(session){
     gateState('wait', '', `${hint} (جزئیات: ${m.trim()})`); return;
   }
   me.member = row;
-  const role0 = row ? row.role : 'pending';
-  if (role0 === 'pending' || role0 === 'participant'){
+  let role0 = row ? row.role : 'pending';
+  // no members row (removed by an admin before, when that deleted the row): ask again, so the request shows in the panel
+  if (!row){
+    const r = await sb.rpc('request_access');
+    if (seq !== enterSeq) return;
+    if (!r.error && r.data) role0 = r.data; else if (r.error) console.warn('request_access', r.error);
+  }
+  if (NO_PANEL.includes(role0)){
     const { data: part } = await sb.from('participants').select('id').eq('user_id', me.id).maybeSingle();
     if (seq !== enterSeq) return;
     if (part) return enterParticipant();
-    gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره‌ت با لیست ثبت‌نام چک می‌شه تا مبلغ و اطلاعات پرداخت رو ببینی.` + (role0 === 'pending' ? '<br><span class="sub">اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی. <button class="link-btn" type="button" data-act="recheck">بررسی دوباره</button></span>' : ''));
+    const team = role0 === 'pending' ? 'اگه از تیم مالی هستی، منتظر تأیید مدیر بمون؛ خودکار وارد می‌شی. <button class="link-btn" type="button" data-act="recheck">بررسی دوباره</button>'
+      : role0 === 'rejected' ? 'درخواست دسترسی‌ت به پنل تیم مالی تأیید نشد. اگه فکر می‌کنی اشتباه شده، <button class="link-btn" type="button" data-act="re-request">دوباره درخواست بده</button>.'
+      : role0 === 'blocked' ? 'دسترسی‌ت به پنل تیم مالی بسته شده.' : '';
+    gateState('claim', `سلام${row && row.display_name ? ' ' + esc(row.display_name) : ''}! اگه برای جشن ثبت‌نام کردی، شماره‌ت با لیست ثبت‌نام چک می‌شه تا مبلغ و اطلاعات پرداخت رو ببینی.` + (team ? `<br><span class="sub">${team}</span>` : ''));
     watchOwnRow(); return;
   }
   stopOwnWatch();
@@ -1135,6 +1152,13 @@ function watchOwnRow(){
   }).subscribe();
 }
 async function recheck(){ const { data } = await sb.auth.getSession(); if (data.session) enter(data.session); else gateState('login', 'برای ورود، با تلگرام وارد شو.'); }
+// someone whose team request was rejected asks again; it shows up in the admins' panel as a new request
+async function reRequest(btn){
+  btn.disabled = true;
+  const { error } = await sb.rpc('request_access');
+  if (error){ btn.disabled = false; console.error('request_access', error); toast(/PGRST202|42883|request_access/.test(`${error.code} ${error.message}`) ? 'درخواست ثبت نشد؛ مدیر هنوز دستور SQL نقش‌ها رو اجرا نکرده.' : 'درخواست ثبت نشد؛ دوباره امتحان کن.'); return; }
+  toast('درخواستت دوباره برای مدیر فرستاده شد'); recheck();
+}
 $('#recheckBtn').addEventListener('click', recheck);
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault();
@@ -1189,35 +1213,59 @@ async function loadMembers(){
 async function setMember(uid, fields){
   const old = S.members[uid]; S.members[uid] = {...old, ...fields}; render();
   const { error } = await sb.from('members').update(fields).eq('user_id', uid);
-  if (error){ S.members[uid] = old; render(); toast(/LAST_ADMIN/.test(error.message) ? 'حداقل یک مدیر باید بمونه' : 'تغییر نقش ذخیره نشد'); }
-  else if (fields.role) toast(`نقش ${old.display_name || ''}: ${ROLE_LABEL[fields.role]}`);
+  if (error){
+    S.members[uid] = old; render(); console.error('members', error);
+    const m = `${error.code || ''} ${error.message || ''}`;
+    toast(/LAST_ADMIN/.test(m) ? 'حداقل یک مدیر باید بمونه'
+      : /23514|check constraint/i.test(m) ? 'دیتابیس این نقش رو نمی‌شناسه؛ دستور SQL نقش‌ها رو در SQL Editor اجرا کن.'
+      : 'تغییر ذخیره نشد: ' + (error.message || 'خطای ناشناخته'));
+  }
+  else if (fields.role) toast(`${old.display_name || 'عضو'}: ${ROLE_LABEL[fields.role] || fields.role}`);
 }
-async function removeMember(uid){
+// reject / block / take access away / bring back: a role change, never a deleted row (a deleted row never came back)
+function memberRole(uid, role){
   const m = S.members[uid]; if (!m) return;
-  if (!confirm(`دسترسی «${m.display_name}» برداشته بشه؟ اگه دوباره وارد بشه، به‌عنوان درخواست جدید ظاهر می‌شه.`)) return;
-  delete S.members[uid]; render();
-  const { error } = await sb.from('members').delete().eq('user_id', uid);
-  if (error){ S.members[uid] = m; render(); toast(/LAST_ADMIN/.test(error.message) ? 'حداقل یک مدیر باید بمونه' : 'حذف ناموفق بود'); }
+  const name = m.display_name || 'این شخص', team = ['admin','editor','viewer'].includes(m.role);
+  const ask = role === 'blocked' ? `«${name}» مسدود بشه؟ دیگه درخواستش توی پنل نمیاد (مگه از «مسدودشده‌ها» رفع مسدودی کنی). اگه شرکت‌کننده باشه، صفحه‌ی پرداختش سر جاش می‌مونه.`
+    : role === 'rejected' && team ? `دسترسی «${name}» به پنل برداشته بشه؟ اگه بخواد، می‌تونه دوباره درخواست بده.` : '';
+  if (ask && !confirm(ask)) return;
+  setMember(uid, {role});
 }
+const memOpen = new Set(); // which collapsible member groups the admin opened
 function renderMembers(){
   const box = $('#memberList'), all = Object.values(S.members);
+  const byName = (a,b) => (a.display_name||'').localeCompare(b.display_name||'','fa');
   const pending = all.filter(m => m.role === 'pending').sort((a,b) => ts(b.created_at) - ts(a.created_at));
-  const others = all.filter(m => m.role !== 'pending').sort((a,b) => role_rank(b.role) - role_rank(a.role) || (a.display_name||'').localeCompare(b.display_name||'','fa'));
-  $('#nMembers').textContent = pending.length ? fmt(pending.length) + ' جدید' : fmt(others.length);
+  const team = all.filter(m => !NO_PANEL.includes(m.role)).sort((a,b) => role_rank(b.role) - role_rank(a.role) || byName(a,b));
+  const parts = all.filter(m => m.role === 'participant').sort(byName);
+  const rejected = all.filter(m => m.role === 'rejected').sort(byName), blocked = all.filter(m => m.role === 'blocked').sort(byName);
+  $('#nMembers').textContent = pending.length ? fmt(pending.length) + ' جدید' : fmt(team.length);
   $('#nMembers').classList.toggle('alert', !!pending.length);
   if (!canAdmin){ box.innerHTML = ''; return; }
   // don't wipe a display name the admin is typing when a realtime update arrives
   if (box.contains(document.activeElement) && document.activeElement.matches('input')) return;
   const ident = m => m.telegram_username ? '@' + m.telegram_username : (m.telegram_id ? 'tg ' + m.telegram_id : (m.email || ''));
+  const id = m => esc(m.user_id), act = (m, role, label, cls = '') => `<button class="btn small ${cls}" type="button" data-mem-role="${id(m)}:${role}">${label}</button>`;
+  const roleSelect = (m, roles) => `<select data-mem-select="${id(m)}" aria-label="نقش">${roles.map(r => `<option value="${r}"${r === m.role ? ' selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select>`;
+  const ctl = m => m.role === 'pending' ? act(m, 'viewer', 'تأیید به‌عنوان بیننده', 'primary') + act(m, 'editor', 'ویرایشگر') + act(m, 'rejected', 'رد', 'danger') + act(m, 'blocked', 'مسدود', 'danger')
+    : m.role === 'participant' ? roleSelect(m, ['participant','viewer','editor','admin'])
+    : m.role === 'rejected' ? act(m, 'pending', 'برگرداندن به درخواست‌ها') + act(m, 'blocked', 'مسدود', 'danger')
+    : m.role === 'blocked' ? act(m, 'pending', 'رفع مسدودی')
+    : roleSelect(m, ['admin','editor','viewer','participant']) + (m.user_id === me.id ? '<span class="tag">خودت</span>' : act(m, 'rejected', 'برداشتن دسترسی', 'danger'));
   const row = m => `<div class="mem">
-      <div><input class="field" value="${esc(m.display_name)}" data-mem-name="${esc(m.user_id)}" aria-label="نام نمایشی" maxlength="60"><div class="id">${esc(ident(m))}</div></div>
-      <div class="ctl">${m.role === 'pending'
-        ? `<button class="btn small primary" type="button" data-mem-role="${esc(m.user_id)}:viewer">تأیید به‌عنوان بیننده</button><button class="btn small" type="button" data-mem-role="${esc(m.user_id)}:editor">ویرایشگر</button><button class="btn small danger" type="button" data-mem-del="${esc(m.user_id)}">رد</button>`
-        : `<select data-mem-select="${esc(m.user_id)}" aria-label="نقش">${['participant','viewer','editor','admin'].map(r => `<option value="${r}"${r === m.role ? ' selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select>${m.user_id === me.id ? '<span class="tag">خودت</span>' : `<button class="btn small danger" type="button" data-mem-del="${esc(m.user_id)}">برداشتن دسترسی</button>`}`}</div>
+      <div><input class="field" value="${esc(m.display_name)}" data-mem-name="${id(m)}" aria-label="نام نمایشی" maxlength="60"><div class="id">${esc(ident(m))}</div></div>
+      <div class="ctl">${ctl(m)}</div>
     </div>`;
-  box.innerHTML = (pending.length ? `<div class="group" style="--c:var(--warn)"><div class="group-head"><h4>درخواست‌های جدید</h4></div><div class="list">${pending.map(row).join('')}</div></div>` : '')
-    + `<div class="group" style="--c:var(--ok)"><div class="group-head"><h4>اعضا</h4><span class="sum">${fmt(others.length)} نفر</span></div><div class="list">${others.map(row).join('')}</div></div>`;
+  const group = (key, title, color, list, hint, folded) => !list.length ? '' : folded
+    ? `<details class="group mem-fold" data-mem-group="${key}" style="--c:${color}"${memOpen.has(key) ? ' open' : ''}><summary class="group-head"><h4>${title}</h4><span class="sum">${fmt(list.length)} نفر</span></summary>${hint ? `<p class="hint">${hint}</p>` : ''}<div class="list">${list.map(row).join('')}</div></details>`
+    : `<div class="group" style="--c:${color}"><div class="group-head"><h4>${title}</h4><span class="sum">${fmt(list.length)} نفر</span></div>${hint ? `<p class="hint">${hint}</p>` : ''}<div class="list">${list.map(row).join('')}</div></div>`;
+  box.innerHTML = group('pending', 'درخواست‌های جدید', 'var(--warn)', pending, '«رد»: اگه بخواد، می‌تونه دوباره درخواست بده. «مسدود»: درخواستش دیگه توی پنل نمیاد.', false)
+    + group('team', 'تیم مالی', 'var(--ok)', team, '', false)
+    + group('participants', 'شرکت‌کننده‌ها', 'var(--must)', parts, 'برای اضافه کردن یه شرکت‌کننده به تیم مالی، نقشش رو عوض کن.', true)
+    + group('rejected', 'ردشده‌ها', 'var(--line)', rejected, 'این‌ها می‌تونن دوباره درخواست بدن؛ اون موقع توی «درخواست‌های جدید» میان.', true)
+    + group('blocked', 'مسدودشده‌ها', 'var(--bad)', blocked, 'درخواست این‌ها توی پنل نمیاد. اگه شرکت‌کننده باشن، صفحه‌ی پرداختشون کار می‌کنه.', true);
 }
+$('#memberList').addEventListener('toggle', e => { const g = e.target.closest && e.target.closest('[data-mem-group]'); if (g) g.open ? memOpen.add(g.dataset.memGroup) : memOpen.delete(g.dataset.memGroup); }, true);
 const role_rank = r => ({admin:3, editor:2, viewer:1}[r] || 0);
 
 /* ---------- history ---------- */
@@ -2335,6 +2383,7 @@ document.addEventListener('click', e => {
     if (a === 'export') return exportXlsx();
     if (a === 'logout') return logout();
     if (a === 'recheck') return recheck();
+    if (a === 're-request') return reRequest(el);
     if (a === 'pick-receipt') return receiptInput.click();
     if (a === 'send-receipt') return sendReceipt(el);
     if (a === 'cancel-receipt'){ if (draftReceipt) URL.revokeObjectURL(draftReceipt.url); draftReceipt = null; return render(); }
@@ -2368,11 +2417,15 @@ document.addEventListener('click', e => {
   if ((el = g('[data-quick]'))) return openItem(null, QUICK[+el.dataset.quick]);
   if ((el = g('[data-quick-fund]'))) return openEntry('fund', null, QUICK_FUNDS[+el.dataset.quickFund]);
   if ((el = g('[data-apply]'))) return applyInvoices(el.dataset.apply);
-  if ((el = g('[data-mem-role]'))){ const [u, r] = el.dataset.memRole.split(':'); return setMember(u, {role:r}); }
-  if ((el = g('[data-mem-del]'))) return removeMember(el.dataset.memDel);
+  if ((el = g('[data-mem-role]'))){ const [u, r] = el.dataset.memRole.split(':'); return memberRole(u, r); }
 });
 document.addEventListener('change', e => {
-  let m = e.target.closest('[data-mem-select]'); if (m) return setMember(m.dataset.memSelect, {role:m.value});
+  let m = e.target.closest('[data-mem-select]');
+  if (m){
+    const uid = m.dataset.memSelect;
+    if (uid === me.id && m.value !== 'admin' && !confirm('نقش خودت عوض بشه؟ دسترسی مدیر رو از دست می‌دی.')){ m.value = S.members[uid].role; return; }
+    return setMember(uid, {role:m.value});
+  }
   m = e.target.closest('[data-mem-name]'); if (m){ const v = m.value.trim(); if (v) setMember(m.dataset.memName, {display_name:v}); return; }
   let s = e.target.closest('[data-inv-map]'); if (s) return mapInvoice(s.dataset.invMap, s.value);
   s = e.target.closest('[data-link-free]');

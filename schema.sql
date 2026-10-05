@@ -16,6 +16,8 @@ alter table public.app_config enable row level security;   -- بدون policy: �
 
 -- ۲) اعضا و نقش‌ها
 -- participant: شرکت‌کننده‌ای که شماره‌ش با تلگرام تأیید شده؛ فقط صفحه‌ی پرداخت خودش رو می‌بینه
+-- rejected: درخواست دسترسی به پنل تیم مالی رد شده و می‌تونه دوباره درخواست بده؛ blocked: نمی‌تونه
+-- (هر دو اگه شرکت‌کننده باشن، صفحه‌ی پرداختشون مثل قبل کار می‌کنه)
 create table if not exists public.members (
   user_id           uuid primary key references auth.users(id) on delete cascade,
   role              text not null default 'pending',
@@ -25,9 +27,15 @@ create table if not exists public.members (
   telegram_username text,
   created_at        timestamptz not null default now()
 );
-alter table public.members drop constraint if exists members_role_check;
+-- قانون نقش‌ها (هر اسمی که قبلاً داشته) برداشته می‌شه و قانون کامل جاش میاد
+do $$ declare c record; begin
+  for c in select conname from pg_constraint
+           where conrelid = 'public.members'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%role%' loop
+    execute format('alter table public.members drop constraint %I', c.conname);
+  end loop;
+end $$;
 alter table public.members add constraint members_role_check
-  check (role in ('admin','editor','viewer','participant','pending'));
+  check (role in ('admin','editor','viewer','participant','pending','rejected','blocked'));
 
 create or replace function public.role_rank(r text)
 returns int language sql immutable
@@ -76,6 +84,35 @@ from auth.users u
 on conflict (user_id) do nothing;
 update public.members set role = 'admin'
 where lower(email) = (select lower(admin_email) from public.app_config where id = 1);
+
+-- درخواست دسترسی (خود کاربر صداش می‌زنه): کسی که ردیفش قبلاً پاک شده دوباره «در انتظار» می‌شه،
+--    ردشده دوباره درخواست می‌ده، و مسدود همون مسدود می‌مونه. نقش فعلی رو برمی‌گردونه.
+create or replace function public.request_access()
+returns text language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); r text; u auth.users; meta jsonb;
+begin
+  if uid is null then return null; end if;
+  select role into r from public.members where user_id = uid;
+  if r is null then
+    select * into u from auth.users where id = uid;
+    if not found then return null; end if;
+    meta := coalesce(u.raw_user_meta_data, '{}'::jsonb);
+    insert into public.members (user_id, email, display_name, telegram_id, telegram_username, role)
+    values (uid,
+      case when u.email like '%@telegram.local' then null else u.email end,
+      coalesce(nullif(trim(concat_ws(' ', meta->>'first_name', meta->>'last_name')), ''), split_part(u.email, '@', 1)),
+      nullif(meta->>'telegram_id', '')::bigint, meta->>'username',
+      case when lower(u.email) = (select lower(admin_email) from public.app_config where id = 1) then 'admin' else 'pending' end)
+    on conflict (user_id) do nothing;
+    select role into r from public.members where user_id = uid;
+  elsif r = 'rejected' then
+    update public.members set role = 'pending', created_at = now() where user_id = uid;
+    r := 'pending';
+  end if;
+  return r;
+end $$;
+revoke all on function public.request_access() from public, anon;
+grant execute on function public.request_access() to authenticated;
 
 -- همیشه حداقل یک مدیر بمونه
 create or replace function public.keep_one_admin()
