@@ -92,21 +92,17 @@ img{max-width:100%}
   .scen .srow:first-child .lab{margin-top:0}
 }
 .verdict{margin:14px 0 0;font-size:14px}
-/* personal Telegram account: inbox and chat */
-.tg-bar{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;margin-bottom:12px}
-.tg-bar .sub{flex:1;min-width:180px}
-.tg-prof{display:flex;gap:12px;align-items:center}
-.tg-prof .who{display:grid;gap:3px;min-width:0}
-.tg-prof .who .sub{overflow-wrap:anywhere}
-.tg-ava{width:52px;height:52px;border-radius:50%;flex:none;object-fit:cover;background:var(--sunken);display:grid;place-items:center;font-weight:700;font-size:20px;color:var(--muted)}
-.tg-msgs{display:flex;flex-direction:column;gap:6px;max-height:min(46vh,420px);overflow-y:auto;padding:10px;background:var(--sunken);border-radius:var(--radius)}
-.tg-msg{max-width:82%;align-self:flex-start;background:var(--surface);border-radius:12px;padding:7px 11px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.6}
-.tg-msg.out{align-self:flex-end;background:color-mix(in srgb,var(--must) 16%,var(--surface))}
-.tg-msg em{color:var(--muted);font-style:normal}
-.tg-msg small{display:block;color:var(--muted);font-size:11px;margin-top:2px;text-align:end}
-.tg-compose textarea{flex:1;min-height:44px;min-width:0}
 .tg-form{display:grid;gap:10px}
-.tg-when{display:block;margin-top:4px}
+/* messages to participants */
+#ntAud.chips,#ntTpl.chips{justify-content:flex-start;margin-top:6px}
+#ntAud .chip small{margin-inline-start:4px}
+.nt-list{display:grid;gap:4px;max-height:min(40vh,320px);overflow-y:auto;margin-top:8px}
+.nt-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 8px;border:1px solid var(--line);border-radius:var(--radius);font-size:14px}
+.nt-row .tag{margin-inline-start:0}
+.nt-row.off{opacity:.55}
+#ntWho > summary{cursor:pointer;font-size:13.5px}
+.nt-report{display:grid;gap:4px;font-size:13.5px}
+.nt-report ul{margin:0;padding-inline-start:18px}
 .verdict.bad{color:var(--bad)} .verdict.good{color:var(--ok)}
 
 .fund{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
@@ -414,7 +410,6 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
     <button class="tab" role="tab" aria-selected="false" data-tab="settings">تنظیمات</button>
     <button class="tab" role="tab" aria-selected="false" data-tab="history">تاریخچه</button>
     <button class="tab need-admin" role="tab" aria-selected="false" data-tab="members">اعضا<span class="n" id="nMembers">۰</span></button>
-    <button class="tab need-admin" role="tab" aria-selected="false" data-tab="tgmsg" id="tgTab" hidden>پیام‌ها<span class="n" id="nTg"></span></button>
   </nav>
 
   <section class="panel" id="panel-items">
@@ -454,6 +449,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
       <select id="pFilter" aria-label="وضعیت"><option value="">همه</option><option value="review">فیش در انتظار بررسی</option><option value="unpaid">پرداخت نکرده</option><option value="partial">بخشی پرداخت شده</option><option value="settled">تسویه</option><option value="unclaimed">هنوز وارد نشده</option></select>
       <button class="btn desk need-edit push" type="button" data-act="import-people">ورود از شیت</button>
       <button class="btn primary desk need-edit" type="button" data-act="add-person">+ شرکت‌کننده</button>
+      <button class="btn desk need-admin" type="button" data-act="notify">پیام به شرکت‌کننده‌ها</button>
     </div>
     <div class="people-sum" id="peopleSummary"></div>
     <div id="reviewQueue"></div>
@@ -497,15 +493,10 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
         <span class="sub" id="bcMsg" aria-live="polite"></span>
       </div>
       <div class="lbl need-admin" id="tgAcct">حساب تلگرام شخصی من
-        <span class="hint">با وصل کردن حساب خودت، از داخل پنل پروفایل شرکت‌کننده‌ها رو می‌بینی، بهشون پیام می‌دی و پیام‌های جدیدت رو می‌خونی (تب «پیام‌ها»). نشست فقط روی همین مرورگر ذخیره می‌شه، نه توی دیتابیس، و تا «قطع اتصال» رو نزنی می‌مونه. چون تلگرام فیلتره، این بخش فقط با VPN کار می‌کنه.</span>
+        <span class="hint">اختیاری. ربات فقط به کسایی پیام می‌ده که با تلگرام وارد سایت شدن. با وصل کردن حساب خودت، «پیام به شرکت‌کننده‌ها» (تب شرکت‌کننده‌ها) به بقیه هم با شماره‌شون از حساب تو می‌رسه. نشست فقط روی همین مرورگر ذخیره می‌شه، نه توی دیتابیس، و تا «قطع اتصال» رو نزنی می‌مونه. چون تلگرام فیلتره، این بخش فقط با VPN کار می‌کنه.</span>
         <div id="tgAcctBody"></div>
       </div>
     </div>
-  </section>
-
-  <section class="panel" id="panel-tgmsg" hidden>
-    <div class="tg-bar"><span class="sub" id="tgStatus" aria-live="polite"></span><label class="check"><input type="checkbox" id="tgUnreadOnly" checked> فقط خوانده‌نشده‌ها</label><button class="btn small" type="button" data-act="tg-refresh">تازه کردن</button></div>
-    <div class="list" id="tgList"></div>
   </section>
 </div>
 
@@ -618,7 +609,6 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
       </div>
       <label class="lbl">یادداشت<input class="field" name="note" maxlength="140"></label>
       <div id="personLink"></div>
-      <div class="need-admin" id="personTg" hidden><button class="btn small" type="button" data-act="tg-person">💬 پروفایل و پیام در تلگرام</button></div>
       <div id="personPays"></div>
       <details id="manualPay" class="manual-pay need-edit" hidden>
         <summary>+ ثبت پرداخت این نفر <span class="hint">نقدی، یا فیشی که مستقیم برای خودت فرستاده</span></summary>
@@ -644,16 +634,24 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   </form>
 </dialog>
 
-<dialog id="tgChatDlg">
+<dialog id="notifyDlg">
   <form method="dialog" novalidate onsubmit="return false">
-    <div class="dlg-head"><h2 id="tgChatTitle">تلگرام</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
+    <div class="dlg-head"><h2>پیام به شرکت‌کننده‌ها</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
     <div class="dlg-body">
-      <div id="tgProf"></div>
-      <div class="tg-msgs" id="tgMsgs"></div>
+      <div class="lbl">به چه کسانی؟<div class="chips" id="ntAud"></div></div>
+      <label class="lbl">متن پیام <span class="hint">جای <code>{name}</code> اسم، <code>{amount}</code> سهم، <code>{paid}</code> پرداخت‌شده و <code>{remaining}</code> باقی‌مونده‌ی هر نفر می‌شینه.</span>
+        <textarea class="field" id="ntText" rows="5" maxlength="3500"></textarea></label>
+      <div class="chips" id="ntTpl"></div>
+      <label class="check"><input type="checkbox" id="ntButton" checked> لینک ورود به سایت زیر پیام باشه</label>
+      <p class="sub" id="ntPreview"></p>
+      <details id="ntWho"><summary id="ntSummary"></summary><div class="nt-list" id="ntList"></div></details>
+      <div id="ntProgress" aria-live="polite"></div>
     </div>
-    <div class="dlg-foot tg-compose">
-      <textarea class="field" id="tgText" rows="2" maxlength="4000" placeholder="پیام… (Ctrl+Enter برای ارسال)"></textarea>
-      <button class="btn primary" type="button" id="tgSendBtn">ارسال</button>
+    <div class="dlg-foot">
+      <button class="btn" type="button" data-act="nt-test">ارسال آزمایشی برای خودم</button>
+      <span class="spacer"></span>
+      <button class="btn danger" type="button" data-act="nt-stop" hidden>توقف</button>
+      <button class="btn primary" type="button" data-act="nt-send">ارسال</button>
     </div>
   </form>
 </dialog>
@@ -929,7 +927,7 @@ function applyRole(role){
   document.body.classList.toggle('can-admin', canAdmin);
   $('#roleTag').textContent = ROLE_LABEL[role] || '';
   ['#setTitle','#setBudget','#setHead','#setCur'].forEach(s => $(s).disabled = !canEdit);
-  if (!canAdmin && ['members','tgmsg'].includes(currentTab)) document.querySelector('.tab[data-tab="items"]').click();
+  if (!canAdmin && currentTab === 'members') document.querySelector('.tab[data-tab="items"]').click();
   $('#bottomBar').dataset.key = ''; render();
 }
 function lockForm(form){ form.querySelectorAll('input,select,textarea').forEach(el => { el.disabled = !canEdit; }); }
@@ -1051,8 +1049,6 @@ async function enter(session){
   $('#me').textContent = row.display_name || (me.email && !me.email.endsWith('@telegram.local') ? me.email : '');
   applyRole(row.role);
   try { await loadAll(); subscribe(); } catch(e){ fail(e, 'load'); setSync(false, 'بارگذاری ناموفق بود؛ صفحه رو تازه کن'); }
-  // an admin who connected their Telegram account on this browser: reconnect in the background for the inbox
-  if (seq === enterSeq && canAdmin){ renderTg(); if (tgHasSession()) tgRestore(); }
 }
 async function enterParticipant(){
   stopOwnWatch();
@@ -1293,7 +1289,7 @@ async function loadActivity(){
 function renderHistory(){
   const box = $('#historyList');
   if (!S.activity.length){ box.innerHTML = '<div class="empty">هنوز تغییری ثبت نشده.</div>'; return; }
-  const TBL = {items:'هزینه', invoices:'فاکتور', settings:'تنظیمات', participants:'شرکت‌کننده', payments:'فیش', payment_info:'اطلاعات پرداخت', bot_settings:'ربات', bot_broadcasts:'پیام همگانی ربات'};
+  const TBL = {items:'هزینه', invoices:'فاکتور', settings:'تنظیمات', participants:'شرکت‌کننده', payments:'فیش', payment_info:'اطلاعات پرداخت', bot_settings:'ربات', bot_broadcasts:'پیام'};
   const ACT = {insert:'اضافه کرد', update:'ویرایش کرد', delete:'حذف کرد'};
   const COL = {insert:'var(--ok)', update:'var(--gold)', delete:'var(--bad)'};
   const dt = new Intl.DateTimeFormat('fa-IR', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
@@ -1377,7 +1373,6 @@ function render(){
 
   renderItems(t); renderInvoices(); renderBudget(t); renderCats(t); renderPayers(); renderBottomBar(); renderMembers(); if (currentTab === 'history') renderHistory();
   renderPeople(); $('#myPayTab').hidden = !myParticipant(); if (currentTab === 'mypay') renderMyPay($('#myPayStaff'));
-  if (currentTab === 'tgmsg') renderTgList();
   if ($('#itemDlg').open && editingItem) renderItemAtt(editingItem.id);
   if ($('#personDlg').open && editingPerson) renderPersonPays();
   hydrateThumbs();
@@ -1918,7 +1913,6 @@ function openPerson(id){
   f.verify_code.value = p.verify_code || ''; f.note.value = p.note || '';
   $('#personDlgTitle').textContent = editingPerson ? (p.full_name || 'شرکت‌کننده') : 'شرکت‌کننده‌ی جدید';
   $('#personDel').hidden = !editingPerson;
-  $('#personTg').hidden = !(canAdmin && editingPerson && (TG.state === 'on' || tgHasSession()));
   const linked = p.user_id ? (S.members[p.user_id]?.display_name || 'متصل') : '';
   const sharing = editingPerson ? Object.values(S.participants).filter(x => x.id !== p.id && sameNumber(x.student_no, p.student_no) && isPhoneId(p.student_no)) : [];
   const viaShared = !p.user_id && sharing.find(x => x.user_id);
@@ -2310,7 +2304,6 @@ tabs.forEach(b => {
     if (currentTab === 'history') renderHistory();
     if (currentTab === 'mypay'){ renderMyPay($('#myPayStaff')); hydrateThumbs(); }
     if (currentTab === 'settings'){ loadBotWelcome(); renderTgAcct(); }
-    if (currentTab === 'tgmsg'){ renderTgList(); if (TG.state !== 'on') tgRestore(); }
     renderBottomBar();
   });
 });
@@ -2331,7 +2324,7 @@ function renderBottomBar(){
   bar.innerHTML = currentTab === 'items' ? btn('add-item','+ هزینه جدید',1)
     : currentTab === 'invoices' ? btn('upload','+ آپلود فاکتور',1)
     : currentTab === 'budget' ? btn('add-fund','+ واریزی',1) + btn('add-contrib','+ سهم نفر')
-    : currentTab === 'people' ? btn('add-person','+ شرکت‌کننده',1) + btn('import-people','ورود از شیت') : '';
+    : currentTab === 'people' ? btn('add-person','+ شرکت‌کننده',1) + btn('import-people','ورود از شیت') + (canAdmin ? btn('notify','پیام') : '') : '';
 }
 ['#q','#fType','#fStatus','#fSort'].forEach(s => $(s).addEventListener('input', () => renderItems(totals())));
 ['#pq','#pFilter','#pMajor'].forEach(s => $(s).addEventListener('input', () => { renderPeople(); hydrateThumbs(); }));
@@ -2469,9 +2462,7 @@ document.addEventListener('click', e => {
     if (a === 'tg-cancel') return tgCancel();
     if (a === 'tg-logout') return tgLogout();
     if (a === 'tg-retry') return tgRestore();
-    if (a === 'tg-refresh') return TG.state === 'on' ? tgRefresh() : tgRestore();
-    if (a === 'tg-person') return tgPersonChat(el); }
-  if ((el = g('[data-tg-chat]'))) return tgOpenDialog(el.dataset.tgChat);
+    if (a === 'notify') return openNotify(); }
   if ((el = g('[data-pay-for]'))){ payForId = el.dataset.payFor; guestAddFor = null; return render(); }
   if ((el = g('[data-copy]'))) return copyText(el.dataset.copy, el.dataset.copyLabel);
   if ((el = g('[data-receipt]'))) return openReceipt(el.dataset.receipt);
@@ -2607,13 +2598,176 @@ async function botBroadcast(test){
   } finally { broadcasting = false; btns.forEach(b => b.disabled = false); }
 }
 
+/* ---------- messages to participants (admin only) ----------
+   One personalised message to a group of participants chosen by payment state. It goes through the bot to everyone
+   who signed in to the site with Telegram (or whose shared number's owner did); everyone else, and anyone who blocked
+   the bot, gets it from the admin's own Telegram account by phone number, one at a time with a pause in between so
+   the account isn't flagged for spam. */
+const NT_AUD = [
+  ['debt', 'همه‌ی بدهکارها', r => r.s.key === 'unpaid' || r.s.key === 'partial'],
+  ['unpaid', 'پرداخت نکرده', r => r.s.key === 'unpaid'],
+  ['partial', 'بخشی پرداخت کرده', r => r.s.key === 'partial'],
+  ['review', 'فیش در انتظار بررسی', r => r.s.key === 'review'],
+  ['settled', 'تسویه', r => r.s.key === 'settled'],
+  ['unclaimed', 'هنوز وارد سایت نشده', r => !r.linked],
+  ['all', 'همه', () => true],
+];
+const NT_ROUTE = {bot:'ربات', phone:'حساب شخصی', none:'راهی نیست'};
+const NT_GAP = 4000; // ms between messages from the personal account (plus up to 2s at random)
+const notifyDlg = $('#notifyDlg');
+const NT = {aud:'debt', off:new Set(), running:false, stop:false, report:null};
+const ntTemplates = () => [
+  ['یادآوری پرداخت', 'سلام {name}! 👋\nیادآوری: از سهمت برای جشن {remaining} مونده. لطفاً واریز کن و عکس فیش رو از سایت بفرست. ممنون 🙏'],
+  ['تشکر', 'سلام {name}! پرداختت ({paid}) رسید و تأیید شد. ممنون که همراهی کردی 🌸'],
+  ['دعوت به ورود', 'سلام {name}! سهمت از جشن {amount} ـه. برای دیدن جزئیات و فرستادن فیش، از ربات وارد سایت شو.'],
+];
+const ntAcct = () => TG.state === 'on' || tgHasSession();
+// everyone, with their payment state and how a message reaches them
+function ntPeople(){
+  const all = Object.values(S.participants), tgOfNo = new Map();
+  const linkedNos = new Set(all.filter(p => p.user_id && isPhoneId(p.student_no)).map(p => baseNo(p.student_no)));
+  all.forEach(p => { const m = p.user_id && S.members[p.user_id]; if (m && m.telegram_id && isPhoneId(p.student_no)) tgOfNo.set(baseNo(p.student_no), Number(m.telegram_id)); });
+  return all.map(p => {
+    const m = p.user_id && S.members[p.user_id];
+    const tg = (m && m.telegram_id ? Number(m.telegram_id) : 0) || (isPhoneId(p.student_no) && tgOfNo.get(baseNo(p.student_no))) || 0;
+    return {p, s:payState(p), tg, route:tg ? 'bot' : isPhoneId(p.student_no) ? 'phone' : 'none',
+            linked:!!p.user_id || (isPhoneId(p.student_no) && linkedNos.has(baseNo(p.student_no)))};
+  }).sort((a,b) => (a.p.full_name || '').localeCompare(b.p.full_name || '', 'fa'));
+}
+const ntAudience = () => { const f = (NT_AUD.find(a => a[0] === NT.aud) || NT_AUD[0])[2]; return ntPeople().filter(f); };
+const ntChosen = () => ntAudience().filter(r => r.route !== 'none' && !NT.off.has(r.p.id));
+function ntFill(text, r){
+  const cur = S.settings.currency || 'تومان', money2 = n => fmt(n) + ' ' + cur;
+  return text.replace(/\{name\}/g, r.p.full_name || 'دوست عزیز').replace(/\{amount\}/g, money2(r.s.due))
+    .replace(/\{paid\}/g, money2(r.s.approved)).replace(/\{remaining\}/g, money2(r.s.remaining));
+}
+const ntBot = () => botConfigured ? cfg.telegramBot.replace(/^@/, '') : '';
+// the bot attaches an "open the site" button; a message from the personal account gets the bot's link instead
+const ntPhoneText = (text, r) => ntFill(text, r) + ($('#ntButton').checked && ntBot() ? `\n\nورود به سایت: https://t.me/${ntBot()}` : '');
+function openNotify(){
+  if (!canAdmin) return;
+  if (!NT.running){ NT.off.clear(); NT.report = null; }
+  if (!$('#ntText').value.trim()) $('#ntText').value = ntTemplates()[0][1];
+  renderNotify();
+  if (!notifyDlg.open) notifyDlg.showModal();
+}
+function renderNotify(){
+  const people = ntPeople(), list = ntAudience(), chosen = ntChosen(), acct = ntAcct();
+  $('#ntAud').innerHTML = NT_AUD.map(([k, label, f]) => `<button class="chip${k === NT.aud ? ' on' : ''}" type="button" data-nt-aud="${k}" aria-pressed="${k === NT.aud}">${label}<small>${fmt(people.filter(f).length)}</small></button>`).join('');
+  $('#ntTpl').innerHTML = '<span class="sub">متن آماده:</span>' + ntTemplates().map(([l], i) => `<button class="chip" type="button" data-nt-tpl="${i}">${l}</button>`).join('');
+  const n = k => chosen.filter(r => r.route === k).length, none = list.filter(r => r.route === 'none').length;
+  $('#ntSummary').textContent = `گیرنده‌ها: ${fmt(chosen.length)} نفر — ${fmt(n('bot'))} از ربات، ${fmt(n('phone'))} از حساب شخصیت` + (none ? `؛ ${fmt(none)} نفر شماره ندارن` : '') + ' (برای دیدن و برداشتن تیک بزن)';
+  $('#ntList').innerHTML = list.length ? list.map(r => {
+    const dead = r.route === 'none', on = !dead && !NT.off.has(r.p.id);
+    const route = r.route === 'phone' && !acct ? '<span class="tag warn">حساب شخصی وصل نیست</span>' : `<span class="tag${r.route === 'none' ? ' warn' : ''}">${NT_ROUTE[r.route]}</span>`;
+    return `<label class="nt-row${on ? '' : ' off'}"><input type="checkbox" data-nt-p="${esc(r.p.id)}"${on ? ' checked' : ''}${dead || NT.running ? ' disabled' : ''}>
+      <b>${esc(r.p.full_name || shownNo(r.p.student_no) || '—')}</b><span class="tag">${STATE_LABEL[r.s.key]}</span>${route}</label>`;
+  }).join('') : '<p class="sub">کسی توی این گروه نیست.</p>';
+  const first = chosen[0], text = $('#ntText').value.trim();
+  $('#ntPreview').innerHTML = first && text ? `<b>پیش‌نمایش برای ${esc(first.p.full_name || '')}:</b><br>${esc(ntFill(text, first)).replace(/\n/g, '<br>')}` : '';
+  const phoneNoAcct = n('phone') && !acct;
+  const pr = $('#ntProgress');
+  if (NT.running) pr.innerHTML = `<p class="sub">${esc(NT.status || '')}</p>`;
+  else if (NT.report) pr.innerHTML = ntReportHtml(NT.report);
+  else pr.innerHTML = phoneNoAcct ? `<p class="sub bad">${fmt(n('phone'))} نفر فقط از حساب تلگرام شخصیت (با شماره‌شون) پیام می‌گیرن؛ اول از تب «تنظیمات» وصلش کن، وگرنه بهشون نمی‌رسه.</p>` : '';
+  notifyDlg.querySelector('[data-act="nt-send"]').disabled = NT.running || !chosen.length;
+  notifyDlg.querySelector('[data-act="nt-test"]').disabled = NT.running;
+  notifyDlg.querySelector('[data-act="nt-stop"]').hidden = !NT.running;
+}
+function ntReportHtml(rep){
+  const sent = rep.sent.length, viaPhone = rep.sent.filter(r => r.via === 'phone').length;
+  return `<div class="nt-report"><b class="${rep.failed.length ? '' : 'pos'}">برای ${fmt(sent)} نفر فرستاده شد${viaPhone ? ` (${fmt(sent - viaPhone)} از ربات، ${fmt(viaPhone)} از حساب شخصیت)` : ''}.</b>
+    ${rep.failed.length ? `<span class="bad">به ${fmt(rep.failed.length)} نفر نرسید:</span><ul>${rep.failed.map(([r, why]) => `<li>${esc(r.p.full_name || shownNo(r.p.student_no))}: ${esc(why)}</li>`).join('')}</ul>` : ''}</div>`;
+}
+const ntErr = b => ({unknown_recipient:'یکی از گیرنده‌ها رو تابع نمی‌شناسه؛ صفحه رو تازه کن و دوباره امتحان کن.', not_admin:'فقط مدیر می‌تونه پیام بفرسته.',
+  too_many:'حداکثر ۵۰۰ نفر در هر ارسال.', no_telegram:'حسابت به تلگرام وصل نیست (با ایمیل وارد شدی)؛ ارسال آزمایشی با حساب تلگرامی ممکنه.',
+  start_bot_first:'اول خودت ربات رو توی تلگرام Start کن، بعد دوباره امتحان کن.', bad_site:BOT_ERRORS.bad_site, telegram_failed:'تلگرام پیام رو قبول نکرد.'}[b && b.error]
+  || 'تابع telegram-auth جواب درست نداد؛ مطمئن شو نسخه‌ی جدیدش Deploy شده.');
+async function ntCall(body){
+  const { data, error } = await sb.functions.invoke('telegram-auth', {body:{notify:body}});
+  if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} throw b; }
+  return data || {};
+}
+const ntSite = () => location.origin + location.pathname.replace(/index\.html$/, '');
+const ntWithButton = () => $('#ntButton').checked && location.protocol === 'https:';
+async function ntTest(){
+  const text = $('#ntText').value.trim(), r = ntChosen()[0] || ntAudience()[0];
+  if (!text){ toast('متن پیام رو بنویس'); $('#ntText').focus(); return; }
+  NT.running = true; NT.status = 'در حال ارسال آزمایشی…'; renderNotify();
+  try {
+    await ntCall({test:true, messages:[{to:0, text:r ? ntFill(text, r) : text}], with_button:ntWithButton(), site:ntSite()});
+    toast('پیام آزمایشی برات فرستاده شد؛ توی تلگرام ببینش');
+  } catch(b){ console.error('notify test', b); toast(ntErr(b)); }
+  finally { NT.running = false; renderNotify(); }
+}
+async function ntSend(){
+  const text = $('#ntText').value.trim(), chosen = ntChosen(), label = (NT_AUD.find(a => a[0] === NT.aud) || NT_AUD[0])[1];
+  if (!text){ toast('متن پیام رو بنویس'); $('#ntText').focus(); return; }
+  if (!chosen.length) return;
+  const viaBot = chosen.filter(r => r.route === 'bot'), viaPhone = chosen.filter(r => r.route === 'phone'), acct = ntAcct();
+  if (!confirm(`پیام برای ${fmt(chosen.length)} نفر («${label}») فرستاده بشه؟\n${fmt(viaBot.length)} نفر از ربات`
+    + (viaPhone.length ? (acct ? `، ${fmt(viaPhone.length)} نفر از حساب شخصیت (یکی‌یکی؛ حدود ${fmt(Math.ceil(viaPhone.length * 5 / 60))} دقیقه طول می‌کشه و VPN لازمه)` : `؛ ${fmt(viaPhone.length)} نفر بدون حساب شخصی نمی‌گیرن`) : ''))) return;
+  const rep = {sent:[], failed:[]};
+  NT.running = true; NT.stop = false; NT.report = null;
+  const status = t => { NT.status = t; renderNotify(); };
+  try {
+    if (viaBot.length){
+      status(`در حال ارسال از ربات برای ${fmt(viaBot.length)} نفر…`);
+      try {
+        const { results = [] } = await ntCall({messages:viaBot.map(r => ({to:r.tg, text:ntFill(text, r)})), with_button:ntWithButton(), site:ntSite()});
+        viaBot.forEach((r, i) => {
+          if (results[i] === 'sent') rep.sent.push({...r, via:'bot'});
+          // blocked the bot (or never started it): try their number from the personal account instead
+          else if (results[i] === 'unreachable' && isPhoneId(r.p.student_no)) viaPhone.push(r);
+          else rep.failed.push([r, results[i] === 'unreachable' ? 'ربات رو بلاک کرده' : 'خطای تلگرام']);
+        });
+      } catch(b){ console.error('notify', b); viaBot.forEach(r => rep.failed.push([r, ntErr(b)])); }
+    }
+    if (viaPhone.length && !acct) viaPhone.forEach(r => rep.failed.push([r, 'فقط با حساب تلگرام شخصی می‌رسه که وصل نیست']));
+    else if (viaPhone.length){
+      status('در حال اتصال به حساب تلگرامت…');
+      await tgRestore();
+      if (TG.state !== 'on') viaPhone.forEach(r => rep.failed.push([r, TG.err || 'به حساب تلگرامت وصل نشد']));
+      else for (let i = 0; i < viaPhone.length; i++){
+        const r = viaPhone[i];
+        if (NT.stop){ viaPhone.slice(i).forEach(x => rep.failed.push([x, 'ارسال رو متوقف کردی'])); break; }
+        status(`از حساب شخصیت: ${fmt(i + 1)} از ${fmt(viaPhone.length)} (${r.p.full_name || ''})…`);
+        try { await tgSendToPhone(r.p.student_no, ntPhoneText(text, r)); rep.sent.push({...r, via:'phone'}); }
+        catch(e){
+          console.error('notify phone', e); rep.failed.push([r, tgErrText(e)]);
+          // Telegram is limiting this account: stop before it gets worse
+          if (/FLOOD/.test(tgCode(e))){ viaPhone.slice(i + 1).forEach(x => rep.failed.push([x, 'متوقف شد چون تلگرام حسابت رو موقتاً محدود کرد'])); break; }
+        }
+        if (i < viaPhone.length - 1 && !NT.stop) await new Promise(res => setTimeout(res, NT_GAP + Math.random() * 2000));
+      }
+    }
+    // history: one entry per send, under this admin's name
+    try { await sb.from('bot_broadcasts').insert({text:`[${label}] ${text}`.slice(0, 4000), sent:rep.sent.length, failed:rep.failed.length}); } catch(e){}
+  } finally {
+    NT.running = false; NT.report = rep; renderNotify();
+    toast(`پیام برای ${fmt(rep.sent.length)} نفر فرستاده شد` + (rep.failed.length ? `؛ ${fmt(rep.failed.length)} نفر نرسید` : ''));
+  }
+}
+notifyDlg.addEventListener('click', e => {
+  if (e.target === notifyDlg && !NT.running) return notifyDlg.close();
+  const a = e.target.closest('[data-nt-aud]'); if (a && !NT.running){ NT.aud = a.dataset.ntAud; NT.off.clear(); NT.report = null; return renderNotify(); }
+  const t = e.target.closest('[data-nt-tpl]'); if (t){ $('#ntText').value = ntTemplates()[+t.dataset.ntTpl][1]; return renderNotify(); }
+  const act = e.target.closest('[data-act]') && e.target.closest('[data-act]').dataset.act;
+  if (act === 'nt-send') return ntSend();
+  if (act === 'nt-test') return ntTest();
+  if (act === 'nt-stop'){ NT.stop = true; NT.status = 'بعد از پیام فعلی متوقف می‌شه…'; return renderNotify(); }
+});
+notifyDlg.addEventListener('change', e => { const c = e.target.closest('[data-nt-p]'); if (c){ c.checked ? NT.off.delete(c.dataset.ntP) : NT.off.add(c.dataset.ntP); renderNotify(); } });
+notifyDlg.addEventListener('input', e => { if (e.target.id === 'ntText') renderNotify(); });
+notifyDlg.addEventListener('cancel', e => { if (NT.running) e.preventDefault(); }); // Esc mustn't hide a send in progress
+
 /* ---------- personal Telegram account (admin only) ----------
-   An admin can connect their own Telegram account (api_id / api_hash from my.telegram.org, the same ones Telethon uses)
-   and, from the panel, see a person's Telegram profile, chat with them and read new private messages. It all runs in
-   this browser through GramJS (vendor/gramjs.js, loaded only when needed). The session stays on this device: whoever
-   holds it holds the whole account, so it never goes to the database. Telegram's servers are filtered in Iran, so this
-   part needs a VPN; the rest of the site doesn't. */
-const TG = {client:null, state:'off', busy:false, err:'', note:'', step:null, me:null, dialogs:[], chat:null, unreadOnly:true, listening:false, restoring:null, timer:null};
+   An admin can connect their own Telegram account (api_id / api_hash from my.telegram.org, the same ones Telethon uses).
+   Group messages to participants then reach, by phone number, the people the bot can't (those who never signed in to
+   the site). It all runs in this browser through GramJS (vendor/gramjs.js, loaded only when needed). The session stays
+   on this device: whoever holds it holds the whole account, so it never goes to the database. Telegram's servers are
+   filtered in Iran, so this part needs a VPN; the rest of the site doesn't. */
+const TG = {client:null, state:'off', busy:false, err:'', note:'', step:null, me:null, restoring:null};
 const tgKey = () => me ? 'tgAccount:' + me.id : null; // per site account, so two admins sharing a browser don't share a session
 function tgSaved(){ try { return (tgKey() && JSON.parse(localStorage.getItem(tgKey()) || 'null')) || {}; } catch(e){ return {}; } }
 function tgSave(v){ try { if (tgKey()) localStorage.setItem(tgKey(), JSON.stringify(v)); } catch(e){} }
@@ -2646,6 +2800,7 @@ function tgErrText(e){
   if (/FLOOD/.test(m)){ const sec = Number(e && e.seconds) || Number((/(\d+)/.exec(m) || [])[1]) || 0; return 'تلگرام موقتاً محدودت کرده' + (sec ? `؛ ${fmt(Math.ceil(sec / 60))} دقیقه‌ی دیگه امتحان کن.` : '؛ کمی بعد امتحان کن.'); }
   if (tgRevoked(e)) return 'این نشست از طرف تلگرام باطل شده (مثلاً از «دستگاه‌ها» بیرونش کردی)؛ دوباره وصل شو.';
   if (/PRIVACY/.test(m)) return 'تنظیمات حریم خصوصی این شخص اجازه نمی‌ده.';
+  if (/NOT_FOUND|PHONE_NOT_OCCUPIED|USERNAME_NOT_OCCUPIED/.test(m)) return 'با این شماره پیدا نشد (تلگرام نداره یا اجازه‌ی پیدا شدن با شماره رو نداده).';
   return 'خطای تلگرام: ' + m;
 }
 function tgClient(G, a){
@@ -2655,10 +2810,10 @@ function tgClient(G, a){
   return c;
 }
 async function tgDrop(){
-  const c = TG.client; TG.client = null; TG.listening = false; TG.me = null; TG.dialogs = [];
+  const c = TG.client; TG.client = null; TG.me = null;
   if (c){ try { await c.destroy(); } catch(e){ try { await c.disconnect(); } catch(_){} } }
 }
-function tgSet(state, busy){ TG.state = state; TG.busy = !!busy; renderTgAcct(); renderTg(); }
+function tgSet(state, busy){ TG.state = state; TG.busy = !!busy; renderTgAcct(); if (notifyDlg.open) renderNotify(); }
 const tgName = u => u ? ([u.firstName, u.lastName].filter(Boolean).join(' ') || (u.username ? '@' + u.username : '') || (u.phone ? '+' + u.phone : 'بی‌نام')) : '';
 
 // ---- connecting ----
@@ -2717,9 +2872,9 @@ async function tgFinish(){
 }
 async function tgReady(){
   TG.me = await tgTimeout(TG.client.getMe());
-  tgListen(); tgSet('on'); tgRefresh();
+  tgSet('on');
 }
-// a saved session: connect when it's needed (and in the background after the panel loads)
+// a saved session connects only when it's needed (sending, or "check connection"): not on every page load
 function tgRestore(){
   if (!tgHasSession() || TG.state === 'on') return Promise.resolve();
   return TG.restoring ||= (async () => {
@@ -2738,94 +2893,30 @@ function tgRestore(){
 function tgCancel(){ TG.step = null; TG.err = ''; tgDrop(); tgSet('off'); }
 async function tgLogout(){
   if (!confirm('اتصال حساب تلگرامت از این سایت قطع بشه؟ این نشست از حسابت خارج می‌شه.')) return;
+  if (TG.state !== 'on') await tgRestore(); // so the session is logged out at Telegram too, not only forgotten here
   const c = TG.client, G = window.GramJS, online = TG.state === 'on';
   tgSet(TG.state, true);
   if (c && G && online){ try { await tgTimeout(c.invoke(new G.Api.auth.LogOut()), 8000); } catch(e){ console.warn('telegram logout', e); } }
-  await tgDrop(); if (tgChatDlg.open) tgChatDlg.close();
+  await tgDrop();
   const a = tgSaved(); delete a.session; tgSave(a);
   TG.err = ''; TG.note = online ? 'اتصال قطع شد.' : 'از این مرورگر پاک شد. چون الان وصل نبود، از تلگرام → تنظیمات → دستگاه‌ها هم این نشست رو ببند.';
   tgSet('off');
 }
 
-// ---- inbox ----
-function tgListen(){
+// sending from the personal account: people are found by phone number (when their privacy settings allow it)
+async function tgSendToPhone(no, text){
   const c = TG.client, G = window.GramJS;
-  if (!c || TG.listening) return;
-  TG.listening = true;
-  c.addEventHandler(ev => {
-    const m = ev && ev.message;
-    if (!m || !ev.isPrivate) return;
-    if (TG.chat && String(m.chatId) === TG.chat.id){ tgAppend(m); if (!m.out) c.markAsRead(TG.chat.entity).catch(() => {}); }
-    clearTimeout(TG.timer); TG.timer = setTimeout(tgRefresh, 700);
-  }, new G.NewMessage({}));
+  const r = await tgTimeout(c.invoke(new G.Api.contacts.ResolvePhone({phone:'98' + baseNo(no).slice(1)})), 15000);
+  const u = r && r.users && r.users[0];
+  if (!u) throw new Error('NOT_FOUND');
+  await tgTimeout(c.sendMessage(u, {message:text}), 15000);
 }
-async function tgRefresh(){
-  if (!TG.client || TG.state !== 'on') return;
-  try {
-    const ds = await tgTimeout(TG.client.getDialogs({limit:80}));
-    TG.dialogs = ds.filter(d => d.isUser && d.entity && !d.entity.bot && !d.entity.self && !d.entity.deleted)
-      .map(d => ({id:String(d.entity.id), entity:d.entity, unread:d.unreadCount || 0, msg:d.message, date:d.date || (d.message && d.message.date) || 0}));
-    TG.err = '';
-  } catch(e){ console.error('telegram dialogs', e); TG.err = tgErrText(e); }
-  renderTg();
-}
-// the participant behind a Telegram user: through the site account they signed in with, else by phone number
-function tgPersonOf(u){
-  if (!u) return null;
-  const id = String(u.id), uname = String(u.username || '').toLowerCase(), ps = Object.values(S.participants);
-  const viaAccount = ps.find(p => { const m = p.user_id && S.members[p.user_id]; return m && (String(m.telegram_id) === id || (uname && String(m.telegram_username || '').toLowerCase() === uname)); });
-  if (viaAccount) return viaAccount;
-  const phone = u.phone ? canonPhone(String(u.phone)) : null;
-  return phone ? ps.find(p => p.student_no === phone) || null : null;
-}
-function tgMedia(m){
-  const md = m && m.media; if (!md) return '';
-  const k = md.className || '', mime = String((md.document && md.document.mimeType) || '');
-  if (k === 'MessageMediaPhoto') return '🖼 عکس';
-  if (k === 'MessageMediaDocument') return /^audio\//.test(mime) ? '🎤 صدا' : /^video\//.test(mime) ? '🎬 ویدیو' : /webp|tgsticker/.test(mime) ? 'استیکر' : '📎 فایل';
-  if (k === 'MessageMediaContact') return '👤 مخاطب';
-  if (/Geo|Venue/.test(k)) return '📍 موقعیت';
-  if (k === 'MessageMediaPoll') return '📊 نظرسنجی';
-  return '📎 پیوست';
-}
-const tgText = m => (m && (m.message || tgMedia(m))) || '';
-const tgDate = new Intl.DateTimeFormat('fa-IR', {month:'short', day:'numeric'}), tgTime = new Intl.DateTimeFormat('fa-IR', {hour:'2-digit', minute:'2-digit'});
-function tgWhen(unix){
-  if (!unix) return '';
-  const d = new Date(unix * 1000);
-  return d.toDateString() === new Date().toDateString() ? tgTime.format(d) : tgDate.format(d) + ' ' + tgTime.format(d);
-}
-function renderTg(){
-  if (!canAdmin){ $('#tgTab').hidden = true; return; }
-  const has = TG.state === 'on' || tgHasSession();
-  $('#tgTab').hidden = !has;
-  const unread = TG.dialogs.reduce((a, d) => a + d.unread, 0), n = $('#nTg');
-  n.textContent = unread ? fmt(unread) : ''; n.classList.toggle('alert', !!unread);
-  $('#personTg').hidden = !(has && editingPerson);
-  if (currentTab === 'tgmsg') renderTgList();
-}
-function renderTgList(){
-  const box = $('#tgList'), st = $('#tgStatus');
-  st.className = 'sub' + (TG.err ? ' bad' : '');
-  st.textContent = TG.state === 'on' ? `حساب تلگرام: ${tgName(TG.me)}` + (TG.err ? ' · ' + TG.err : '')
-    : TG.state === 'connecting' ? 'در حال اتصال به تلگرام…' : TG.err || 'به تلگرام وصل نیست.';
-  if (TG.state !== 'on'){
-    box.innerHTML = TG.state === 'offline' ? '<div class="empty">اتصال برقرار نشد. VPN رو روشن کن و دوباره امتحان کن.<div class="chips"><button class="chip" type="button" data-act="tg-retry">تلاش دوباره</button></div></div>' : '';
-    return;
-  }
-  const list = TG.dialogs.filter(d => !TG.unreadOnly || d.unread);
-  box.innerHTML = list.length ? list.map(d => {
-    const p = tgPersonOf(d.entity), ps = p ? payState(p) : null;
-    return `<button class="row" type="button" data-tg-chat="${esc(d.id)}" style="--c:${d.unread ? 'var(--warn)' : 'var(--line)'}"><span class="stripe"></span>
-      <span><span class="t">${esc(tgName(d.entity))}</span>
-        ${p || d.entity.username ? `<span class="meta">${p ? `<span class="tag ok">${esc(p.full_name || 'شرکت‌کننده')}</span><span class="tag">${STATE_LABEL[ps.key]}</span>` : ''}${d.entity.username ? `<span class="tag" dir="ltr">@${esc(d.entity.username)}</span>` : ''}</span>` : ''}
-        <span class="r">${d.msg && d.msg.out ? 'شما: ' : ''}${esc(tgText(d.msg).slice(0, 140))}</span></span>
-      <span class="amt">${d.unread ? `<span class="tag warn">${fmt(d.unread)} جدید</span>` : ''}<small class="tg-when">${esc(tgWhen(d.date))}</small></span></button>`;
-  }).join('') : `<div class="empty">${TG.unreadOnly ? 'پیام خوانده‌نشده‌ای نداری.' : 'گفتگویی پیدا نشد.'}</div>`;
-}
+
+const TG_USE = 'پیام گروهی به شرکت‌کننده‌هایی که ربات بهشون نمی‌رسه (مثلاً هنوز وارد سایت نشدن)، از این حساب و با شماره‌شون فرستاده می‌شه.';
 function renderTgAcct(force){
   const box = $('#tgAcctBody'); if (!box || !canAdmin) return;
   const a = tgSaved(), st = TG.step, dis = TG.busy ? ' disabled' : '';
+  const state = TG.state === 'off' && tgHasSession() ? 'saved' : TG.state; // connected earlier on this browser, not now
   const err = TG.err ? `<span class="sub bad">${esc(TG.err)}</span>` : TG.note ? `<span class="sub pos">${esc(TG.note)}</span>` : '';
   const html = {
     off: `<div class="tg-form"><div class="two">
@@ -2843,119 +2934,28 @@ function renderTgAcct(force){
         <input class="field" id="tgPwIn" type="password" dir="ltr" autocomplete="current-password"${dis}></label>
       <div class="row-btns"><button class="btn primary" type="button" data-act="tg-password"${dis}>ورود</button><button class="btn" type="button" data-act="tg-cancel"${dis}>انصراف</button></div>${err}</div>`,
     on: `<div class="tg-form"><span><span class="tag ok">وصل به: ${esc(tgName(TG.me))}${TG.me && TG.me.username ? ` (@${esc(TG.me.username)})` : ''}</span></span>
-      <span class="sub">پیام‌ها رو از تب «پیام‌ها» ببین؛ پروفایل هر شرکت‌کننده هم از پنجره‌ی خودش باز می‌شه.</span>
+      <span class="sub">${TG_USE}</span>
       <div class="row-btns"><button class="btn danger" type="button" data-act="tg-logout"${dis}>قطع اتصال</button></div>${err}</div>`,
+    saved: `<div class="tg-form"><span><span class="tag ok">روی این مرورگر وصله${a.phone ? ` (<span dir="ltr">${esc(a.phone)}</span>)` : ''}</span></span>
+      <span class="sub">${TG_USE} موقع ارسال خودکار وصل می‌شه.</span>
+      <div class="row-btns"><button class="btn" type="button" data-act="tg-retry"${dis}>بررسی اتصال</button><button class="btn danger" type="button" data-act="tg-logout"${dis}>قطع اتصال</button></div>${err}</div>`,
     offline: `<div class="tg-form">${err || '<span class="sub bad">به تلگرام وصل نیست.</span>'}
       <div class="row-btns"><button class="btn" type="button" data-act="tg-retry"${dis}>تلاش دوباره</button><button class="btn danger" type="button" data-act="tg-logout"${dis}>قطع اتصال</button></div></div>`,
-  }[TG.state] || '';
+  }[state] || '';
   // don't wipe a field the admin is typing in just because something else re-rendered
-  const key = TG.state + '|' + TG.busy + '|' + TG.err + '|' + TG.note + '|' + (TG.me && TG.me.id);
+  const key = state + '|' + TG.busy + '|' + TG.err + '|' + TG.note + '|' + (TG.me && TG.me.id);
   if (!force && box.dataset.key === key) return;
   box.dataset.key = key; box.innerHTML = html;
   const first = box.querySelector('#tgCodeIn,#tgPwIn');
   if (first && !TG.busy && currentTab === 'settings') first.focus();
 }
 
-// ---- profile & chat ----
-const tgChatDlg = $('#tgChatDlg');
-function tgProfileHtml(u, p, x){
-  const sts = u.status && u.status.className, was = u.status && u.status.wasOnline;
-  const seen = sts === 'UserStatusOnline' ? 'آنلاین' : sts === 'UserStatusOffline' && was ? 'آخرین بازدید ' + tgWhen(was) : sts === 'UserStatusRecently' ? 'به‌تازگی آنلاین بوده' : sts === 'UserStatusLastWeek' ? 'هفته‌ی گذشته آنلاین بوده' : sts === 'UserStatusLastMonth' ? 'ماه گذشته آنلاین بوده' : '';
-  return `<div class="tg-prof">${x && x.photo ? `<img class="tg-ava" src="${esc(x.photo)}" alt="">` : `<span class="tg-ava">${esc(tgName(u).replace('@', '').slice(0, 1) || '?')}</span>`}
-    <div class="who"><b>${esc(tgName(u))}</b>
-      <span class="sub">${[u.username ? `<span dir="ltr">@${esc(u.username)}</span>` : '', u.phone ? `<span dir="ltr">+${esc(u.phone)}</span>` : '', esc(seen)].filter(Boolean).join(' · ')}</span>
-      ${x && x.about ? `<span class="sub">${esc(x.about)}</span>` : ''}
-      ${p ? `<span><span class="tag ok">${esc(p.full_name || 'شرکت‌کننده')}</span> <span class="tag">${STATE_LABEL[payState(p).key]}</span></span>` : ''}</div></div>`;
-}
-function renderTgMsgs(){
-  const box = $('#tgMsgs'), ms = (TG.chat ? TG.chat.msgs : []).filter(m => tgText(m));
-  box.innerHTML = ms.length ? ms.map(m => `<div class="tg-msg${m.out ? ' out' : ''}">${m.message ? esc(m.message) : ''}${m.media ? `${m.message ? '<br>' : ''}<em>${esc(tgMedia(m))}</em>` : ''}<small>${esc(tgWhen(m.date))}</small></div>`).join('')
-    : '<div class="sub" style="text-align:center">هنوز پیامی بین شما نیست.</div>';
-  box.scrollTop = box.scrollHeight;
-}
-function tgAppend(m){
-  const ch = TG.chat; if (!ch || !m || ch.msgs.some(x => x.id === m.id)) return;
-  ch.msgs.push(m); renderTgMsgs();
-}
-async function tgOpenChat(entity, person){
-  const c = TG.client, G = window.GramJS, id = String(entity.id);
-  tgCloseChat();
-  const ch = TG.chat = {id, entity, person:person || tgPersonOf(entity), msgs:[], photo:''};
-  $('#tgChatTitle').textContent = tgName(entity);
-  $('#tgProf').innerHTML = tgProfileHtml(entity, ch.person, null);
-  $('#tgMsgs').innerHTML = '<div class="sub" style="text-align:center">در حال بارگذاری…</div>';
-  if (!tgChatDlg.open) tgChatDlg.showModal();
-  const [full, photo, msgs] = await Promise.allSettled([
-    tgTimeout(c.invoke(new G.Api.users.GetFullUser({id:entity}))),
-    tgTimeout(c.downloadProfilePhoto(entity, {isBig:false})),
-    tgTimeout(c.getMessages(entity, {limit:40})),
-  ]);
-  if (TG.chat !== ch) return;
-  if (photo.status === 'fulfilled' && photo.value && photo.value.length) ch.photo = URL.createObjectURL(new Blob([photo.value], {type:'image/jpeg'}));
-  const about = full.status === 'fulfilled' && full.value && full.value.fullUser ? full.value.fullUser.about : '';
-  $('#tgProf').innerHTML = tgProfileHtml(entity, ch.person, {photo:ch.photo, about});
-  if (msgs.status !== 'fulfilled'){ $('#tgMsgs').innerHTML = `<div class="sub bad" style="text-align:center">${esc(tgErrText(msgs.reason))}</div>`; return; }
-  ch.msgs = [...msgs.value].reverse(); renderTgMsgs();
-  c.markAsRead(entity).then(() => { const d = TG.dialogs.find(x => x.id === id); if (d && d.unread){ d.unread = 0; renderTg(); } }).catch(e => console.warn('telegram read', e));
-  $('#tgText').focus();
-}
-function tgCloseChat(){ const ch = TG.chat; TG.chat = null; if (ch && ch.photo) URL.revokeObjectURL(ch.photo); }
-tgChatDlg.addEventListener('close', tgCloseChat);
-tgChatDlg.addEventListener('click', e => { if (e.target === tgChatDlg) tgChatDlg.close(); });
-let tgSending = false;
-async function tgSendMsg(){
-  const ch = TG.chat, text = $('#tgText').value.trim();
-  if (!ch || !text || !TG.client || tgSending) return;
-  const btn = $('#tgSendBtn'); tgSending = true; btn.disabled = true;
-  try {
-    const m = await tgTimeout(TG.client.sendMessage(ch.entity, {message:text}));
-    if ($('#tgText').value.trim() === text) $('#tgText').value = '';
-    if (TG.chat === ch) tgAppend(m);
-    clearTimeout(TG.timer); TG.timer = setTimeout(tgRefresh, 700);
-  } catch(e){ console.error('telegram send', e); toast(tgErrText(e)); }
-  finally { tgSending = false; btn.disabled = false; }
-}
-$('#tgSendBtn').addEventListener('click', tgSendMsg);
-$('#tgText').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); tgSendMsg(); } });
-// a participant's Telegram: the chat they already have with this account, else the Telegram account they signed in to the
-// site with, else their phone number (works when their privacy settings let people find them by number)
-async function tgFindPerson(p){
-  const c = TG.client, G = window.GramJS;
-  const d = TG.dialogs.find(x => tgPersonOf(x.entity) === p); if (d) return d.entity;
-  const m = p.user_id && S.members[p.user_id];
-  const tries = [];
-  if (m && m.telegram_id) tries.push(() => c.getEntity(Number(m.telegram_id)));
-  if (m && m.telegram_username) tries.push(() => c.getEntity(String(m.telegram_username)));
-  if (isPhoneId(p.student_no)) tries.push(async () => { const r = await c.invoke(new G.Api.contacts.ResolvePhone({phone:'98' + baseNo(p.student_no).slice(1)})); return r && r.users && r.users[0]; });
-  for (const t of tries){
-    try { const u = await tgTimeout(t(), 12000); if (u && u.className === 'User') return u; }
-    catch(e){ if (/TIMEOUT/.test(tgCode(e))) throw e; } // not found this way: try the next one
-  }
-  return null;
-}
-async function tgPersonChat(btn){
-  const p = editingPerson; if (!p || !canAdmin) return;
-  const label = btn.textContent; btn.disabled = true; btn.textContent = 'در حال پیدا کردن در تلگرام…';
-  try {
-    await tgRestore();
-    if (TG.state !== 'on'){ toast(TG.err || 'اول از تب «تنظیمات» حساب تلگرامت رو وصل کن.'); return; }
-    const u = await tgFindPerson(p);
-    if (!u){ toast(`«${p.full_name || shownNo(p.student_no)}» با حساب تلگرامت پیدا نشد (نه با حساب سایتش، نه با شماره‌ش).`); return; }
-    await tgOpenChat(u, p);
-  } catch(e){ console.error('telegram person', e); toast(tgErrText(e)); }
-  finally { btn.disabled = false; btn.textContent = label; }
-}
-async function tgOpenDialog(id){
-  const d = TG.dialogs.find(x => x.id === id); if (!d) return;
-  try { await tgOpenChat(d.entity); } catch(e){ console.error('telegram chat', e); toast(tgErrText(e)); }
-}
-$('#tgUnreadOnly').addEventListener('change', e => { TG.unreadOnly = e.target.checked; renderTgList(); });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || !e.target.closest('#tgAcctBody')) return;
   const go = {tgPhoneIn:'tg-send-code', tgApiHash:'tg-send-code', tgApiId:'tg-send-code', tgCodeIn:'tg-sign-in', tgPwIn:'tg-password'}[e.target.id];
   if (go){ e.preventDefault(); const b = $(`[data-act="${go}"]`); if (b && !b.disabled) b.click(); }
 });
-function tgReset(){ TG.step = null; TG.err = ''; TG.note = ''; tgDrop(); TG.state = 'off'; if (tgChatDlg.open) tgChatDlg.close(); $('#tgTab').hidden = true; $('#tgAcctBody').innerHTML = ''; delete $('#tgAcctBody').dataset.key; }
+function tgReset(){ TG.step = null; TG.err = ''; TG.note = ''; tgDrop(); TG.state = 'off'; $('#tgAcctBody').innerHTML = ''; delete $('#tgAcctBody').dataset.key; }
 
 /* ---------- excel ---------- */
 function sheetFrom(aoa, widths, numCols){

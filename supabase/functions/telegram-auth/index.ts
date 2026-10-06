@@ -8,7 +8,8 @@
 //
 // کار سوم: ربات. هر کس ربات رو Start کنه، پیام خوش‌آمد با دکمه‌ی «ورود به سایت» می‌گیره.
 // تلگرام پیام‌های ربات رو به همین تابع می‌فرسته (webhook)؛ مدیر یک بار از تب «تنظیمات» سایت راه‌اندازیش می‌کنه.
-// متن پیام خوش‌آمد رو مدیر از سایت عوض می‌کنه، و از همون‌جا می‌تونه برای همه‌ی کسایی که ربات رو Start کردن پیام بفرسته.
+// متن پیام خوش‌آمد رو مدیر از سایت عوض می‌کنه، و از همون‌جا می‌تونه برای همه‌ی کسایی که ربات رو Start کردن پیام بفرسته،
+// یا به گروهی از شرکت‌کننده‌ها (مثلاً پرداخت‌نکرده‌ها) پیام شخصی‌شده بده.
 //
 // Secrets لازم (Edge Functions → Secrets):  TELEGRAM_BOT_TOKEN
 // SUPABASE_URL، SUPABASE_ANON_KEY و SUPABASE_SERVICE_ROLE_KEY خودکار در دسترس‌اند.
@@ -227,14 +228,52 @@ type Broadcast = { text?: unknown; test?: boolean; count_only?: boolean; with_bu
 const MAX_TEXT = 4000;
 const PER_SECOND = 20; // تلگرام حدود ۳۰ پیام در ثانیه رو قبول می‌کنه
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// Sends each {to, text} through the bot, at most PER_SECOND a second; one result per job, in the same order.
+// "unreachable": Telegram answered 403 (the person blocked the bot or never started it).
+type Job = { to: number; text: string };
+type Outcome = "sent" | "unreachable" | "failed";
+async function sendPaced(jobs: Job[], markup: unknown): Promise<Outcome[]> {
+  const out: Outcome[] = new Array(jobs.length);
+  const sendOne = async ({ to, text }: Job, i: number) => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let r: TgResult;
+      try { r = await tg("sendMessage", { chat_id: to, text, reply_markup: markup, link_preview_options: { is_disabled: true } }); }
+      catch { out[i] = "failed"; return; }
+      if (r.ok) { out[i] = "sent"; return; }
+      if (r.error_code === 429 && attempt === 0) { await sleep(Math.min(30, r.parameters?.retry_after ?? 1) * 1000); continue; }
+      out[i] = r.error_code === 403 ? "unreachable" : "failed";
+      return;
+    }
+  };
+  for (let i = 0; i < jobs.length; i += PER_SECOND) {
+    const t0 = Date.now();
+    await Promise.all(jobs.slice(i, i + PER_SECOND).map((j, k) => sendOne(j, i + k)));
+    if (i + PER_SECOND < jobs.length) await sleep(Math.max(0, 1000 - (Date.now() - t0)));
+  }
+  return out;
+}
+const ownTelegramId = (auth: { who: { user: { email?: string } | null }; me: { telegram_id?: unknown } | null }) => {
+  const id = Number(auth.me?.telegram_id ?? /^tg(\d+)@telegram\.local$/.exec(auth.who.user?.email ?? "")?.[1] ?? 0);
+  return Number.isSafeInteger(id) && id > 0 ? id : 0;
+};
+function buttonFor(b: { with_button?: boolean; site?: unknown }): { markup?: unknown; error?: Response } {
+  if (!b.with_button) return {};
+  const site = httpsSite(b.site);
+  return site ? { markup: siteButton(site) } : { error: json({ error: "bad_site" }, 400) };
+}
+async function markBlocked(ids: number[]) {
+  if (!ids.length) return;
+  try { await admin.from("bot_users").update({ blocked: true }).in("telegram_id", ids); } catch { /* best effort */ }
+}
+
 async function broadcast(req: Request, b: Broadcast): Promise<Response> {
   const auth = await requireAdmin(req);
   if ("res" in auth) return auth.res!;
   const db = asUser(auth.who);
   let ids: number[];
   if (b.test) {
-    const own = Number(auth.me?.telegram_id ?? /^tg(\d+)@telegram\.local$/.exec(auth.who.user!.email ?? "")?.[1] ?? 0);
-    if (!Number.isSafeInteger(own) || own <= 0) return json({ error: "no_telegram" }, 400);
+    const own = ownTelegramId(auth);
+    if (!own) return json({ error: "no_telegram" }, 400);
     ids = [own];
   } else {
     const [bot, members] = await Promise.all([
@@ -252,42 +291,61 @@ async function broadcast(req: Request, b: Broadcast): Promise<Response> {
   const text = String(b.text ?? "").trim();
   if (!text) return json({ error: "empty" }, 400);
   if (text.length > MAX_TEXT) return json({ error: "too_long" }, 400);
-  let markup: unknown;
-  if (b.with_button) {
-    const site = httpsSite(b.site);
-    if (!site) return json({ error: "bad_site" }, 400);
-    markup = siteButton(site);
-  }
-  let sent = 0;
-  const unreachable: number[] = [], failed: number[] = [];
-  const sendOne = async (id: number) => {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      let r: TgResult;
-      try { r = await tg("sendMessage", { chat_id: id, text, reply_markup: markup, link_preview_options: { is_disabled: true } }); }
-      catch { failed.push(id); return; }
-      if (r.ok) { sent++; return; }
-      if (r.error_code === 429 && attempt === 0) { await sleep(Math.min(30, r.parameters?.retry_after ?? 1) * 1000); continue; }
-      // 403: ربات رو بلاک کرده یا هیچ‌وقت Start نکرده
-      (r.error_code === 403 ? unreachable : failed).push(id);
-      return;
-    }
-  };
-  for (let i = 0; i < ids.length; i += PER_SECOND) {
-    const t0 = Date.now();
-    await Promise.all(ids.slice(i, i + PER_SECOND).map(sendOne));
-    if (i + PER_SECOND < ids.length) await sleep(Math.max(0, 1000 - (Date.now() - t0)));
-  }
+  const btn = buttonFor(b);
+  if (btn.error) return btn.error;
+  const res = await sendPaced(ids.map((to) => ({ to, text })), btn.markup);
+  const sent = res.filter((r) => r === "sent").length;
+  const unreachable = ids.filter((_, i) => res[i] === "unreachable"), failed = res.filter((r) => r === "failed").length;
   if (b.test) {
     if (unreachable.length) return json({ error: "start_bot_first" }, 400);
     if (!sent) return json({ error: "telegram_failed" }, 502);
     return json({ ok: true, test: true, sent });
   }
-  if (unreachable.length) {
-    try { await admin.from("bot_users").update({ blocked: true }).in("telegram_id", unreachable); } catch { /* best effort */ }
-  }
+  await markBlocked(unreachable);
   // سابقه (با نام همین مدیر در تاریخچه‌ی سایت)
-  try { await db.from("bot_broadcasts").insert({ text, sent, failed: unreachable.length + failed.length }); } catch { /* best effort */ }
-  return json({ ok: true, total: ids.length, sent, unreachable: unreachable.length, failed: failed.length });
+  try { await db.from("bot_broadcasts").insert({ text, sent, failed: unreachable.length + failed }); } catch { /* best effort */ }
+  return json({ ok: true, total: ids.length, sent, unreachable: unreachable.length, failed });
+}
+
+// پیام به گروهی از شرکت‌کننده‌ها (فقط مدیر). سایت گیرنده‌ها رو بر اساس وضعیت پرداخت انتخاب می‌کنه و متن هر نفر رو
+// آماده می‌کنه ({name}، {remaining}…)؛ اینجا فقط به حساب‌های تلگرامی فرستاده می‌شه که سایت می‌شناسه (اعضای سایت و کسایی
+// که ربات رو Start کردن). نتیجه‌ی هر پیام به همون ترتیب برمی‌گرده تا سایت بقیه رو از حساب شخصی مدیر بفرسته.
+// test: فقط اولین پیام، برای خود مدیر.
+type Notify = { messages?: unknown; with_button?: boolean; site?: unknown; test?: boolean };
+const MAX_MESSAGES = 500;
+async function notify(req: Request, b: Notify): Promise<Response> {
+  const auth = await requireAdmin(req);
+  if ("res" in auth) return auth.res!;
+  const db = asUser(auth.who);
+  const list = Array.isArray(b.messages) ? b.messages as { to?: unknown; text?: unknown }[] : [];
+  if (!list.length) return json({ error: "empty" }, 400);
+  if (list.length > MAX_MESSAGES) return json({ error: "too_many" }, 400);
+  const jobs: Job[] = list.map((m) => ({ to: Number(m?.to), text: String(m?.text ?? "").trim() }));
+  if (jobs.some((j) => !j.text)) return json({ error: "empty" }, 400);
+  if (jobs.some((j) => j.text.length > MAX_TEXT)) return json({ error: "too_long" }, 400);
+  const btn = buttonFor(b);
+  if (btn.error) return btn.error;
+  if (b.test) {
+    const own = ownTelegramId(auth);
+    if (!own) return json({ error: "no_telegram" }, 400);
+    const [r] = await sendPaced([{ to: own, text: jobs[0].text }], btn.markup);
+    if (r === "unreachable") return json({ error: "start_bot_first" }, 400);
+    if (r !== "sent") return json({ error: "telegram_failed" }, 502);
+    return json({ ok: true, test: true });
+  }
+  const [bot, members] = await Promise.all([
+    db.from("bot_users").select("telegram_id"),
+    db.from("members").select("telegram_id").not("telegram_id", "is", null),
+  ]);
+  if (members.error) return json({ error: "read_failed", detail: members.error.message }, 500);
+  // bot_users may not exist yet (bot SQL not run): then only people who signed in to the site
+  const known = new Set([...(bot.error ? [] : bot.data ?? []), ...(members.data ?? [])].map((r) => Number(r.telegram_id)));
+  if (jobs.some((j) => !Number.isSafeInteger(j.to) || !known.has(j.to))) return json({ error: "unknown_recipient" }, 400);
+  const results = await sendPaced(jobs, btn.markup);
+  const sent = results.filter((r) => r === "sent").length;
+  await markBlocked([...new Set(jobs.filter((_, i) => results[i] === "unreachable").map((j) => j.to))]);
+  // the site records the whole send (bot and personal account together) in the history, so nothing is logged here
+  return json({ ok: true, results, sent });
 }
 
 Deno.serve(async (req) => {
@@ -296,11 +354,12 @@ Deno.serve(async (req) => {
   if (!BOT_TOKEN) return json({ error: "bot_token_missing" }, 500);
   if (req.headers.has("x-telegram-bot-api-secret-token")) return onTelegramUpdate(req);
 
-  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string; setup_bot?: boolean; site?: string; broadcast?: Broadcast };
+  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string; setup_bot?: boolean; site?: string; broadcast?: Broadcast; notify?: Notify };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
   if (typeof body.contact === "string") return linkByPhone(req, body.contact);
   if (body.setup_bot) return setupBot(req, String(body.site ?? ""));
   if (body.broadcast && typeof body.broadcast === "object") return broadcast(req, body.broadcast);
+  if (body.notify && typeof body.notify === "object") return notify(req, body.notify);
 
   const tg = body.initData ? await verifyInitData(body.initData)
            : body.widget ? await verifyWidget(body.widget) : null;
