@@ -278,6 +278,7 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
 .pay-hello h2{margin:0;font-size:20px}
 .sub{color:var(--muted);font-size:13px;display:block}
 .sub.bad,.bad{color:var(--bad)}
+.sub.pos{color:var(--ok)}
 .num{font-variant-numeric:tabular-nums}
 .pay-status{padding:12px 14px;border-radius:var(--radius);background:var(--sunken);font-size:15px}
 .pay-status.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok);font-weight:700}
@@ -296,6 +297,10 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
 .row-btns{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:560px){.receipt-draft{grid-template-columns:1fr}.receipt-draft img{max-height:200px}}
 .pay-h{margin:10px 0 0;font-size:16px}
+.guest-box b{font-size:17px}
+.guest-box.open{grid-template-columns:1fr}
+.guest-box.open .field{max-width:120px}
+.guest-box .hint{grid-column:1 / -1;color:var(--muted);font-size:12.5px}
 .rcpt{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-inline-start:4px solid var(--c);border-radius:var(--radius);padding:8px 10px;width:100%;text-align:start;cursor:pointer}
 .rcpt .thumb{width:48px;height:48px}
 div.rcpt{cursor:default}
@@ -1647,7 +1652,7 @@ function payState(p){
   const approved = ps.filter(x => x.status === 'approved').reduce((a,x) => a + (Number(x.amount)||0), 0);
   const pending = ps.filter(x => x.status === 'submitted').reduce((a,x) => a + (Number(x.amount)||0), 0);
   const key = due > 0 && approved >= due ? 'settled' : pending ? 'review' : approved > 0 ? 'partial' : 'unpaid';
-  return {due, approved, pending, key, remaining:Math.max(0, due - approved - pending), count:ps.length};
+  return {due, approved, pending, key, remaining:Math.max(0, due - approved - pending), extra:due > 0 ? Math.max(0, approved - due) : 0, count:ps.length};
 }
 const STATE_LABEL = {settled:'تسویه', review:'فیش در انتظار بررسی', partial:'بخشی پرداخت شده', unpaid:'پرداخت نکرده'};
 const STATE_COLOR = {settled:'var(--ok)', review:'var(--warn)', partial:'var(--gold)', unpaid:'var(--line)'};
@@ -1695,6 +1700,58 @@ function guestLine(p, m, own = true){
   if (p.amount !== null && p.amount !== undefined) return `<span class="sub">با ${fmt(g)} مهمان</span>`;
   return `<span class="sub">${price ? `${own ? 'سهم خودت' : 'سهم خودش'} ${m(S.payInfo.default_amount || 0)} + ${fmt(g)} مهمان × ${m(price)}` : `با ${fmt(g)} مهمان`}</span>`;
 }
+// A participant can add guests to their own share (or to someone on their number) from the payment page. Only adding:
+// lowering a share is up to the finance team. add_guests also raises a total the team set by hand by the guests' price.
+const MAX_GUESTS = 20;
+let guestAddFor = null;
+function guestBox(p, m, own){
+  if (p.guests === undefined) return ''; // database without the guest columns
+  const g = guestsOf(p), price = Number(S.payInfo.guest_amount || 0), whose = own ? 'سهمت' : `سهم ${esc(p.full_name || '')}`;
+  if (guestAddFor !== p.id) return `<div class="pay-card guest-box"><span class="k">مهمان‌ها</span><b>${g ? fmt(g) + ' نفر' : 'بدون مهمان'}</b>
+      ${g < MAX_GUESTS ? '<button class="btn small" type="button" data-act="guest-add-open">+ اضافه کردن مهمان</button>' : ''}
+      ${price ? `<span class="sub">هر مهمان ${m(price)}</span>` : ''}</div>`;
+  return `<div class="pay-card guest-box open"><span class="k">چند مهمان اضافه بشه؟</span>
+      <input class="field" id="gaCount" inputmode="numeric" value="1" aria-label="تعداد مهمان‌های جدید">
+      <span class="sub" id="gaPreview"></span>
+      <div class="row-btns"><button class="btn primary" type="button" data-act="guest-add">ثبت</button><button class="btn" type="button" data-act="guest-add-cancel">انصراف</button></div>
+      <span class="hint">بعد از ثبت، ${whose} بیشتر می‌شه و باید مابه‌التفاوت رو واریز کنی. کم کردن مهمان‌ها فقط از طریق مسئول‌های مالی انجام می‌شه.</span></div>`;
+}
+function guestCount(){ const n = parseNum($('#gaCount') ? $('#gaCount').value : ''); return n; }
+// the share after adding n guests, worked out the same way add_guests does it
+function shareWithGuests(p, n){
+  const price = Number(S.payInfo.guest_amount || 0);
+  return p.amount !== null && p.amount !== undefined ? Number(p.amount) + n * price : dueOf({...p, guests:guestsOf(p) + n});
+}
+function updateGuestPreview(){
+  const out = $('#gaPreview'), p = payee(); if (!out || !p) return;
+  const n = guestCount(), cur = S.settings.currency || 'تومان', g = guestsOf(p);
+  out.className = 'sub';
+  if (!n){ out.textContent = 'تعداد رو بنویس.'; return; }
+  if (n > 10 || g + n > MAX_GUESTS){ out.classList.add('bad'); out.textContent = `هر بار حداکثر ۱۰ نفر، و در کل حداکثر ${fmt(MAX_GUESTS)} مهمان. برای بیشتر با مسئول‌های مالی هماهنگ کن.`; return; }
+  const before = dueOf(p), after = shareWithGuests(p, n);
+  out.textContent = `با ${fmt(g + n)} مهمان، سهم می‌شه ${fmt(after)} ${cur}` + (after > before ? ` (${fmt(after - before)} ${cur} بیشتر)` : '');
+}
+async function addGuests(btn){
+  const p = payee(), n = guestCount(); if (!p) return;
+  if (!n || n > 10 || guestsOf(p) + n > MAX_GUESTS){ updateGuestPreview(); return; }
+  const cur = S.settings.currency || 'تومان', after = shareWithGuests(p, n);
+  if (!confirm(`${fmt(n)} مهمان به ${p.id === myParticipant()?.id ? 'سهمت' : `سهم «${p.full_name || ''}»`} اضافه بشه؟ مبلغ می‌شه ${fmt(after)} ${cur}. کم کردنش بعداً فقط از طریق مسئول‌های مالی ممکنه.`)) return;
+  btn.disabled = true;
+  const { data, error } = await sb.rpc('add_guests', {p_id:p.id, p_count:n});
+  btn.disabled = false;
+  if (error){
+    console.error('add_guests', error);
+    const m = `${error.code || ''} ${error.message || ''}`;
+    toast(/PGRST202|42883|add_guests/.test(m) ? 'اضافه کردن مهمان هنوز فعال نشده؛ به مسئول‌های مالی بگو.' : /TOO_MANY/.test(m) ? `حداکثر ${fmt(MAX_GUESTS)} مهمان؛ برای بیشتر با مسئول‌های مالی هماهنگ کن.` : 'ثبت نشد؛ دوباره امتحان کن.');
+    return;
+  }
+  if (data && data.id) S.participants[data.id] = {...S.participants[data.id], ...data};
+  guestAddFor = null; render();
+  toast(`${fmt(n)} مهمان اضافه شد؛ مبلغ جدید ${fmt(dueOf(S.participants[p.id]))} ${cur}`);
+}
+document.addEventListener('input', e => { if (e.target.id === 'gaCount') updateGuestPreview(); });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'gaCount'){ e.preventDefault(); const b = $('[data-act="guest-add"]'); if (b && !b.disabled) b.click(); } });
+
 // Everyone registered on the logged-in person's number (see baseNo); the payment page shows one of them at a time.
 // Others on the number are only visible once the database allows it; until then this is just the person themself.
 const myGroup = () => { const me0 = myParticipant(); return me0 ? Object.values(S.participants).filter(x => sameNumber(x.student_no, me0.student_no)).sort((a,b) => shareNo(a.student_no) - shareNo(b.student_no)) : []; };
@@ -1702,8 +1759,11 @@ let payForId = null;
 const payee = () => myGroup().find(x => x.id === payForId) || myParticipant();
 function renderMyPay(el){
   const me0 = myParticipant(), p = payee(); if (!el) return;
-  const keepA = el.querySelector('#rdAmount')?.value, keepT = el.querySelector('#rdTrack')?.value;
-  queueMicrotask(() => { if (draftReceipt){ const a = el.querySelector('#rdAmount'), t = el.querySelector('#rdTrack'); if (a && keepA !== undefined) a.value = keepA; if (t && keepT !== undefined) t.value = keepT; } });
+  const keepA = el.querySelector('#rdAmount')?.value, keepT = el.querySelector('#rdTrack')?.value, keepG = el.querySelector('#gaCount')?.value;
+  queueMicrotask(() => {
+    if (draftReceipt){ const a = el.querySelector('#rdAmount'), t = el.querySelector('#rdTrack'); if (a && keepA !== undefined) a.value = keepA; if (t && keepT !== undefined) t.value = keepT; }
+    const g = el.querySelector('#gaCount'); if (g && keepG !== undefined){ g.value = keepG; updateGuestPreview(); }
+  });
   if (!p){ el.innerHTML = ''; return; }
   const info = S.payInfo, st = payState(p), ps = paysOf(p.id), cur = S.settings.currency || 'تومان', group = myGroup();
   const own = p.id === me0.id, whose = own ? 'سهمت' : `سهم ${esc(p.full_name || '')}`;
@@ -1724,18 +1784,22 @@ function renderMyPay(el){
       <img src="${draftReceipt.url}" alt="پیش‌نمایش فیش">
       <div class="rd-fields">
         <span class="sub">حجم بعد از فشرده‌سازی: ${kb(draftReceipt.blob.size)} (اصل: ${kb(draftReceipt.origSize)})</span>
-        <label class="lbl">مبلغ واریزی<input class="field" id="rdAmount" inputmode="numeric" value="${fmt(st.remaining || st.due)}"></label>
+        <label class="lbl">${st.key === 'settled' ? 'مبلغ پرداخت اضافه' : 'مبلغ واریزی'}<input class="field" id="rdAmount" inputmode="numeric" value="${st.key === 'settled' ? '' : fmt(st.remaining || st.due)}" placeholder="${st.key === 'settled' ? 'مبلغی که اضافه واریز کردی' : ''}"></label>
         <label class="lbl">کد پیگیری <span class="hint">اختیاری</span><input class="field" id="rdTrack" inputmode="numeric" dir="ltr" maxlength="40"></label>
         <div class="row-btns"><button class="btn primary" type="button" data-act="send-receipt">${group.length > 1 ? `ارسال فیش برای ${esc(p.full_name || '')}` : 'ارسال فیش'}</button><button class="btn" type="button" data-act="cancel-receipt">انصراف</button></div>
       </div></div>`
-    : (st.key !== 'settled' ? `<button class="btn primary big" type="button" data-act="pick-receipt">آپلود عکس فیش</button><p class="sub">اسکرین‌شات رسید بانکی کافیه؛ قبل از ارسال خودکار فشرده می‌شه.</p>` : '');
+    : st.key !== 'settled' ? `<button class="btn primary big" type="button" data-act="pick-receipt">آپلود عکس فیش</button><p class="sub">اسکرین‌شات رسید بانکی کافیه؛ قبل از ارسال خودکار فشرده می‌شه.</p>`
+    // settled: anyone who wants to give more (or paid more) can still send a receipt; it's checked like any other
+    : `<button class="btn" type="button" data-act="pick-receipt">فیش پرداخت اضافه</button><p class="sub">اگه بیشتر از سهمت واریز کردی (مثلاً کمک بیشتر به جشن)، فیشش رو اینجا بفرست.</p>`;
   el.innerHTML = `<div class="pay-wrap">
     <div class="pay-hello"><h2>سلام ${esc(me0.full_name || '')}</h2><span class="sub">${isPhoneId(me0.student_no) ? 'موبایل' : 'شماره دانشجویی'} <span dir="ltr">${esc(baseNo(me0.student_no))}</span>${me0.major ? ' · ' + esc(me0.major) : ''}</span></div>
     ${switcher}
     ${statusLine}
     <div class="pay-amount"><span class="k">${own ? 'مبلغ سهم' : `مبلغ سهم ${esc(p.full_name || '')}`}</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${st.remaining || st.due}" data-copy-label="مبلغ">کپی مبلغ</button>` : ''}
       ${guestLine(p, m, own)}
-      ${st.approved || st.pending ? `<span class="sub">تأییدشده ${m(st.approved)}${st.pending ? ` · در انتظار بررسی ${m(st.pending)}` : ''}</span>` : ''}</div>
+      ${st.approved || st.pending ? `<span class="sub">تأییدشده ${m(st.approved)}${st.pending ? ` · در انتظار بررسی ${m(st.pending)}` : ''}</span>` : ''}
+      ${st.extra ? `<span class="sub pos">${m(st.extra)} بیشتر از سهم پرداخت شده. ممنون!</span>` : ''}</div>
+    ${guestBox(p, m, own)}
     ${cardRow}${shebaRow}
     ${info.deadline ? `<p class="sub">مهلت پرداخت: <b>${esc(info.deadline)}</b></p>` : ''}
     ${info.note ? `<p class="pay-note">${esc(info.note)}</p>` : ''}
@@ -1833,7 +1897,7 @@ function renderPeople(){
     ? `<div class="empty"><h3>هنوز شرکت‌کننده‌ای ثبت نشده</h3>فایل اکسل یا CSV لیست ثبت‌نام رو وارد کن؛ کافیه ستون «شماره تماس» (یا «شماره دانشجویی») و «نام» داشته باشه. «گرایش» و «تعداد مهمان» هم خونده می‌شن.<div class="chips need-edit"><button class="chip" type="button" data-act="import-people">ورود از شیت</button><button class="chip" type="button" data-act="add-person">افزودن دستی</button></div></div>`
     : rows.map(([p, s]) => `<button class="row" type="button" data-person="${esc(p.id)}" style="--c:${STATE_COLOR[s.key]}">
         <span class="stripe"></span>
-        <span><span class="t">${esc(p.full_name || '—')}</span><span class="meta">${noPhone(p.student_no) ? '<span class="tag warn">بدون شماره</span>' : `<span class="tag" dir="ltr">${esc(baseNo(p.student_no))}</span>`}${perNo.get(baseNo(p.student_no)) > 1 ? `<span class="tag warn">شماره‌ی مشترک ${fmt(perNo.get(baseNo(p.student_no)))} نفر</span>` : ''}${p.major ? `<span class="tag">${esc(p.major)}</span>` : ''}${guestsOf(p) ? `<span class="tag">${fmt(guestsOf(p))} مهمان</span>` : ''}<span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${isLinked(p) ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}</span></span>
+        <span><span class="t">${esc(p.full_name || '—')}</span><span class="meta">${noPhone(p.student_no) ? '<span class="tag warn">بدون شماره</span>' : `<span class="tag" dir="ltr">${esc(baseNo(p.student_no))}</span>`}${perNo.get(baseNo(p.student_no)) > 1 ? `<span class="tag warn">شماره‌ی مشترک ${fmt(perNo.get(baseNo(p.student_no)))} نفر</span>` : ''}${p.major ? `<span class="tag">${esc(p.major)}</span>` : ''}${guestsOf(p) ? `<span class="tag">${fmt(guestsOf(p))} مهمان</span>` : ''}<span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${s.extra ? `<span class="tag ok">+${fmt(s.extra)} اضافه</span>` : ''}${isLinked(p) ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}</span></span>
         <span></span>
         <span class="amt"><b>${fmt(s.approved)}</b><small>از ${fmt(s.due)}</small></span>
       </button>`).join('') || '<div class="empty">موردی با این فیلتر پیدا نشد.</div>';
@@ -2383,6 +2447,9 @@ document.addEventListener('click', e => {
     if (a === 'export') return exportXlsx();
     if (a === 'logout') return logout();
     if (a === 'recheck') return recheck();
+    if (a === 'guest-add-open'){ guestAddFor = payee()?.id || null; render(); updateGuestPreview(); const g = $('#gaCount'); if (g){ g.focus(); g.select(); } return; }
+    if (a === 'guest-add-cancel'){ guestAddFor = null; return render(); }
+    if (a === 'guest-add') return addGuests(el);
     if (a === 're-request') return reRequest(el);
     if (a === 'pick-receipt') return receiptInput.click();
     if (a === 'send-receipt') return sendReceipt(el);
@@ -2405,7 +2472,7 @@ document.addEventListener('click', e => {
     if (a === 'tg-refresh') return TG.state === 'on' ? tgRefresh() : tgRestore();
     if (a === 'tg-person') return tgPersonChat(el); }
   if ((el = g('[data-tg-chat]'))) return tgOpenDialog(el.dataset.tgChat);
-  if ((el = g('[data-pay-for]'))){ payForId = el.dataset.payFor; return render(); }
+  if ((el = g('[data-pay-for]'))){ payForId = el.dataset.payFor; guestAddFor = null; return render(); }
   if ((el = g('[data-copy]'))) return copyText(el.dataset.copy, el.dataset.copyLabel);
   if ((el = g('[data-receipt]'))) return openReceipt(el.dataset.receipt);
   if ((el = g('[data-person]'))) return openPerson(el.dataset.person);
