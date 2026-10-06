@@ -444,6 +444,28 @@ $$;
 revoke all on function public.review_payment(uuid, text, text, bigint) from public, anon;
 grant execute on function public.review_payment(uuid, text, text, bigint) to authenticated;
 
+-- اضافه کردن مهمان توسط خود شرکت‌کننده (فقط زیاد کردن؛ کم کردن با تیم مالی)
+-- برای خودش و هم‌شماره‌هاش؛ اگه مدیر «مبلغ کل» دستی گذاشته، هزینه‌ی مهمان‌های جدید به همون اضافه می‌شه.
+create or replace function public.add_guests(p_id uuid, p_count int)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare p public.participants; price bigint;
+begin
+  if auth.uid() is null then raise exception 'NOT_SIGNED_IN'; end if;
+  if p_count is null or p_count < 1 or p_count > 10 then raise exception 'BAD_COUNT'; end if;
+  if p_id::text not in (select public.my_number_participants()) then raise exception 'FORBIDDEN'; end if;
+  select * into p from public.participants where id = p_id for update;
+  if p.guests + p_count > 20 then raise exception 'TOO_MANY'; end if;
+  select coalesce(guest_amount, 0) into price from public.payment_info where id = 1;
+  update public.participants
+     set guests = guests + p_count,
+         amount = case when amount is null then null else amount + p_count * coalesce(price, 0) end
+   where id = p_id
+  returning * into p;
+  return to_jsonb(p);
+end $$;
+revoke all on function public.add_guests(uuid, int) from public, anon;
+grant execute on function public.add_guests(uuid, int) to authenticated;
+
 -- ۱۵) دسترسی‌ها (Row Level Security)
 alter table public.members      enable row level security;
 alter table public.settings     enable row level security;
