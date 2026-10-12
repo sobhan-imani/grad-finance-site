@@ -746,7 +746,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   <form method="dialog" novalidate onsubmit="return false">
     <div class="dlg-head"><h2>کدهای ورود رأی‌گیری</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
     <div class="dlg-body">
-      <p class="hint" style="color:var(--muted);font-size:13px;margin:0">هر شرکت‌کننده‌ی اصلی یک کد یکتا می‌گیره که فقط خودش (و کسایی که با همون شماره ثبت‌نام کردن) توی صفحه‌ی پرداخت و ربات می‌بینه. مدیرها کدها رو نمی‌بینن و فقط می‌دونن کی کد داره؛ این‌طوری رأی‌ها ناشناس می‌مونه. شرکت‌کننده‌های جدید (لوح و تندیس) کد نمی‌گیرن.</p>
+      <p class="hint" style="color:var(--muted);font-size:13px;margin:0">هر شرکت‌کننده‌ی اصلی یک کد یکتا می‌گیره که فقط خودش (و کسایی که با همون شماره ثبت‌نام کردن) توی صفحه‌ی پرداخت و ربات می‌بینه. مدیرها کد هر نفر رو توی فهرست و پنجره‌ی همون نفر می‌بینن، تا به کسی که از ربات و سایت استفاده نمی‌کنه بدن. شرکت‌کننده‌های جدید (لوح و تندیس) کد نمی‌گیرن.</p>
       <div class="people-sum" id="vcStats"></div>
       <div class="vc-step">
         <b>۱. اضافه کردن کدها</b>
@@ -935,7 +935,7 @@ async function loadAll(){
   await Promise.all([loadSettings(), ...TABLES.map(reload), loadMembers(), loadActivity(), loadPayInfo(), probeGuestCols(), probeExtraCols(), loadMyCodes()]);
   ready = true; render(); fillSettings();
   // who has a voting code only adds tags to the list; it doesn't hold up the first render
-  loadCodeStatus().then(codeStatusShown);
+  reloadCodes().then(codeStatusShown);
 }
 // major / guests / guest_amount are added to the database after schema.sql; until they exist, the app works without them
 // and leaves them out of every write (sending an unknown column would make the whole save fail)
@@ -1852,6 +1852,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id
 
 // Everyone registered on the logged-in person's number (see baseNo); the payment page shows one of them at a time.
 // Others on the number are only visible once the database allows it; until then this is just the person themself.
+// banking apps take rials: a toman amount is copied with one more zero
+const toRial = n => (S.settings.currency || 'تومان') === 'تومان' ? Number(n) * 10 : Number(n);
 const myGroup = () => { const me0 = myParticipant(); return me0 ? Object.values(S.participants).filter(x => sameNumber(x.student_no, me0.student_no)).sort((a,b) => shareNo(a.student_no) - shareNo(b.student_no)) : []; };
 let payForId = null;
 const payee = () => myGroup().find(x => x.id === payForId) || myParticipant();
@@ -1894,7 +1896,7 @@ function renderMyPay(el){
     ${switcher}
     ${codeCard(p, own)}
     ${statusLine}
-    <div class="pay-amount"><span class="k">${own ? 'مبلغ سهم' : `مبلغ سهم ${esc(p.full_name || '')}`}</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${st.remaining || st.due}" data-copy-label="مبلغ">کپی مبلغ</button>` : ''}
+    <div class="pay-amount"><span class="k">${own ? 'مبلغ سهم' : `مبلغ سهم ${esc(p.full_name || '')}`}</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${toRial(st.remaining || st.due)}" data-copy-label="مبلغ به ریال">کپی مبلغ (ریال)</button>` : ''}
       ${guestLine(p, m, own)}
       ${st.approved || st.pending ? `<span class="sub">تأییدشده ${m(st.approved)}${st.pending ? ` · در انتظار بررسی ${m(st.pending)}` : ''}</span>` : ''}
       ${st.extra ? `<span class="sub pos">${m(st.extra)} بیشتر از سهم پرداخت شده. ممنون!</span>` : ''}</div>
@@ -2014,13 +2016,14 @@ function renderPeople(){
     if (f === 'unclaimed' ? isLinked(p) : f && s.key !== f) return false;
     if (mv && (p.major || '').trim() !== mv) return false;
     if (fi && !(fi === 'plaque' ? p.wants_plaque : fi === 'statue' ? p.wants_statue : 'cat-' + (p.catering || 'undecided') === fi)) return false;
-    if (q && !toLatin([p.full_name, p.student_no, p.major, p.note].join(' ')).toLowerCase().includes(q)) return false;
+    if (q && !toLatin([p.full_name, p.student_no, p.major, p.note, canAdmin ? myCodes.get(p.id) : ''].join(' ')).toLowerCase().includes(q)) return false;
     return true;
   }).sort(([a,sa],[b,sb2]) => ['review','unpaid','partial','settled'].indexOf(sa.key) - ['review','unpaid','partial','settled'].indexOf(sb2.key) || (a.full_name||'').localeCompare(b.full_name||'','fa'));
   const meta = (p, s) => `${noPhone(p.student_no) ? '<span class="tag warn">بدون شماره</span>' : `<span class="tag" dir="ltr">${esc(baseNo(p.student_no))}</span>`}${perNo.get(baseNo(p.student_no)) > 1 ? `<span class="tag warn">شماره‌ی مشترک ${fmt(perNo.get(baseNo(p.student_no)))} نفر</span>` : ''}${p.major ? `<span class="tag">${esc(p.major)}</span>` : ''}${guestsOf(p) ? `<span class="tag">${fmt(guestsOf(p))} مهمان</span>` : ''}`
     + (xv ? (extraItems(p).length ? extraItems(p).map(x => `<span class="tag type" style="--c:var(--gold)">${x}</span>`).join('') : '<span class="tag warn">نه لوح، نه تندیس</span>') : '')
     + `<span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${s.extra ? `<span class="tag ok">+${fmt(s.extra)} اضافه</span>` : ''}${isLinked(p) ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}`
     + (!xv && hasCodeStatus() && !codeOf(p.id) ? '<span class="tag warn need-admin">بدون کد رأی</span>' : '')
+    + (!xv && canAdmin && myCodes.get(p.id) ? `<span class="tag need-admin" dir="ltr" title="کد رأی">🗳 ${esc(myCodes.get(p.id))}</span>` : '')
     + (xv ? `<span class="tag view-only">${CATERING[p.catering] || CATERING.undecided}</span><span class="cater-pick need-edit">پذیرایی:${[['yes','بله'],['no','نه'],['undecided','؟']].map(([v, l]) =>
         `<button class="chip ${v}${(p.catering || 'undecided') === v ? ' on' : ''}" type="button" data-act="cater" data-id="${esc(p.id)}" data-v="${v}" aria-pressed="${(p.catering || 'undecided') === v}" title="${CATERING[v]}">${l}</button>`).join('')}</span>` : '');
   // a new participant's row holds the catering buttons, so it can't itself be a <button>
@@ -2037,8 +2040,8 @@ function renderPeople(){
 }
 /* ---------- voting codes ----------
    Every main participant gets one code to sign in to the vote. Only the person (and whoever shares their number) can
-   read it: on their payment page and in the bot. Admins never see a code, only who has one: the database functions
-   they call never return codes, and sending codes out goes through the telegram-auth function, not this page. */
+   read it, on their payment page and in the bot, and admins (to hand a code to someone who doesn't use the bot).
+   Admins' loadMyCodes gets every code; the status function adds who has one even before that read. */
 const VC = {status:null, timer:0, busy:false};
 async function loadCodeStatus(){
   if (!canAdmin){ VC.status = null; return; }
@@ -2046,7 +2049,8 @@ async function loadCodeStatus(){
   VC.status = error || !data ? null : {...data, has:new Set(data.has || [])};
 }
 function codeStatusShown(){ render(); if (codesDlg.open) renderCodes(); if (personDlg.open) renderPersonCode(); }
-function loadCodeStatusSoon(){ clearTimeout(VC.timer); VC.timer = setTimeout(() => loadCodeStatus().then(codeStatusShown), 800); }
+const reloadCodes = () => Promise.all([loadCodeStatus(), loadMyCodes()]);
+function loadCodeStatusSoon(){ clearTimeout(VC.timer); VC.timer = setTimeout(() => reloadCodes().then(codeStatusShown), 800); }
 const hasCodeStatus = () => !!VC.status;
 const codeOf = id => !!VC.status && VC.status.has.has(id);
 function codeSummary(mains){
@@ -2091,10 +2095,10 @@ function renderPersonCode(){
   const box = $('#personCode'), p = editingPerson;
   box.hidden = !canAdmin || !p || isExtra(p) || !VC.status;
   if (box.hidden){ box.innerHTML = ''; return; }
-  const has = codeOf(p.id);
-  box.innerHTML = `<span class="tag ${has ? 'ok' : 'warn'}">${has ? 'کد رأی داره' : 'کد رأی نداره'}</span>
-    <button class="btn small" type="button" data-act="code-reissue">${has ? 'کد جدید بده' : 'یه کد بهش بده'}</button>
-    <span class="hint">کد رو فقط خودش در سایت و ربات می‌بینه.</span>`;
+  const has = codeOf(p.id), code = myCodes.get(p.id);
+  box.innerHTML = has ? `<span class="k">کد رأی</span>${code ? `<b class="num vcode" dir="ltr">${esc(code)}</b><button class="btn small" type="button" data-copy="${esc(code)}" data-copy-label="کد رأی">کپی</button>` : '<span class="tag ok">داره</span>'}
+    <button class="btn small" type="button" data-act="code-reissue">کد جدید بده</button>`
+    : `<span class="tag warn">کد رأی نداره</span><button class="btn small" type="button" data-act="code-reissue">یه کد بهش بده</button>`;
 }
 const VC_ERR = {NO_FREE_CODES:'کد آزادی نمونده؛ اول از «کدهای رأی‌گیری» کدهای بیشتری اضافه کن.', NOT_FOUND:'فقط شرکت‌کننده‌های اصلی کد رأی دارن.', FORBIDDEN:'فقط مدیر می‌تونه کدها رو مدیریت کنه.'};
 const vcErr = e => { const m = `${e && e.code || ''} ${e && e.message || ''}`; const k = Object.keys(VC_ERR).find(x => m.includes(x));
@@ -2107,7 +2111,7 @@ async function reissueCode(btn){
   const { error } = await sb.rpc('reissue_voting_code', {p_participant:p.id});
   btn.disabled = false;
   if (error){ console.error('reissue_voting_code', error); toast(vcErr(error)); return; }
-  await loadCodeStatus(); renderPersonCode(); render();
+  await reloadCodes(); renderPersonCode(); render();
   toast(had ? 'کد جدید داده شد؛ کد قبلی باطل شد' : 'کد داده شد');
 }
 const codesDlg = $('#codesDlg');
@@ -2141,7 +2145,7 @@ async function importCodes(file){
   await codesBusy(async () => {
     const { data, error } = await sb.rpc('add_voting_codes', {p_codes:codes});
     if (error){ console.error('add_voting_codes', error); codesOut(esc(vcErr(error)), true); return; }
-    await loadCodeStatus();
+    await reloadCodes();
     codesOut(`${fmt(data.added)} کد جدید اضافه شد${data.existing ? `؛ ${fmt(data.existing)} تا از قبل بودن` : ''}${data.invalid ? `؛ ${fmt(data.invalid)} تا نامعتبر بودن` : ''}.`);
   });
 }
@@ -2151,7 +2155,7 @@ async function assignCodes(){
   await codesBusy(async () => {
     const { data, error } = await sb.rpc('assign_voting_codes');
     if (error){ console.error('assign_voting_codes', error); codesOut(esc(vcErr(error)), true); return; }
-    await loadCodeStatus();
+    await reloadCodes();
     codesOut(`به ${fmt(data.assigned)} نفر کد داده شد.` + (data.without ? ` <span class="bad">${fmt(data.without)} نفر هنوز کد ندارن چون کد آزاد کم بود؛ کدهای بیشتری اضافه کن.</span>` : ` ${fmt(data.free)} کد آزاد مونده.`), !!data.without);
   });
 }
@@ -2161,7 +2165,7 @@ async function sendCodes(test){
   const s = VC.status; if (!s) return;
   if (!test && !confirm(`ربات کد رأی هر شرکت‌کننده رو برای خودش بفرسته؟ (به ${fmt(s.assigned)} نفری که کد دارن، هر کدوم که با تلگرام وارد سایت شده)`)) return;
   await codesBusy(async () => {
-    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{send_codes:{test:!!test, with_button:location.protocol === 'https:', site:ntSite()}}});
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{send_codes:{test:!!test}}});
     if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} console.error('send_codes', b); codesOut(esc(VC_SEND_ERR[b.error] || 'تابع telegram-auth جواب درست نداد؛ مطمئن شو نسخه‌ی جدیدش Deploy شده.'), true); return; }
     if (test){ toast('نمونه برات فرستاده شد؛ توی تلگرام ببینش'); return; }
     const d = data || {};
@@ -3344,7 +3348,7 @@ function exportXlsx(){
   const guests = parts.reduce((a,p) => a + guestsOf(p), 0), withCodes = !!VC.status;
   if (parts.length){
     const a6 = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','تعداد مهمان','مبلغ سهم','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت', ...(withCodes ? ['کد رأی'] : [])]];
-    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', guestsOf(p), s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'', ...(withCodes ? [codeOf(p.id) ? 'دارد' : 'ندارد'] : [])]); });
+    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', guestsOf(p), s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'', ...(withCodes ? [myCodes.get(p.id) || (codeOf(p.id) ? 'دارد' : 'ندارد')] : [])]); });
     a6.push([]); a6.push(['','','جمع','', guests, parts.reduce((a,p) => a + dueOf(p), 0), parts.reduce((a,p) => a + payState(p).approved, 0)]);
     a6.push(['','','کل حضور (نفرات + مهمان‌ها)','', parts.length + guests]);
     XLSX.utils.book_append_sheet(wb, sheetFrom(a6, [6,16,24,18,10,14,14,14,14,18,10,10,30,10], [4,5,6,7,8]), 'شرکت‌کننده‌ها');

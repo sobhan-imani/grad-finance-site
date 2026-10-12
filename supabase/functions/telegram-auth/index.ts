@@ -218,7 +218,7 @@ const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").re
 // ---------- لینک پرداخت (برای کسایی که خودشون وارد سایت نشدن) ----------
 // مدیر از سایت لینک t.me/<ربات>?start=<pay_token> هر نفر رو براش می‌فرسته. ربات مبلغ و کارت رو با دکمه‌ی کپی نشون می‌ده و
 // عکس رسید رو می‌گیره: عکس در receipts/bot/<شرکت‌کننده>/ می‌ره و یک فیش «در انتظار بررسی» ثبت می‌شه، مثل فیشی که از سایت بیاد.
-// کد رأی از این راه نشون داده نمی‌شه (لینک دست مدیرها هم هست). تابع‌های SQL مربوط رو دستور «لینک پرداخت» می‌سازه.
+// کد رأی از این راه نشون داده نمی‌شه (لینک ممکنه دست کس دیگه‌ای هم بیفته). تابع‌های SQL مربوط رو دستور «لینک پرداخت» می‌سازه.
 type PayInfo = { ok: boolean; error?: string; via?: "link" | "account"; id?: string; full_name?: string | null; due?: number; approved?: number;
   pending?: number; card_number?: string; card_holder?: string; bank?: string; deadline?: string; currency?: string };
 async function payInfo(tgId: number, token?: string): Promise<PayInfo | null> {
@@ -250,7 +250,9 @@ function payMessage(p: PayInfo | null): { text: string; reply_markup?: unknown }
   lines.push("", left
     ? "بعد از واریز، عکس رسید (اسکرین‌شات) رو همین‌جا بفرست. اگه مبلغی که واریز کردی با «مونده» فرق داره، عددش رو زیر عکس (کپشن) بنویس."
     : "اگه پرداختی داشتی، عکس رسید رو همین‌جا بفرست و مبلغش رو زیر عکس (کپشن) بنویس.");
-  const buttons = [left || due ? { text: "کپی مبلغ", copy_text: { text: String(left || due) } } : null,
+  // بانک‌ها مبلغ رو به ریال می‌خوان: مبلغ تومانی با یک صفر بیشتر کپی می‌شه
+  const rial = (n: number) => cur === "تومان" ? n * 10 : n;
+  const buttons = [left || due ? { text: "کپی مبلغ (ریال)", copy_text: { text: String(rial(left || due)) } } : null,
     card ? { text: "کپی شماره کارت", copy_text: { text: card } } : null].filter(Boolean);
   return { text: lines.join("\n"), ...(buttons.length ? { reply_markup: { inline_keyboard: [buttons] } } : {}) };
 }
@@ -473,15 +475,14 @@ async function notify(req: Request, b: Notify): Promise<Response> {
   return json({ ok: true, results, sent });
 }
 
-// کد رأی هر شرکت‌کننده، از ربات برای خودش (فقط مدیر). کدها فقط همین‌جا خونده می‌شن و به مرورگر مدیر برنمی‌گردن.
+// کد رأی هر شرکت‌کننده، از ربات برای خودش (فقط مدیر)، بدون دکمه‌ی «ورود به سایت».
 // گیرنده: حساب تلگرامی که خود اون نفر (یا صاحب شماره‌ش) باهاش وارد سایت شده؛ چند نفرِ یک شماره در یک پیام.
 // test: یک پیام نمونه با کد ساختگی برای خود مدیر.
-type SendCodes = { test?: boolean; with_button?: boolean; site?: unknown };
+type SendCodes = { test?: boolean };
 async function sendCodes(req: Request, b: SendCodes): Promise<Response> {
   const auth = await requireAdmin(req);
   if ("res" in auth) return auth.res!;
-  const btn = buttonFor(b);
-  if (btn.error) return btn.error;
+  const btn = { markup: undefined };
   if (b.test) {
     const own = ownTelegramId(auth);
     if (!own) return json({ error: "no_telegram" }, 400);

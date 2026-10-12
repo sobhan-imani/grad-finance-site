@@ -662,8 +662,8 @@ create policy bot_broadcasts_select on public.bot_broadcasts for select to authe
 drop policy if exists bot_broadcasts_insert on public.bot_broadcasts;
 create policy bot_broadcasts_insert on public.bot_broadcasts for insert to authenticated with check (public.has_role('admin'));
 
--- ۱۹) کدهای ورود رأی‌گیری: هر شرکت‌کننده‌ی اصلی یک کد تصادفی (شرکت‌کننده‌های جدید کد ندارن). هر کس فقط کد خودش (و هم‌شماره‌هاش) رو می‌بینه؛ مدیرها هم نه،
--- تا رأی‌ها ناشناس بمونه. مدیر فقط از طریق تابع‌های پایین کار می‌کنه و هیچ‌کدومشون کد رو برنمی‌گردونن.
+-- ۱۹) کدهای ورود رأی‌گیری: هر شرکت‌کننده‌ی اصلی یک کد تصادفی (شرکت‌کننده‌های جدید کد ندارن). هر کس کد خودش (و هم‌شماره‌هاش) رو می‌بینه؛
+-- مدیرها همه‌ی کدها رو می‌بینن (برای کسی که از ربات و سایت استفاده نمی‌کنه). تغییر کدها فقط از طریق تابع‌های پایینه.
 -- کدی که عوض می‌شه یا صاحبش حذف می‌شه «باطل» (retired) می‌شه و دیگه به کسی داده نمی‌شه. در تاریخچه ثبت نمی‌شه.
 -- اجرای دوباره ضرری نداره.
 create table if not exists public.voting_codes (
@@ -680,6 +680,8 @@ grant all on public.voting_codes to service_role;
 drop policy if exists voting_codes_own on public.voting_codes;
 create policy voting_codes_own on public.voting_codes for select to authenticated
   using (participant_id::text in (select public.my_number_participants()));
+drop policy if exists voting_codes_admin on public.voting_codes;
+create policy voting_codes_admin on public.voting_codes for select to authenticated using (public.has_role('admin'));
 
 -- وضعیت برای مدیر: چند کد، کیا کد دارن (بدون خود کد)
 create or replace function public.voting_code_status()
@@ -798,7 +800,7 @@ grant execute on function public.voting_codes_for_telegram(bigint), public.votin
 
 -- ۲۰) لینک پرداخت در ربات، برای کسایی که خودشون وارد سایت نشدن: t.me/<ربات>?start=<pay_token>
 -- با این لینک ربات مبلغ و شماره کارت رو (با دکمه‌ی کپی) نشون می‌ده و عکس رسید رو می‌گیره و برای بررسی ثبت می‌کنه.
--- «لینک جدید» (pay_token تازه) لینک قبلی رو باطل می‌کنه. کد رأی از این راه نشون داده نمی‌شه، چون مدیرها هم لینک رو دارن.
+-- «لینک جدید» (pay_token تازه) لینک قبلی رو باطل می‌کنه. کد رأی از این راه نشون داده نمی‌شه، چون لینک ممکنه دست کس دیگه‌ای هم بیفته.
 -- تابع‌ها فقط برای telegram-auth (service role) هستن. اجرای دوباره ضرری نداره.
 alter table public.participants add column if not exists pay_token uuid not null default gen_random_uuid();
 create unique index if not exists participants_pay_token_key on public.participants (pay_token);
