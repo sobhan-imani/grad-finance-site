@@ -137,7 +137,7 @@ const DEFAULT_WELCOME = `سلام {name}! 👋\nبرای دیدن مبلغ سه�
 // رمز webhook از خود توکن ربات ساخته می‌شه، پس secret جدایی لازم نیست
 const webhookSecret = async () => hex(await hmac(enc.encode(BOT_TOKEN), "telegram-webhook"));
 
-type TgResult = { ok: boolean; description?: string; error_code?: number; parameters?: { retry_after?: number } };
+type TgResult = { ok: boolean; description?: string; error_code?: number; parameters?: { retry_after?: number }; result?: Record<string, any> };
 async function tg(method: string, params: unknown): Promise<TgResult> {
   const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params),
@@ -175,15 +175,140 @@ async function onTelegramUpdate(req: Request): Promise<Response> {
   try { update = await req.json(); } catch { return new Response("ok"); }
   const msg = update.message;
   if (!msg || msg.chat?.type !== "private") return new Response("ok");
+  const tgId = Number(msg.from?.id);
+  // عکس رسید، از کسی که با لینک پرداخت اومده (یا با تلگرام وارد سایت شده)
+  if (!msg.contact && (msg.photo || msg.document)) {
+    await rememberBotUser(msg.from);
+    return json({ method: "sendMessage", chat_id: msg.chat.id, text: await onReceipt(msg) });
+  }
+  // لینک پرداخت: t.me/<ربات>?start=<pay_token>
+  const start = /^\/start(?:@\w+)?\s+([\w-]{1,64})\s*$/.exec(String(msg.text ?? ""));
+  if (start) {
+    const [, pay] = await Promise.all([rememberBotUser(msg.from), payInfo(tgId, start[1])]);
+    return json({ method: "sendMessage", chat_id: msg.chat.id, ...payMessage(pay) });
+  }
   // پیام «شماره» که دکمه‌ی تأیید شماره‌ی سایت می‌فرسته جواب نمی‌گیره، ولی فرستنده‌ش هم ربات رو Start کرده
-  const [, text] = await Promise.all([rememberBotUser(msg.from), msg.contact ? "" : welcomeText()]);
-  if (msg.contact || !site.startsWith("https://")) return new Response("ok");
+  const [, text, codes, pay] = await Promise.all([rememberBotUser(msg.from), msg.contact ? "" : welcomeText(),
+    msg.contact ? [] : votingCodes(tgId), msg.contact ? null : payInfo(tgId)]);
+  if (msg.contact) return new Response("ok");
+  // کسی که با لینک پرداخت اومده، هر پیامی بده دوباره مبلغ و کارت رو می‌بینه
+  if (pay?.ok && pay.via === "link") return json({ method: "sendMessage", chat_id: msg.chat.id, ...payMessage(pay) });
+  if (!site.startsWith("https://")) return new Response("ok");
+  const welcome = fillName(text, String(msg.from?.first_name ?? ""));
   return json({
     method: "sendMessage",
     chat_id: msg.chat.id,
-    text: fillName(text, String(msg.from?.first_name ?? "")),
+    // with a code the reply is HTML, so the code is tap-to-copy; the welcome text is escaped for that
+    ...(codes.length ? { text: escHtml(welcome) + "\n\n" + codesText(codes), parse_mode: "HTML" } : { text: welcome }),
     reply_markup: siteButton(site),
   });
+}
+
+// کد رأی‌گیری صاحب این حساب تلگرام (و هم‌شماره‌هاش). فقط خود همین آدم این جواب رو می‌بینه. تا دستور SQL کدها اجرا نشده، خالیه.
+type CodeRow = { full_name: string | null; code: string };
+async function votingCodes(tgId: number): Promise<CodeRow[]> {
+  if (!Number.isSafeInteger(tgId) || tgId <= 0) return [];
+  try {
+    const { data, error } = await admin.rpc("voting_codes_for_telegram", { p_tg: tgId });
+    return error || !Array.isArray(data) ? [] : data as CodeRow[];
+  } catch { return []; }
+}
+const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// ---------- لینک پرداخت (برای کسایی که خودشون وارد سایت نشدن) ----------
+// مدیر از سایت لینک t.me/<ربات>?start=<pay_token> هر نفر رو براش می‌فرسته. ربات مبلغ و کارت رو با دکمه‌ی کپی نشون می‌ده و
+// عکس رسید رو می‌گیره: عکس در receipts/bot/<شرکت‌کننده>/ می‌ره و یک فیش «در انتظار بررسی» ثبت می‌شه، مثل فیشی که از سایت بیاد.
+// کد رأی از این راه نشون داده نمی‌شه (لینک دست مدیرها هم هست). تابع‌های SQL مربوط رو دستور «لینک پرداخت» می‌سازه.
+type PayInfo = { ok: boolean; error?: string; via?: "link" | "account"; id?: string; full_name?: string | null; due?: number; approved?: number;
+  pending?: number; card_number?: string; card_holder?: string; bank?: string; deadline?: string; currency?: string };
+async function payInfo(tgId: number, token?: string): Promise<PayInfo | null> {
+  if (!Number.isSafeInteger(tgId) || tgId <= 0) return null;
+  try {
+    const { data, error } = await admin.rpc("bot_pay_info", { p_tg: tgId, p_token: token ?? null });
+    return error || !data ? null : data as PayInfo;
+  } catch { return null; }
+}
+const faNum = (n: number) => new Intl.NumberFormat("fa-IR").format(n);
+const remainingOf = (p: PayInfo) => Math.max(0, Number(p.due ?? 0) - Number(p.approved ?? 0) - Number(p.pending ?? 0));
+function payMessage(p: PayInfo | null): { text: string; reply_markup?: unknown } {
+  if (!p) return { text: "الان جواب نمی‌دم؛ چند دقیقه‌ی دیگه دوباره لینک رو باز کن." };
+  if (!p.ok) return { text: "این لینک معتبر نیست (شاید لینک جدید براتون ساخته شده). از مسئول‌های مالی لینک درست رو بگیر." };
+  const cur = p.currency || "تومان", m = (n: number) => `${faNum(n)} ${cur}`;
+  const due = Number(p.due ?? 0), approved = Number(p.approved ?? 0), pending = Number(p.pending ?? 0), left = remainingOf(p);
+  const card = String(p.card_number ?? "").replace(/\D/g, "");
+  const lines = [`سلام ${p.full_name || ""}! 👋`.replace(" !", "!")];
+  if (!due) lines.push("مبلغ سهمت هنوز تعیین نشده.");
+  else {
+    lines.push(`مبلغ سهمت از جشن: ${m(due)}`);
+    if (approved || pending) lines.push(`تأییدشده: ${m(approved)}${pending ? ` · در انتظار بررسی: ${m(pending)}` : ""}`);
+    lines.push(left ? `مونده: ${m(left)}` : approved >= due ? "سهمت کامل پرداخت شده. ممنون! 🌸" : "رسیدت در انتظار بررسیه.");
+  }
+  const holder = [p.card_holder && `به نام ${p.card_holder}`, p.bank].filter(Boolean).join(" · ");
+  lines.push("", card ? `شماره کارت: ${card.match(/.{1,4}/g)!.join(" ")}` : "شماره کارت هنوز ثبت نشده.");
+  if (card && holder) lines.push(holder);
+  if (p.deadline) lines.push(`مهلت پرداخت: ${p.deadline}`);
+  lines.push("", left
+    ? "بعد از واریز، عکس رسید (اسکرین‌شات) رو همین‌جا بفرست. اگه مبلغی که واریز کردی با «مونده» فرق داره، عددش رو زیر عکس (کپشن) بنویس."
+    : "اگه پرداختی داشتی، عکس رسید رو همین‌جا بفرست و مبلغش رو زیر عکس (کپشن) بنویس.");
+  const buttons = [left || due ? { text: "کپی مبلغ", copy_text: { text: String(left || due) } } : null,
+    card ? { text: "کپی شماره کارت", copy_text: { text: card } } : null].filter(Boolean);
+  return { text: lines.join("\n"), ...(buttons.length ? { reply_markup: { inline_keyboard: [buttons] } } : {}) };
+}
+// مبلغ از کپشن عکس: «۱٬۵۰۰٬۰۰۰»، «1,500,000» یا «1500000 تومان»
+function captionAmount(caption: unknown): number {
+  const s = String(caption ?? "").replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+  for (const raw of s.match(/\d[\d,٬،.]*/g) ?? []) {
+    const n = Number(raw.replace(/\D/g, ""));
+    if (n >= 1000 && n <= 1e11) return n;
+  }
+  return 0;
+}
+const MAX_RECEIPT = 2 * 1024 * 1024; // حد سطل receipts
+const RECEIPT_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+async function onReceipt(msg: Record<string, any>): Promise<string> {
+  const pay = await payInfo(Number(msg.from?.id));
+  if (!pay) return "الان نشد رسید رو بگیرم؛ چند دقیقه‌ی دیگه دوباره بفرست.";
+  if (!pay.ok) return "برای فرستادن رسید، اول لینکی رو که مسئول‌های مالی برات فرستادن باز کن (یا از سایت وارد شو و رسید رو همون‌جا بفرست).";
+  let fileId = "", type = "image/jpeg";
+  if (Array.isArray(msg.photo) && msg.photo.length) {
+    // بزرگ‌ترین اندازه‌ای که از حد مجاز کوچیک‌تره
+    const sizes = [...msg.photo].sort((a, b) => (a.file_size ?? 0) - (b.file_size ?? 0));
+    fileId = (sizes.filter((s) => (s.file_size ?? 0) <= MAX_RECEIPT).at(-1) ?? sizes[0]).file_id;
+  } else {
+    type = String(msg.document?.mime_type ?? "");
+    if (!RECEIPT_TYPES[type]) return "فقط عکس رسید قبول می‌شه (نه PDF یا فایل دیگه)؛ یه اسکرین‌شات بگیر و همون رو بفرست.";
+    if (Number(msg.document?.file_size ?? 0) > MAX_RECEIPT) return "این عکس خیلی بزرگه؛ یه اسکرین‌شات بگیر و همون رو بفرست.";
+    fileId = String(msg.document?.file_id ?? "");
+  }
+  const amount = captionAmount(msg.caption) || remainingOf(pay);
+  if (!amount) return "مبلغی که واریز کردی رو زیر عکس (کپشن) بنویس و دوباره بفرست.";
+  const failed = "رسید ذخیره نشد؛ چند دقیقه‌ی دیگه دوباره بفرست.";
+  const f = await tg("getFile", { file_id: fileId }).catch(() => null);
+  if (!f?.ok || !f.result?.file_path) return failed;
+  let bytes: Uint8Array;
+  try {
+    const r = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${f.result.file_path}`);
+    if (!r.ok) return failed;
+    bytes = new Uint8Array(await r.arrayBuffer());
+  } catch { return failed; }
+  if (bytes.length > MAX_RECEIPT) return "این عکس خیلی بزرگه؛ یه اسکرین‌شات بگیر و همون رو بفرست.";
+  const path = `bot/${pay.id}/${crypto.randomUUID()}.${RECEIPT_TYPES[type]}`;
+  const up = await admin.storage.from("receipts").upload(path, bytes, { contentType: type, upsert: false });
+  if (up.error) return failed;
+  const { data, error } = await admin.rpc("bot_pay_receipt", { p_tg: Number(msg.from?.id), p_participant: pay.id, p_path: path, p_amount: amount });
+  if (error || !data?.ok) {
+    await admin.storage.from("receipts").remove([path]).catch(() => {}); // عکس بی‌صاحب نمونه
+    return failed;
+  }
+  const cur = pay.currency || "تومان";
+  return `رسید${pay.full_name ? ` ${pay.full_name}` : ""} با مبلغ ${faNum(amount)} ${cur} رسید ✅\nبعد از بررسی مسئول‌های مالی تأیید می‌شه.`
+    + (captionAmount(msg.caption) ? "" : " اگه مبلغی که واریز کردی فرق داره، به مسئول‌های مالی بگو.");
+}
+function codesText(rows: CodeRow[]): string {
+  const code = (c: string) => `<code>${escHtml(c)}</code>`;
+  if (rows.length === 1) return `🗳 کد ورود رأی‌گیری: ${code(rows[0].code)}\nاین کد مخصوص خودته؛ به کس دیگه‌ای نده.`;
+  return "🗳 کدهای ورود رأی‌گیری:\n" + rows.map((r) => `${escHtml(r.full_name || "—")}: ${code(r.code)}`).join("\n")
+    + "\nکد هر نفر مخصوص خودشه؛ به کس دیگه‌ای ندید.";
 }
 
 // فقط مدیر. نقش رو مثل خود سایت (با نشست خود کاربر) می‌خونیم؛ دسترسی service role به جدول members لازم نیست.
@@ -232,12 +357,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // "unreachable": Telegram answered 403 (the person blocked the bot or never started it).
 type Job = { to: number; text: string };
 type Outcome = "sent" | "unreachable" | "failed";
-async function sendPaced(jobs: Job[], markup: unknown): Promise<Outcome[]> {
+async function sendPaced(jobs: Job[], markup: unknown, parseMode?: "HTML"): Promise<Outcome[]> {
   const out: Outcome[] = new Array(jobs.length);
   const sendOne = async ({ to, text }: Job, i: number) => {
     for (let attempt = 0; attempt < 2; attempt++) {
       let r: TgResult;
-      try { r = await tg("sendMessage", { chat_id: to, text, reply_markup: markup, link_preview_options: { is_disabled: true } }); }
+      try { r = await tg("sendMessage", { chat_id: to, text, reply_markup: markup, link_preview_options: { is_disabled: true }, ...(parseMode ? { parse_mode: parseMode } : {}) }); }
       catch { out[i] = "failed"; return; }
       if (r.ok) { out[i] = "sent"; return; }
       if (r.error_code === 429 && attempt === 0) { await sleep(Math.min(30, r.parameters?.retry_after ?? 1) * 1000); continue; }
@@ -348,18 +473,56 @@ async function notify(req: Request, b: Notify): Promise<Response> {
   return json({ ok: true, results, sent });
 }
 
+// کد رأی هر شرکت‌کننده، از ربات برای خودش (فقط مدیر). کدها فقط همین‌جا خونده می‌شن و به مرورگر مدیر برنمی‌گردن.
+// گیرنده: حساب تلگرامی که خود اون نفر (یا صاحب شماره‌ش) باهاش وارد سایت شده؛ چند نفرِ یک شماره در یک پیام.
+// test: یک پیام نمونه با کد ساختگی برای خود مدیر.
+type SendCodes = { test?: boolean; with_button?: boolean; site?: unknown };
+async function sendCodes(req: Request, b: SendCodes): Promise<Response> {
+  const auth = await requireAdmin(req);
+  if ("res" in auth) return auth.res!;
+  const btn = buttonFor(b);
+  if (btn.error) return btn.error;
+  if (b.test) {
+    const own = ownTelegramId(auth);
+    if (!own) return json({ error: "no_telegram" }, 400);
+    const [r] = await sendPaced([{ to: own, text: "(نمونه؛ کد واقعی نیست)\n" + codesText([{ full_name: null, code: "AB12CD" }]) }], btn.markup, "HTML");
+    if (r === "unreachable") return json({ error: "start_bot_first" }, 400);
+    if (r !== "sent") return json({ error: "telegram_failed" }, 502);
+    return json({ ok: true, test: true });
+  }
+  const { data, error } = await admin.rpc("voting_codes_to_send");
+  if (error) return json({ error: "setup_missing", detail: error.message }, 500);
+  const byTg = new Map<number, CodeRow[]>();
+  for (const r of (data ?? []) as (CodeRow & { telegram_id: unknown })[]) {
+    const id = Number(r.telegram_id);
+    if (!Number.isSafeInteger(id) || id <= 0) continue;
+    if (!byTg.has(id)) byTg.set(id, []);
+    byTg.get(id)!.push({ full_name: r.full_name, code: r.code });
+  }
+  const ids = [...byTg.keys()];
+  const res = await sendPaced(ids.map((to) => ({ to, text: codesText(byTg.get(to)!) })), btn.markup, "HTML");
+  const unreachable = ids.filter((_, i) => res[i] === "unreachable");
+  await markBlocked(unreachable);
+  return json({
+    ok: true, people: (data ?? []).length, accounts: ids.length,
+    sent: res.filter((r) => r === "sent").length, unreachable: unreachable.length, failed: res.filter((r) => r === "failed").length,
+    reached: ids.filter((_, i) => res[i] === "sent").reduce((a, id) => a + byTg.get(id)!.length, 0),
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!BOT_TOKEN) return json({ error: "bot_token_missing" }, 500);
   if (req.headers.has("x-telegram-bot-api-secret-token")) return onTelegramUpdate(req);
 
-  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string; setup_bot?: boolean; site?: string; broadcast?: Broadcast; notify?: Notify };
+  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string; setup_bot?: boolean; site?: string; broadcast?: Broadcast; notify?: Notify; send_codes?: SendCodes };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
   if (typeof body.contact === "string") return linkByPhone(req, body.contact);
   if (body.setup_bot) return setupBot(req, String(body.site ?? ""));
   if (body.broadcast && typeof body.broadcast === "object") return broadcast(req, body.broadcast);
   if (body.notify && typeof body.notify === "object") return notify(req, body.notify);
+  if (body.send_codes && typeof body.send_codes === "object") return sendCodes(req, body.send_codes);
 
   const tg = body.initData ? await verifyInitData(body.initData)
            : body.widget ? await verifyWidget(body.widget) : null;
