@@ -303,11 +303,21 @@ div.rcpt{cursor:default}
 .payinfo{display:grid;grid-template-columns:repeat(3,1fr) auto;gap:10px 14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px}
 .payinfo.warn{border-color:color-mix(in srgb,var(--bad) 50%,var(--line))}
 .payinfo .k{display:block;color:var(--muted);font-size:12.5px}
-@media(max-width:760px){.payinfo{grid-template-columns:1fr 1fr}.payinfo .btn{grid-column:1/-1;justify-self:start}}
+.payinfo.wide{grid-template-columns:repeat(4,1fr) auto}
+.three{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.vcode{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:22px;letter-spacing:3px}
+.vc-step{display:grid;gap:6px;border-top:1px dashed var(--line);padding-top:10px}
+.vc-step .row-btns{justify-content:flex-start}
+#personCode{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pay-link{display:grid;gap:6px;border:1px dashed var(--line);border-radius:var(--radius);padding:10px 12px}
+.pay-link .row-btns{justify-content:flex-start}
+.pay-link input{font-size:12.5px}
+@media(max-width:760px){.payinfo,.payinfo.wide{grid-template-columns:1fr 1fr}.payinfo .btn{grid-column:1/-1;justify-self:start}}
 .people-sum{display:flex;gap:6px 14px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin:0 2px 10px}
 .rc-info{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .rc-info .sub{flex-basis:100%}
 body:not(.can-edit) .need-edit{display:none!important}
+body.can-edit .view-only{display:none!important}
 body:not(.can-admin) .need-admin{display:none!important}
 .tg-box{min-height:44px;display:flex;justify-content:center}
 .email-box summary{cursor:pointer;color:var(--muted);font-size:13.5px}
@@ -320,6 +330,17 @@ body:not(.can-admin) .need-admin{display:none!important}
 a.btn{text-decoration:none;text-align:center;display:inline-block}
 .chip.on{border-color:var(--gold);background:var(--gold-soft);font-weight:700}
 .chip small{color:var(--muted);font-weight:400;margin-inline-start:4px}
+/* main / new participants switch, and the new participants' items in the person dialog */
+.kind-tabs{display:flex;gap:6px;margin-bottom:10px}
+.kind-tabs .chip{font-size:14px}
+.seg.kind-seg{grid-template-columns:repeat(2,1fr)}
+.items-box{display:grid;gap:10px;border:1px dashed var(--line);border-radius:var(--radius);padding:10px 12px}
+.items-box .checks{display:flex;gap:18px;flex-wrap:wrap}
+.cater-pick{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.cater-pick .chip{padding:1px 10px;font-size:12px}
+.cater-pick .chip.on.yes{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent);color:var(--ok)}
+.cater-pick .chip.on.no{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,transparent);color:var(--bad)}
+.people-sum .bulk{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center}
 .pay-for{display:grid;gap:6px}
 .pay-for .chips{justify-content:flex-start;margin:0}
 .manual-pay summary{cursor:pointer;font-weight:500;padding:4px 0}
@@ -442,11 +463,13 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 
   <section class="panel" id="panel-people" hidden>
     <div id="payInfoCard"></div>
+    <div class="kind-tabs" id="peopleKind" role="tablist" aria-label="دسته‌ی شرکت‌کننده‌ها" hidden></div>
     <div class="toolbar">
       <label class="sr" for="pq">جستجو</label>
       <input type="search" id="pq" placeholder="جستجو در نام، شماره یا گرایش…">
       <select id="pMajor" aria-label="گرایش" hidden><option value="">همه گرایش‌ها</option></select>
       <select id="pFilter" aria-label="وضعیت"><option value="">همه</option><option value="review">فیش در انتظار بررسی</option><option value="unpaid">پرداخت نکرده</option><option value="partial">بخشی پرداخت شده</option><option value="settled">تسویه</option><option value="unclaimed">هنوز وارد نشده</option></select>
+      <select id="pItems" aria-label="لوح، تندیس و پذیرایی" hidden><option value="">لوح، تندیس، پذیرایی</option><option value="plaque">لوح می‌خوان</option><option value="statue">تندیس می‌خوان</option><option value="cat-undecided">پذیرایی: تصمیم نشده</option><option value="cat-yes">با پذیرایی</option><option value="cat-no">بدون پذیرایی</option></select>
       <button class="btn desk need-edit push" type="button" data-act="import-people">ورود از شیت</button>
       <button class="btn primary desk need-edit" type="button" data-act="add-person">+ شرکت‌کننده</button>
       <button class="btn desk need-admin" type="button" data-act="notify">پیام به شرکت‌کننده‌ها</button>
@@ -599,10 +622,23 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
         <label class="lbl">موبایل یا شماره دانشجویی <span class="hint">ورود با همین انجام می‌شه؛ اگه نداره خالی بمونه</span><input class="field" name="student_no" dir="ltr" maxlength="20" placeholder="بدون شماره"></label>
         <label class="lbl">نام و نام خانوادگی<input class="field" name="full_name" maxlength="80"></label>
       </div>
+      <div class="seg kind-seg" id="personKind" role="radiogroup" aria-label="نوع شرکت‌کننده" hidden>
+        <input type="radio" name="kind" id="pk-main" value="main"><label for="pk-main" style="--c:var(--ok)"><b>اصلی</b><small>سهم کامل، مهمان، کد رأی</small></label>
+        <input type="radio" name="kind" id="pk-extra" value="extra"><label for="pk-extra" style="--c:var(--gold)"><b>جدید</b><small>فقط لوح / تندیس؛ پذیرایی جدا تصمیم گرفته می‌شه</small></label>
+      </div>
+      <div class="items-box" id="personItems" hidden>
+        <div class="checks">
+          <label class="check"><input type="checkbox" name="wants_plaque"> لوح</label>
+          <label class="check"><input type="checkbox" name="wants_statue"> تندیس</label>
+        </div>
+        <label class="lbl">پذیرایی<select class="field" name="catering"><option value="undecided">هنوز تصمیم نگرفتیم</option><option value="yes">بله، پذیرایی بهش می‌رسه</option><option value="no">نه، بدون پذیرایی</option></select></label>
+      </div>
       <div class="two" id="personExtra">
         <label class="lbl">گرایش<input class="field" name="major" maxlength="80"></label>
-        <label class="lbl">تعداد مهمان <span class="hint">به‌جز خود شخص</span><input class="field" name="guests" inputmode="numeric" placeholder="۰"></label>
+        <label class="lbl" id="guestsWrap">تعداد مهمان <span class="hint">به‌جز خود شخص</span><input class="field" name="guests" inputmode="numeric" placeholder="۰"></label>
       </div>
+      <div id="personCode" class="need-admin" hidden></div>
+      <div id="personPayLink" class="pay-link need-edit" hidden></div>
       <div class="two">
         <label class="lbl">مبلغ کل <span class="hint">خالی = خودکار</span><input class="field" name="amount" inputmode="numeric"></label>
         <label class="lbl">کد تأیید <span class="hint">۴ رقم آخر موبایل؛ اختیاری</span><input class="field" name="verify_code" inputmode="numeric" dir="ltr" maxlength="11"></label>
@@ -639,7 +675,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
     <div class="dlg-head"><h2>پیام به شرکت‌کننده‌ها</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
     <div class="dlg-body">
       <div class="lbl">به چه کسانی؟<div class="chips" id="ntAud"></div></div>
-      <label class="lbl">متن پیام <span class="hint">جای <code>{name}</code> اسم، <code>{amount}</code> سهم، <code>{paid}</code> پرداخت‌شده و <code>{remaining}</code> باقی‌مونده‌ی هر نفر می‌شینه.</span>
+      <label class="lbl">متن پیام <span class="hint">جای <code>{name}</code> اسم، <code>{amount}</code> سهم، <code>{paid}</code> پرداخت‌شده، <code>{remaining}</code> باقی‌مونده و <code>{link}</code> لینک پرداخت در ربات (برای کسایی که وارد سایت نمی‌شن) هر نفر می‌شینه.</span>
         <textarea class="field" id="ntText" rows="5" maxlength="3500"></textarea></label>
       <div class="chips" id="ntTpl"></div>
       <label class="check"><input type="checkbox" id="ntButton" checked> لینک ورود به سایت زیر پیام باشه</label>
@@ -691,10 +727,46 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
         <label class="lbl">مبلغ پیش‌فرض سهم <span class="hint">برای خود هر نفر</span><input class="field" name="default_amount" inputmode="numeric"></label>
         <label class="lbl" id="guestAmtWrap">مبلغ هر مهمان <span class="hint">خالی = مهمان رایگان</span><input class="field" name="guest_amount" inputmode="numeric"></label>
       </div>
+      <fieldset class="items-box" id="extraAmtWrap" hidden>
+        <legend class="hint">شرکت‌کننده‌های جدید (به‌جای سهم، هر چیزی که خواستن)</legend>
+        <div class="three">
+          <label class="lbl">مبلغ لوح<input class="field" name="plaque_amount" inputmode="numeric"></label>
+          <label class="lbl">مبلغ تندیس<input class="field" name="statue_amount" inputmode="numeric"></label>
+          <label class="lbl">مبلغ پذیرایی <span class="hint">هر نفر</span><input class="field" name="catering_amount" inputmode="numeric"></label>
+        </div>
+      </fieldset>
       <label class="lbl">مهلت پرداخت<input class="field" name="deadline" maxlength="40" placeholder="مثلاً ۱۵ آبان"></label>
       <label class="lbl">توضیح برای شرکت‌کننده‌ها<textarea class="field" name="note" maxlength="400"></textarea></label>
     </div>
     <div class="dlg-foot"><span class="spacer"></span><button class="btn" type="button" data-close>انصراف</button><button class="btn primary need-edit" type="submit">ذخیره</button></div>
+  </form>
+</dialog>
+
+<dialog id="codesDlg">
+  <form method="dialog" novalidate onsubmit="return false">
+    <div class="dlg-head"><h2>کدهای ورود رأی‌گیری</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
+    <div class="dlg-body">
+      <p class="hint" style="color:var(--muted);font-size:13px;margin:0">هر شرکت‌کننده‌ی اصلی یک کد یکتا می‌گیره که فقط خودش (و کسایی که با همون شماره ثبت‌نام کردن) توی صفحه‌ی پرداخت و ربات می‌بینه. مدیرها کدها رو نمی‌بینن و فقط می‌دونن کی کد داره؛ این‌طوری رأی‌ها ناشناس می‌مونه. شرکت‌کننده‌های جدید (لوح و تندیس) کد نمی‌گیرن.</p>
+      <div class="people-sum" id="vcStats"></div>
+      <div class="vc-step">
+        <b>۱. اضافه کردن کدها</b>
+        <span class="hint">فایل CSV یا اکسل؛ هر کد توی یک خانه (مثلاً ستون «code»). کدهای تکراری یا قبلاً واردشده نادیده گرفته می‌شن.</span>
+        <input class="field" type="file" id="vcFile" accept=".csv,.txt,.xlsx,.xls,text/csv,text/plain">
+      </div>
+      <div class="vc-step">
+        <b>۲. تخصیص</b>
+        <span class="hint">به هر شرکت‌کننده‌ی اصلی‌ای که کد نداره، یک کد آزاد به‌صورت تصادفی داده می‌شه. کسی که بعداً به لیست اصلی اضافه بشه، خودکار کد می‌گیره.</span>
+        <div class="row-btns"><button class="btn primary" type="button" data-act="codes-assign">تخصیص به همه‌ی بدون‌کدها</button></div>
+      </div>
+      <div class="vc-step">
+        <b>۳. خبر دادن</b>
+        <span class="hint">هر کس ربات رو باز کنه یا وارد سایت بشه، کد خودش رو می‌بینه. با این دکمه هم ربات کد هر نفر رو برای خودش می‌فرسته (برای کسایی که با تلگرام وارد سایت شدن، یا صاحب شماره‌شون شده).</span>
+        <div class="row-btns"><button class="btn" type="button" data-act="codes-send" data-test="1">نمونه برای خودم</button><button class="btn primary" type="button" data-act="codes-send">ارسال کد هر نفر از ربات</button></div>
+      </div>
+      <p class="sub" id="vcOut" hidden></p>
+      <div id="vcMissing"></div>
+    </div>
+    <div class="dlg-foot"><span class="spacer"></span><button class="btn" type="button" data-close>بستن</button></div>
   </form>
 </dialog>
 
@@ -860,8 +932,10 @@ async function loadSettings(){
   S.settings = {...DEFAULT_SETTINGS, ...(data || {})};
 }
 async function loadAll(){
-  await Promise.all([loadSettings(), ...TABLES.map(reload), loadMembers(), loadActivity(), loadPayInfo(), probeGuestCols()]);
+  await Promise.all([loadSettings(), ...TABLES.map(reload), loadMembers(), loadActivity(), loadPayInfo(), probeGuestCols(), probeExtraCols(), loadMyCodes()]);
   ready = true; render(); fillSettings();
+  // who has a voting code only adds tags to the list; it doesn't hold up the first render
+  loadCodeStatus().then(codeStatusShown);
 }
 // major / guests / guest_amount are added to the database after schema.sql; until they exist, the app works without them
 // and leaves them out of every write (sending an unknown column would make the whole save fail)
@@ -870,9 +944,15 @@ async function probeGuestCols(){
   const [a, b] = await Promise.all([sb.from('participants').select('guests,major').limit(1), sb.from('payment_info').select('guest_amount').limit(1)]);
   hasGuestCols = !a.error && !b.error;
 }
+// same for the "new participants" columns (kind, plaque / statue / catering and their prices)
+let hasExtraCols = false;
+async function probeExtraCols(){
+  const [a, b] = await Promise.all([sb.from('participants').select('kind,wants_plaque,wants_statue,catering').limit(1), sb.from('payment_info').select('plaque_amount,statue_amount,catering_amount').limit(1)]);
+  hasExtraCols = !a.error && !b.error;
+}
 async function loadParticipantData(){
   // settings is only needed for the currency label; participants may not be allowed to read it
-  await Promise.all([reload('participants'), reload('payments'), loadPayInfo(), loadSettings().catch(() => {})]);
+  await Promise.all([reload('participants'), reload('payments'), loadPayInfo(), loadSettings().catch(() => {}), loadMyCodes()]);
   ready = true; render();
 }
 function subscribe(){
@@ -885,6 +965,8 @@ function subscribe(){
       else if (table === 'settings'){ if (p.new && p.new.id === 1){ S.settings = {...DEFAULT_SETTINGS, ...p.new}; fillSettings(); } }
       else if (p.eventType === 'DELETE'){ if (p.old && p.old.id) delete S[table][p.old.id]; }
       else if (p.new && p.new.id) S[table][p.new.id] = p.new;
+      // the database hands out (or takes back) voting codes when someone is added, removed or moved between the lists
+      if (table === 'participants' && canAdmin) loadCodeStatusSoon();
       render();
     });
   });
@@ -1271,10 +1353,14 @@ const role_rank = r => ({admin:3, editor:2, viewer:1}[r] || 0);
 
 /* ---------- history ---------- */
 const FIELD_LABELS = {welcome_text:'متن پیام خوش‌آمد', student_no:'شماره', full_name:'نام', major:'گرایش', guests:'تعداد مهمان', guest_amount:'مبلغ هر مهمان', status:'وضعیت فیش', review_note:'یادداشت بررسی', tracking_code:'کد پیگیری', card_number:'شماره کارت', card_holder:'به نام', default_amount:'مبلغ پیش‌فرض', deadline:'مهلت', user_id:'حساب متصل', verify_code:'کد تأیید', title:'عنوان', reason:'دلیل', type:'نوع', category:'دسته', vendor:'فروشنده', unit:'قیمت واحد', qty:'تعداد', paid:'وضعیت', actual:'مبلغ واقعی', payer:'پرداخت از',
-  name:'نام', amount:'مبلغ', note:'یادداشت', item_id:'خرج مربوط', total:'مبلغ فاکتور', invoice_date:'تاریخ فاکتور', budget:'سقف بودجه', headcount:'تعداد نفرات', currency:'واحد پول'};
+  name:'نام', amount:'مبلغ', note:'یادداشت', item_id:'خرج مربوط', total:'مبلغ فاکتور', invoice_date:'تاریخ فاکتور', budget:'سقف بودجه', headcount:'تعداد نفرات', currency:'واحد پول',
+  kind:'دسته', wants_plaque:'لوح', wants_statue:'تندیس', catering:'پذیرایی', plaque_amount:'مبلغ لوح', statue_amount:'مبلغ تندیس', catering_amount:'مبلغ پذیرایی'};
 function valText(k, v, tbl, kind){
   if (v === null || v === undefined || v === '') return '—';
-  if (['unit','actual','amount','total','budget','headcount','qty','default_amount','guest_amount','guests'].includes(k)) return fmt(v);
+  if (['unit','actual','amount','total','budget','headcount','qty','default_amount','guest_amount','guests','plaque_amount','statue_amount','catering_amount'].includes(k)) return fmt(v);
+  if (k === 'kind') return v === 'extra' ? 'جدید (لوح و تندیس)' : 'اصلی';
+  if (k === 'wants_plaque' || k === 'wants_statue') return v ? 'می‌خواد' : 'نمی‌خواد';
+  if (k === 'catering') return {yes:'بله', no:'خیر', undecided:'تصمیم نشده'}[v] || v;
   if (k === 'status') return PAY_STATUS[v] || v;
   if (k === 'user_id') return 'متصل';
   if (k === 'paid') return v ? (tbl === 'funds' ? (kind === 'contrib' ? 'واریز کرده' : 'دریافت شد') : 'پرداخت شد') : (tbl === 'funds' ? 'در راه' : 'پرداخت‌نشده');
@@ -1635,11 +1721,19 @@ function fillSettings(){
 /* ---------- participants & receipts ---------- */
 const PAY_STATUS = {submitted:'در انتظار بررسی', approved:'تأیید شد', rejected:'رد شد'};
 const PAY_COLOR = {submitted:'var(--warn)', approved:'var(--ok)', rejected:'var(--bad)'};
-const DEFAULT_PAYINFO = {card_number:'', card_holder:'', bank:'', sheba:'', default_amount:0, guest_amount:0, deadline:'', note:''};
+const DEFAULT_PAYINFO = {card_number:'', card_holder:'', bank:'', sheba:'', default_amount:0, guest_amount:0, plaque_amount:0, statue_amount:0, catering_amount:0, deadline:'', note:''};
 const cardFmt = n => (toLatin(n).replace(/\D/g, '').match(/.{1,4}/g) || []).join(' ');
-const guestsOf = p => Math.max(0, Math.floor(Number(p.guests) || 0));
-// what someone owes: their own share plus the guest price for each guest, unless a total was set by hand for them
-const autoDue = p => Number(S.payInfo.default_amount || 0) + guestsOf(p) * Number(S.payInfo.guest_amount || 0);
+// "New participants" (kind 'extra') joined after the main list was final: they don't pay a share, only for what they
+// asked for (a plaque, a statue) plus catering once the team decides they get it. They bring no guests.
+const isExtra = p => p.kind === 'extra';
+const CATERING = {undecided:'پذیرایی: تصمیم نشده', yes:'با پذیرایی', no:'بدون پذیرایی'};
+const extraItems = p => [p.wants_plaque && 'لوح', p.wants_statue && 'تندیس'].filter(Boolean);
+const guestsOf = p => isExtra(p) ? 0 : Math.max(0, Math.floor(Number(p.guests) || 0));
+// what someone owes: their own share plus the guest price for each guest (for a new participant: the price of each
+// thing they asked for), unless a total was set by hand for them
+const autoDue = p => isExtra(p)
+  ? (p.wants_plaque ? Number(S.payInfo.plaque_amount || 0) : 0) + (p.wants_statue ? Number(S.payInfo.statue_amount || 0) : 0) + (p.catering === 'yes' ? Number(S.payInfo.catering_amount || 0) : 0)
+  : Number(S.payInfo.default_amount || 0) + guestsOf(p) * Number(S.payInfo.guest_amount || 0);
 const dueOf = p => (p.amount !== null && p.amount !== undefined) ? Number(p.amount) : autoDue(p);
 const paysOf = pid => Object.values(S.payments).filter(x => x.participant_id === pid).sort((a,b) => ts(b.created_at) - ts(a.created_at));
 function payState(p){
@@ -1691,16 +1785,25 @@ const kb = n => fmt(Math.max(1, Math.round(n / 1024))) + ' کیلوبایت';
 let draftReceipt = null; // {blob, url, origSize}
 // "your share + 2 guests × price" under the amount, so people see why their total is what it is
 function guestLine(p, m, own = true){
+  if (isExtra(p)) return extraLine(p, m);
   const g = guestsOf(p), price = Number(S.payInfo.guest_amount || 0); if (!g) return '';
   if (p.amount !== null && p.amount !== undefined) return `<span class="sub">با ${fmt(g)} مهمان</span>`;
   return `<span class="sub">${price ? `${own ? 'سهم خودت' : 'سهم خودش'} ${m(S.payInfo.default_amount || 0)} + ${fmt(g)} مهمان × ${m(price)}` : `با ${fmt(g)} مهمان`}</span>`;
+}
+// a new participant pays for what they asked for: "plaque 300,000 + statue 500,000"
+function extraLine(p, m){
+  const i = S.payInfo, custom = p.amount !== null && p.amount !== undefined;
+  const parts = [p.wants_plaque && `لوح${custom ? '' : ' ' + m(i.plaque_amount || 0)}`, p.wants_statue && `تندیس${custom ? '' : ' ' + m(i.statue_amount || 0)}`,
+    p.catering === 'yes' && `پذیرایی${custom ? '' : ' ' + m(i.catering_amount || 0)}`].filter(Boolean);
+  return (parts.length ? `<span class="sub">${parts.join(custom ? ' و ' : ' + ')}</span>` : '')
+    + ((p.catering || 'undecided') === 'undecided' ? '<span class="sub">پذیرایی هنوز مشخص نشده؛ اگه اضافه بشه، مبلغ هم بیشتر می‌شه.</span>' : '');
 }
 // A participant can add guests to their own share (or to someone on their number) from the payment page. Only adding:
 // lowering a share is up to the finance team. add_guests also raises a total the team set by hand by the guests' price.
 const MAX_GUESTS = 20;
 let guestAddFor = null;
 function guestBox(p, m, own){
-  if (p.guests === undefined) return ''; // database without the guest columns
+  if (p.guests === undefined || isExtra(p)) return ''; // database without the guest columns; new participants bring no guests
   const g = guestsOf(p), price = Number(S.payInfo.guest_amount || 0), whose = own ? 'سهمت' : `سهم ${esc(p.full_name || '')}`;
   if (guestAddFor !== p.id) return `<div class="pay-card guest-box"><span class="k">مهمان‌ها</span><b>${g ? fmt(g) + ' نفر' : 'بدون مهمان'}</b>
       ${g < MAX_GUESTS ? '<button class="btn small" type="button" data-act="guest-add-open">+ اضافه کردن مهمان</button>' : ''}
@@ -1789,6 +1892,7 @@ function renderMyPay(el){
   el.innerHTML = `<div class="pay-wrap">
     <div class="pay-hello"><h2>سلام ${esc(me0.full_name || '')}</h2><span class="sub">${isPhoneId(me0.student_no) ? 'موبایل' : 'شماره دانشجویی'} <span dir="ltr">${esc(baseNo(me0.student_no))}</span>${me0.major ? ' · ' + esc(me0.major) : ''}</span></div>
     ${switcher}
+    ${codeCard(p, own)}
     ${statusLine}
     <div class="pay-amount"><span class="k">${own ? 'مبلغ سهم' : `مبلغ سهم ${esc(p.full_name || '')}`}</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${st.remaining || st.due}" data-copy-label="مبلغ">کپی مبلغ</button>` : ''}
       ${guestLine(p, m, own)}
@@ -1848,29 +1952,53 @@ async function sendReceipt(btn){
 }
 
 /* staff: participants panel */
+// which list the tab shows: the main participants, or the new ones who only asked for a plaque / statue
+let peopleKind = 'main';
 function renderPeople(){
-  const info = S.payInfo, all = Object.values(S.participants);
-  const cur = S.settings.currency || 'تومان';
-  $('#payInfoCard').innerHTML = `<div class="payinfo ${info.card_number ? '' : 'warn'}">
+  const info = S.payInfo, everyone = Object.values(S.participants);
+  const mains = everyone.filter(p => !isExtra(p)), extras = everyone.filter(isExtra);
+  const showKinds = hasExtraCols || extras.length > 0;
+  if (!showKinds) peopleKind = 'main';
+  const xv = peopleKind === 'extra', all = xv ? extras : mains;
+  const cur = S.settings.currency || 'تومان', money = n => n ? fmt(n) + ' ' + cur : '—';
+  $('#payInfoCard').innerHTML = `<div class="payinfo ${info.card_number ? '' : 'warn'}${hasExtraCols ? ' wide' : ''}">
     <div><span class="k">کارت مقصد</span><b dir="ltr" class="num">${info.card_number ? esc(cardFmt(info.card_number)) : '—'}</b>${info.card_holder ? `<span class="sub">${esc(info.card_holder)}</span>` : ''}</div>
     <div><span class="k">مبلغ پیش‌فرض سهم</span><b>${info.default_amount ? fmt(info.default_amount) + ' ' + cur : '—'}</b>${hasGuestCols ? `<span class="sub">هر مهمان ${info.guest_amount ? fmt(info.guest_amount) + ' ' + cur : 'رایگان'}</span>` : ''}</div>
+    ${hasExtraCols ? `<div><span class="k">شرکت‌کننده‌های جدید</span><b>لوح ${money(info.plaque_amount)} · تندیس ${money(info.statue_amount)}</b><span class="sub">پذیرایی هر نفر ${money(info.catering_amount)}</span></div>` : ''}
     <div><span class="k">مهلت</span><b>${esc(info.deadline) || '—'}</b></div>
     <button class="btn small need-edit" type="button" data-act="edit-payinfo">ویرایش اطلاعات پرداخت</button>
     ${info.card_number ? '' : '<p class="sub bad" style="grid-column:1/-1;margin:0">تا شماره کارت وارد نشه، شرکت‌کننده‌ها جایی برای واریز نمی‌بینن.</p>'}
     ${hasGuestCols || !ready ? '' : '<p class="sub bad need-admin" style="grid-column:1/-1;margin:0">ستون‌های گرایش، تعداد مهمان و مبلغ هر مهمان هنوز در دیتابیس ساخته نشدن؛ دستور SQL مربوط به مهمان‌ها رو در SQL Editor سوپابیس اجرا کن و صفحه رو تازه کن.</p>'}
+    ${hasExtraCols || !hasGuestCols || !ready ? '' : '<p class="sub bad need-admin" style="grid-column:1/-1;margin:0">ستون‌های شرکت‌کننده‌های جدید (لوح، تندیس، پذیرایی) هنوز در دیتابیس ساخته نشدن؛ دستور SQL مربوط رو در SQL Editor سوپابیس اجرا کن و صفحه رو تازه کن.</p>'}
   </div>`;
+  const kt = $('#peopleKind'); kt.hidden = !showKinds;
+  kt.innerHTML = showKinds ? [['main', 'شرکت‌کننده‌های اصلی', mains.length], ['extra', 'جدید (لوح و تندیس)', extras.length]].map(([k, l, n]) =>
+    `<button class="chip${k === peopleKind ? ' on' : ''}" type="button" role="tab" aria-selected="${k === peopleKind}" data-people-kind="${k}">${l}<small>${fmt(n)}</small></button>`).join('') : '';
+  $('#pItems').hidden = !xv;
+  $('#panel-people .toolbar [data-act="import-people"]').hidden = xv; // the sheet import fills the main list
   const states = all.map(p => [p, payState(p)]);
-  // people sharing a number: how many per number, and whose number's owner has already logged in
-  const perNo = new Map(); all.filter(p => isPhoneId(p.student_no)).forEach(p => perNo.set(baseNo(p.student_no), (perNo.get(baseNo(p.student_no)) || 0) + 1));
-  const linkedNos = new Set(all.filter(p => p.user_id && isPhoneId(p.student_no)).map(p => baseNo(p.student_no)));
+  // people sharing a number (across both lists): how many per number, and whose number's owner has already logged in
+  const perNo = new Map(); everyone.filter(p => isPhoneId(p.student_no)).forEach(p => perNo.set(baseNo(p.student_no), (perNo.get(baseNo(p.student_no)) || 0) + 1));
+  const linkedNos = new Set(everyone.filter(p => p.user_id && isPhoneId(p.student_no)).map(p => baseNo(p.student_no)));
   const isLinked = p => !!p.user_id || (isPhoneId(p.student_no) && linkedNos.has(baseNo(p.student_no)));
   const sum = k => states.reduce((a,[,s]) => a + s[k], 0);
   const cnt = k => states.filter(([,s]) => s.key === k).length;
-  const guests = all.reduce((a,p) => a + guestsOf(p), 0);
-  $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span>${guests ? `<span>مهمان ${fmt(guests)}</span><span>کل حضور ${fmt(all.length + guests)}</span>` : ''}<span>تسویه ${fmt(cnt('settled'))}</span><span>وصل‌شده ${fmt(all.filter(isLinked).length)}</span><span>تأییدشده ${fmt(sum('approved'))}</span><span>مانده ${fmt(states.reduce((a,[,s]) => a + Math.max(0, s.due - s.approved), 0))}</span>` : '';
+  const left = () => fmt(states.reduce((a,[,s]) => a + Math.max(0, s.due - s.approved), 0));
+  const guests = mains.reduce((a,p) => a + guestsOf(p), 0);
+  if (!xv) $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span>${guests ? `<span>مهمان ${fmt(guests)}</span><span>کل حضور ${fmt(all.length + guests)}</span>` : ''}<span>تسویه ${fmt(cnt('settled'))}</span><span>وصل‌شده ${fmt(all.filter(isLinked).length)}</span><span>تأییدشده ${fmt(sum('approved'))}</span><span>مانده ${left()}</span>${codeSummary(mains)}` : '';
+  else {
+    // catering is decided later: show how the head count comes out either way
+    const n = f => extras.filter(f).length, yes = n(p => p.catering === 'yes'), no = n(p => p.catering === 'no'), und = extras.length - yes - no;
+    const base = mains.length + guests;
+    $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span><span>لوح ${fmt(n(p => p.wants_plaque))}</span><span>تندیس ${fmt(n(p => p.wants_statue))}</span>`
+      + `<span>پذیرایی: بله ${fmt(yes)} · نه ${fmt(no)} · تصمیم‌نشده ${fmt(und)}</span>`
+      + `<span title="اصلی‌ها و مهمان‌هاشون، به‌علاوه‌ی جدیدهایی که پذیرایی دارن">کل پذیرایی ${fmt(base + yes)}${und ? ` (اگه تصمیم‌نشده‌ها هم بیان ${fmt(base + yes + und)})` : ''}</span>`
+      + `<span>تسویه ${fmt(cnt('settled'))}</span><span>تأییدشده ${fmt(sum('approved'))}</span><span>مانده ${left()}</span>`
+      + (und ? `<span class="bulk need-edit">همه‌ی تصمیم‌نشده‌ها: <button class="btn small" type="button" data-act="cater-bulk" data-v="yes">با پذیرایی</button><button class="btn small" type="button" data-act="cater-bulk" data-v="no">بدون پذیرایی</button></span>` : '') : '';
+  }
 
   const queue = Object.values(S.payments).filter(x => x.status === 'submitted').sort((a,b) => ts(a.created_at) - ts(b.created_at));
-  const nPeople = $('#nPeople'); nPeople.textContent = queue.length ? fmt(queue.length) + ' فیش' : fmt(all.length); nPeople.classList.toggle('alert', !!queue.length);
+  const nPeople = $('#nPeople'); nPeople.textContent = queue.length ? fmt(queue.length) + ' فیش' : fmt(everyone.length); nPeople.classList.toggle('alert', !!queue.length);
   $('#reviewQueue').innerHTML = queue.length ? `<div class="group" style="--c:var(--warn)"><div class="group-head"><h4>فیش‌های در انتظار بررسی</h4><span class="sum">${fmt(queue.length)}</span></div><div class="list">${queue.map(x => {
       const p = S.participants[x.participant_id] || {};
       return `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:var(--warn)">${receiptThumb(x)}<div><b>${esc(p.full_name || shownNo(p.student_no))}</b><span class="sub"><span dir="ltr">${esc(shownNo(p.student_no))}</span> · ${faDate(x.created_at)}</span></div><b class="num">${fmt(x.amount)}</b></button>`;
@@ -1881,37 +2009,201 @@ function renderPeople(){
   const ms = $('#pMajor'), mv = majors.includes(ms.value) ? ms.value : '';
   ms.hidden = !majors.length;
   ms.innerHTML = '<option value="">همه گرایش‌ها</option>' + majors.map(m => `<option${m === mv ? ' selected' : ''}>${esc(m)}</option>`).join('');
-  const q = toLatin($('#pq').value).trim().toLowerCase(), f = $('#pFilter').value;
+  const q = toLatin($('#pq').value).trim().toLowerCase(), f = $('#pFilter').value, fi = xv ? $('#pItems').value : '';
   const rows = states.filter(([p, s]) => {
     if (f === 'unclaimed' ? isLinked(p) : f && s.key !== f) return false;
     if (mv && (p.major || '').trim() !== mv) return false;
+    if (fi && !(fi === 'plaque' ? p.wants_plaque : fi === 'statue' ? p.wants_statue : 'cat-' + (p.catering || 'undecided') === fi)) return false;
     if (q && !toLatin([p.full_name, p.student_no, p.major, p.note].join(' ')).toLowerCase().includes(q)) return false;
     return true;
   }).sort(([a,sa],[b,sb2]) => ['review','unpaid','partial','settled'].indexOf(sa.key) - ['review','unpaid','partial','settled'].indexOf(sb2.key) || (a.full_name||'').localeCompare(b.full_name||'','fa'));
-  $('#peopleList').innerHTML = !all.length
-    ? `<div class="empty"><h3>هنوز شرکت‌کننده‌ای ثبت نشده</h3>فایل اکسل یا CSV لیست ثبت‌نام رو وارد کن؛ کافیه ستون «شماره تماس» (یا «شماره دانشجویی») و «نام» داشته باشه. «گرایش» و «تعداد مهمان» هم خونده می‌شن.<div class="chips need-edit"><button class="chip" type="button" data-act="import-people">ورود از شیت</button><button class="chip" type="button" data-act="add-person">افزودن دستی</button></div></div>`
-    : rows.map(([p, s]) => `<button class="row" type="button" data-person="${esc(p.id)}" style="--c:${STATE_COLOR[s.key]}">
+  const meta = (p, s) => `${noPhone(p.student_no) ? '<span class="tag warn">بدون شماره</span>' : `<span class="tag" dir="ltr">${esc(baseNo(p.student_no))}</span>`}${perNo.get(baseNo(p.student_no)) > 1 ? `<span class="tag warn">شماره‌ی مشترک ${fmt(perNo.get(baseNo(p.student_no)))} نفر</span>` : ''}${p.major ? `<span class="tag">${esc(p.major)}</span>` : ''}${guestsOf(p) ? `<span class="tag">${fmt(guestsOf(p))} مهمان</span>` : ''}`
+    + (xv ? (extraItems(p).length ? extraItems(p).map(x => `<span class="tag type" style="--c:var(--gold)">${x}</span>`).join('') : '<span class="tag warn">نه لوح، نه تندیس</span>') : '')
+    + `<span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${s.extra ? `<span class="tag ok">+${fmt(s.extra)} اضافه</span>` : ''}${isLinked(p) ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}`
+    + (!xv && hasCodeStatus() && !codeOf(p.id) ? '<span class="tag warn need-admin">بدون کد رأی</span>' : '')
+    + (xv ? `<span class="tag view-only">${CATERING[p.catering] || CATERING.undecided}</span><span class="cater-pick need-edit">پذیرایی:${[['yes','بله'],['no','نه'],['undecided','؟']].map(([v, l]) =>
+        `<button class="chip ${v}${(p.catering || 'undecided') === v ? ' on' : ''}" type="button" data-act="cater" data-id="${esc(p.id)}" data-v="${v}" aria-pressed="${(p.catering || 'undecided') === v}" title="${CATERING[v]}">${l}</button>`).join('')}</span>` : '');
+  // a new participant's row holds the catering buttons, so it can't itself be a <button>
+  const row = (p, s) => `<${xv ? 'div role="button" tabindex="0"' : 'button type="button"'} class="row" data-person="${esc(p.id)}" style="--c:${STATE_COLOR[s.key]}">
         <span class="stripe"></span>
-        <span><span class="t">${esc(p.full_name || '—')}</span><span class="meta">${noPhone(p.student_no) ? '<span class="tag warn">بدون شماره</span>' : `<span class="tag" dir="ltr">${esc(baseNo(p.student_no))}</span>`}${perNo.get(baseNo(p.student_no)) > 1 ? `<span class="tag warn">شماره‌ی مشترک ${fmt(perNo.get(baseNo(p.student_no)))} نفر</span>` : ''}${p.major ? `<span class="tag">${esc(p.major)}</span>` : ''}${guestsOf(p) ? `<span class="tag">${fmt(guestsOf(p))} مهمان</span>` : ''}<span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${s.extra ? `<span class="tag ok">+${fmt(s.extra)} اضافه</span>` : ''}${isLinked(p) ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}</span></span>
+        <span><span class="t">${esc(p.full_name || '—')}</span><span class="meta">${meta(p, s)}</span></span>
         <span></span>
         <span class="amt"><b>${fmt(s.approved)}</b><small>از ${fmt(s.due)}</small></span>
-      </button>`).join('') || '<div class="empty">موردی با این فیلتر پیدا نشد.</div>';
+      </${xv ? 'div' : 'button'}>`;
+  $('#peopleList').innerHTML = !all.length
+    ? (xv ? `<div class="empty"><h3>هنوز شرکت‌کننده‌ی جدیدی ثبت نشده</h3>کسانی که بعد از قطعی شدن لیست اصلی فقط لوح یا تندیس (و شاید پذیرایی) می‌خوان، اینجا جدا ثبت می‌شن.<div class="chips need-edit"><button class="chip" type="button" data-act="add-person">افزودن شرکت‌کننده‌ی جدید</button></div></div>`
+      : `<div class="empty"><h3>هنوز شرکت‌کننده‌ای ثبت نشده</h3>فایل اکسل یا CSV لیست ثبت‌نام رو وارد کن؛ کافیه ستون «شماره تماس» (یا «شماره دانشجویی») و «نام» داشته باشه. «گرایش» و «تعداد مهمان» هم خونده می‌شن.<div class="chips need-edit"><button class="chip" type="button" data-act="import-people">ورود از شیت</button><button class="chip" type="button" data-act="add-person">افزودن دستی</button></div></div>`)
+    : rows.map(([p, s]) => row(p, s)).join('') || '<div class="empty">موردی با این فیلتر پیدا نشد.</div>';
+}
+/* ---------- voting codes ----------
+   Every main participant gets one code to sign in to the vote. Only the person (and whoever shares their number) can
+   read it: on their payment page and in the bot. Admins never see a code, only who has one: the database functions
+   they call never return codes, and sending codes out goes through the telegram-auth function, not this page. */
+const VC = {status:null, timer:0, busy:false};
+async function loadCodeStatus(){
+  if (!canAdmin){ VC.status = null; return; }
+  const { data, error } = await sb.rpc('voting_code_status');
+  VC.status = error || !data ? null : {...data, has:new Set(data.has || [])};
+}
+function codeStatusShown(){ render(); if (codesDlg.open) renderCodes(); if (personDlg.open) renderPersonCode(); }
+function loadCodeStatusSoon(){ clearTimeout(VC.timer); VC.timer = setTimeout(() => loadCodeStatus().then(codeStatusShown), 800); }
+const hasCodeStatus = () => !!VC.status;
+const codeOf = id => !!VC.status && VC.status.has.has(id);
+function codeSummary(mains){
+  if (!canAdmin) return '';
+  const s = VC.status, n = s ? mains.filter(p => s.has.has(p.id)).length : 0;
+  return `<span class="need-admin"><button class="btn small" type="button" data-act="codes">${s ? `کد رأی: ${fmt(n)} از ${fmt(mains.length)}` : 'کدهای رأی‌گیری'}</button></span>`;
+}
+// the signed-in person's own codes (theirs and their number's), by participant id; row-level security returns nothing else
+let myCodes = new Map();
+async function loadMyCodes(){
+  if (!me) return;
+  const { data, error } = await sb.from('voting_codes').select('participant_id,code').eq('retired', false);
+  myCodes = new Map(error || !data ? [] : data.filter(x => x.participant_id).map(x => [x.participant_id, x.code]));
+}
+function codeCard(p, own){
+  const code = !isExtra(p) && myCodes.get(p.id); if (!code) return '';
+  return `<div class="pay-card code-card"><span class="k">کد ورود رأی‌گیری${own ? '' : ` ${esc(p.full_name || '')}`}</span><b class="num vcode" dir="ltr">${esc(code)}</b>
+    <button class="btn small" type="button" data-copy="${esc(code)}" data-copy-label="کد رأی">کپی</button>
+    <span class="sub">${own ? 'مخصوص خودته' : 'مخصوص همین نفره'}؛ به کس دیگه‌ای نده.</span></div>`;
+}
+/* bot payment link: for people who never sign in to the site. The bot shows them their amount and the card number
+   (with copy buttons) and takes the receipt picture; it lands in the review queue like any other receipt. */
+const payLinkOf = p => p && p.pay_token && botConfigured ? `https://t.me/${cfg.telegramBot.replace(/^@/, '')}?start=${p.pay_token}` : '';
+function renderPayLink(){
+  const box = $('#personPayLink'), p = editingPerson, link = payLinkOf(p);
+  box.hidden = !link;
+  box.innerHTML = link ? `<span class="k"><b>لینک پرداخت در ربات</b> <span class="hint">برای کسی که خودش وارد سایت نمی‌شه</span></span>
+    <input class="field" dir="ltr" readonly value="${esc(link)}" aria-label="لینک پرداخت در ربات" data-select-all>
+    <div class="row-btns"><button class="btn small primary" type="button" data-copy="${esc(link)}" data-copy-label="لینک">کپی لینک</button><button class="btn small" type="button" data-act="pay-link-new">لینک جدید</button></div>
+    <span class="hint">این لینک رو براش بفرست: ربات مبلغ و شماره کارت رو با دکمه‌ی کپی نشونش می‌ده و عکس رسید رو ازش می‌گیره تا اینجا بررسی بشه. هر کی لینک رو داشته باشه می‌تونه برای این نفر رسید بفرسته؛ «لینک جدید» لینک قبلی رو باطل می‌کنه.</span>` : '';
+}
+async function newPayLink(btn){
+  const p = editingPerson; if (!p || !canEdit) return;
+  if (!confirm(`لینک پرداخت جدید برای «${p.full_name || ''}» ساخته بشه؟ لینک قبلی دیگه کار نمی‌کنه.`)) return;
+  btn.disabled = true;
+  const ok = await patch('participants', p.id, {pay_token:newId()});
+  btn.disabled = false;
+  if (ok){ editingPerson = S.participants[p.id]; renderPayLink(); toast('لینک جدید ساخته شد'); }
+}
+// admin: in the person dialog, whether they have a code, and a new one in its place (the old one stops working)
+function renderPersonCode(){
+  const box = $('#personCode'), p = editingPerson;
+  box.hidden = !canAdmin || !p || isExtra(p) || !VC.status;
+  if (box.hidden){ box.innerHTML = ''; return; }
+  const has = codeOf(p.id);
+  box.innerHTML = `<span class="tag ${has ? 'ok' : 'warn'}">${has ? 'کد رأی داره' : 'کد رأی نداره'}</span>
+    <button class="btn small" type="button" data-act="code-reissue">${has ? 'کد جدید بده' : 'یه کد بهش بده'}</button>
+    <span class="hint">کد رو فقط خودش در سایت و ربات می‌بینه.</span>`;
+}
+const VC_ERR = {NO_FREE_CODES:'کد آزادی نمونده؛ اول از «کدهای رأی‌گیری» کدهای بیشتری اضافه کن.', NOT_FOUND:'فقط شرکت‌کننده‌های اصلی کد رأی دارن.', FORBIDDEN:'فقط مدیر می‌تونه کدها رو مدیریت کنه.'};
+const vcErr = e => { const m = `${e && e.code || ''} ${e && e.message || ''}`; const k = Object.keys(VC_ERR).find(x => m.includes(x));
+  return k ? VC_ERR[k] : /PGRST202|42883|voting/.test(m) ? 'بخش کدهای رأی هنوز در دیتابیس ساخته نشده؛ دستور SQL مربوط رو اجرا کن.' : 'انجام نشد؛ دوباره امتحان کن.'; };
+async function reissueCode(btn){
+  const p = editingPerson; if (!p || !canAdmin) return;
+  const had = codeOf(p.id);
+  if (had && !confirm(`کد فعلی «${p.full_name || ''}» باطل بشه و یه کد جدید بگیره؟ کد قبلی دیگه به کسی داده نمی‌شه.`)) return;
+  btn.disabled = true;
+  const { error } = await sb.rpc('reissue_voting_code', {p_participant:p.id});
+  btn.disabled = false;
+  if (error){ console.error('reissue_voting_code', error); toast(vcErr(error)); return; }
+  await loadCodeStatus(); renderPersonCode(); render();
+  toast(had ? 'کد جدید داده شد؛ کد قبلی باطل شد' : 'کد داده شد');
+}
+const codesDlg = $('#codesDlg');
+async function openCodes(){
+  if (!canAdmin) return;
+  $('#vcOut').hidden = true;
+  renderCodes(); if (!codesDlg.open) codesDlg.showModal();
+  await loadCodeStatus(); renderCodes();
+}
+function renderCodes(){
+  const s = VC.status, mains = Object.values(S.participants).filter(p => !isExtra(p));
+  const without = s ? mains.filter(p => !s.has.has(p.id)) : [];
+  $('#vcStats').innerHTML = s ? `<span>کدهای فعال ${fmt(s.total)}</span><span>تخصیص‌داده ${fmt(s.assigned)}</span><span>آزاد ${fmt(s.free)}</span>${s.retired ? `<span>باطل‌شده ${fmt(s.retired)}</span>` : ''}<span>اصلی‌های بدون کد ${fmt(without.length)}</span>`
+    : '<span class="bad">بخش کدهای رأی هنوز در دیتابیس ساخته نشده (یا جواب نداد)؛ دستور SQL مربوط رو در SQL Editor سوپابیس اجرا کن.</span>';
+  $('#vcMissing').innerHTML = without.length && without.length <= 40 ? `<p class="sub">بدون کد: ${esc(without.map(p => p.full_name || shownNo(p.student_no)).join('، '))}</p>` : '';
+  codesDlg.querySelectorAll('button[data-act^="codes-"], #vcFile').forEach(b => { b.disabled = VC.busy || !s; });
+  const assign = codesDlg.querySelector('[data-act="codes-assign"]'); if (s && !without.length) assign.disabled = true;
+}
+function codesOut(html, bad){ const o = $('#vcOut'); o.hidden = false; o.className = 'sub' + (bad ? ' bad' : ''); o.innerHTML = html; }
+async function codesBusy(fn){ VC.busy = true; renderCodes(); try { await fn(); } finally { VC.busy = false; renderCodes(); render(); } }
+// codes from the file: every cell that looks like a code (capital letters and digits; a header such as "code" doesn't)
+async function importCodes(file){
+  let text = '';
+  try {
+    if (/\.xlsx?$/i.test(file.name) && window.XLSX){ const wb = XLSX.read(await file.arrayBuffer()); text = wb.SheetNames.map(n => XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n'); }
+    else text = await file.text();
+  } catch(e){ toast('فایل خونده نشد'); return; }
+  const codes = [...new Set(toLatin(text).split(/[\s,;"'\t]+/).filter(x => /^[A-Z0-9]{4,16}$/.test(x) && x !== 'CODE'))];
+  if (!codes.length){ codesOut('کدی توی این فایل پیدا نشد. هر کد باید ۴ تا ۱۶ حرف بزرگ انگلیسی یا رقم باشه.', true); return; }
+  if (codes.length > 5000){ codesOut('حداکثر ۵۰۰۰ کد در هر بار.', true); return; }
+  await codesBusy(async () => {
+    const { data, error } = await sb.rpc('add_voting_codes', {p_codes:codes});
+    if (error){ console.error('add_voting_codes', error); codesOut(esc(vcErr(error)), true); return; }
+    await loadCodeStatus();
+    codesOut(`${fmt(data.added)} کد جدید اضافه شد${data.existing ? `؛ ${fmt(data.existing)} تا از قبل بودن` : ''}${data.invalid ? `؛ ${fmt(data.invalid)} تا نامعتبر بودن` : ''}.`);
+  });
+}
+async function assignCodes(){
+  const s = VC.status; if (!s) return;
+  if (!confirm('به همه‌ی شرکت‌کننده‌های اصلی‌ای که کد ندارن، یک کد تصادفی داده بشه؟')) return;
+  await codesBusy(async () => {
+    const { data, error } = await sb.rpc('assign_voting_codes');
+    if (error){ console.error('assign_voting_codes', error); codesOut(esc(vcErr(error)), true); return; }
+    await loadCodeStatus();
+    codesOut(`به ${fmt(data.assigned)} نفر کد داده شد.` + (data.without ? ` <span class="bad">${fmt(data.without)} نفر هنوز کد ندارن چون کد آزاد کم بود؛ کدهای بیشتری اضافه کن.</span>` : ` ${fmt(data.free)} کد آزاد مونده.`), !!data.without);
+  });
+}
+const VC_SEND_ERR = {no_telegram:'حسابت به تلگرام وصل نیست (با ایمیل وارد شدی)؛ نمونه فقط برای حساب تلگرامی فرستاده می‌شه.', start_bot_first:'اول خودت ربات رو توی تلگرام Start کن، بعد دوباره امتحان کن.',
+  setup_missing:'بخش کدهای رأی هنوز در دیتابیس ساخته نشده؛ دستور SQL مربوط رو اجرا کن.', not_admin:'فقط مدیر می‌تونه کدها رو بفرسته.', telegram_failed:'تلگرام پیام رو قبول نکرد.'};
+async function sendCodes(test){
+  const s = VC.status; if (!s) return;
+  if (!test && !confirm(`ربات کد رأی هر شرکت‌کننده رو برای خودش بفرسته؟ (به ${fmt(s.assigned)} نفری که کد دارن، هر کدوم که با تلگرام وارد سایت شده)`)) return;
+  await codesBusy(async () => {
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{send_codes:{test:!!test, with_button:location.protocol === 'https:', site:ntSite()}}});
+    if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} console.error('send_codes', b); codesOut(esc(VC_SEND_ERR[b.error] || 'تابع telegram-auth جواب درست نداد؛ مطمئن شو نسخه‌ی جدیدش Deploy شده.'), true); return; }
+    if (test){ toast('نمونه برات فرستاده شد؛ توی تلگرام ببینش'); return; }
+    const d = data || {};
+    codesOut(`کد ${fmt(d.reached || 0)} نفر فرستاده شد${d.accounts ? ` (به ${fmt(d.sent || 0)} حساب تلگرام از ${fmt(d.accounts)})` : ''}.`
+      + (d.unreachable ? ` ${fmt(d.unreachable)} حساب ربات رو بلاک کردن یا Start نکردن.` : '')
+      + (s.assigned > (d.people || 0) ? ` ${fmt(s.assigned - (d.people || 0))} نفر هنوز با تلگرام وارد سایت نشدن؛ وقتی وارد بشن یا ربات رو باز کنن، کدشون رو می‌بینن.` : ''));
+  });
+}
+$('#vcFile').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importCodes(f); });
+
+// catering for a new participant, from the buttons on their row; or for everyone still undecided at once
+async function setCatering(id, v){
+  const p = S.participants[id]; if (!p || !canEdit || p.catering === v) return;
+  if (await patch('participants', id, {catering:v})) toast(`${p.full_name || 'شرکت‌کننده'}: ${CATERING[v]}`);
+}
+async function cateringBulk(v){
+  const ids = Object.values(S.participants).filter(p => isExtra(p) && (p.catering || 'undecided') === 'undecided').map(p => p.id);
+  if (!ids.length || !canEdit) return;
+  if (!confirm(`پذیرایی برای ${fmt(ids.length)} شرکت‌کننده‌ی جدیدی که هنوز تصمیم نگرفتی «${v === 'yes' ? 'بله' : 'نه'}» بشه؟`)) return;
+  ids.forEach(id => { S.participants[id] = {...S.participants[id], catering:v}; }); render();
+  const { error } = await sb.from('participants').update({catering:v}).in('id', ids);
+  if (error){ fail(error, 'participants'); await resync('participants'); return; }
+  toast('ذخیره شد');
 }
 
 /* participant dialog */
 const personDlg = $('#personDlg'), personForm = $('#personForm'); let editingPerson = null;
-function openPerson(id){
+function openPerson(id, kind){
   if (!ready || (!id && !canEdit)) return;
   editingPerson = id ? S.participants[id] : null;
-  const p = editingPerson || {student_no:'', full_name:'', amount:null, verify_code:'', note:'', major:'', guests:0};
+  const p = editingPerson || {student_no:'', full_name:'', amount:null, verify_code:'', note:'', major:'', guests:0, kind:kind || 'main', wants_plaque:false, wants_statue:false, catering:'undecided'};
   const f = personForm.elements;
   f.student_no.value = shownNo(p.student_no); f.full_name.value = p.full_name || '';
   f.major.value = p.major || ''; f.guests.value = guestsOf(p) ? fmt(guestsOf(p)) : '';
   $('#personExtra').hidden = !hasGuestCols;
+  $('#personKind').hidden = !hasExtraCols;
+  f.kind.value = isExtra(p) ? 'extra' : 'main';
+  f.wants_plaque.checked = !!p.wants_plaque; f.wants_statue.checked = !!p.wants_statue; f.catering.value = p.catering || 'undecided';
   f.amount.value = p.amount !== null && p.amount !== undefined ? fmt(p.amount) : '';
-  updateAutoDue();
+  syncPersonKind();
   f.verify_code.value = p.verify_code || ''; f.note.value = p.note || '';
-  $('#personDlgTitle').textContent = editingPerson ? (p.full_name || 'شرکت‌کننده') : 'شرکت‌کننده‌ی جدید';
+  $('#personDlgTitle').textContent = editingPerson ? (p.full_name || 'شرکت‌کننده') : isExtra(p) ? 'افزودن شرکت‌کننده‌ی جدید (لوح و تندیس)' : 'افزودن شرکت‌کننده';
   $('#personDel').hidden = !editingPerson;
   const linked = p.user_id ? (S.members[p.user_id]?.display_name || 'متصل') : '';
   const sharing = editingPerson ? Object.values(S.participants).filter(x => x.id !== p.id && sameNumber(x.student_no, p.student_no) && isPhoneId(p.student_no)) : [];
@@ -1923,14 +2215,20 @@ function openPerson(id){
     : '<span class="tag">هنوز وارد نشده</span>')
     + (sharing.length ? ` <span class="tag warn">با همین شماره: ${esc(sharing.map(x => x.full_name || '—').join('، '))}</span>` : '') : '';
   renderPersonPays();
+  renderPersonCode();
+  renderPayLink();
   resetManualPay();
   $('#personMeta').textContent = metaLine(editingPerson);
   lockForm(personForm);
   if (!personDlg.open) personDlg.showModal();
   hydrateThumbs();
 }
-// the amount placeholder shows what "empty = automatic" works out to for the guests typed in
-function updateAutoDue(){ const f = personForm.elements; f.amount.placeholder = `خودکار: ${fmt(autoDue({guests:parseNum(f.guests.value)}))}`; }
+// the amount placeholder shows what "empty = automatic" works out to for the guests (or items) typed in
+const personDraft = () => { const f = personForm.elements; return {guests:parseNum(f.guests.value), kind:hasExtraCols && f.kind.value === 'extra' ? 'extra' : 'main',
+  wants_plaque:f.wants_plaque.checked, wants_statue:f.wants_statue.checked, catering:f.catering.value}; };
+function updateAutoDue(){ personForm.elements.amount.placeholder = `خودکار: ${fmt(autoDue(personDraft()))}`; }
+// a new participant has items and catering instead of guests
+function syncPersonKind(){ const x = isExtra(personDraft()); $('#personItems').hidden = !x; $('#guestsWrap').hidden = x; updateAutoDue(); }
 function renderPersonPays(){
   const ps = editingPerson ? paysOf(editingPerson.id) : [];
   $('#personPays').innerHTML = ps.length ? `<div class="lbl">فیش‌ها<div class="list">${ps.map(x => `<button class="rcpt" type="button" data-receipt="${esc(x.id)}" style="--c:${PAY_COLOR[x.status]}">${receiptThumb(x)}<div><b>${fmt(x.amount)}</b><span class="sub">${faDate(x.created_at)}</span></div><span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span></button>`).join('')}</div></div>` : '';
@@ -1981,6 +2279,7 @@ async function recordPayment(btn){
 // Enter inside the payment fields would otherwise submit (and close) the whole person form
 $('#manualPay').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); recordPayment($('#manualPay [data-act="manual-pay"]')); } });
 personForm.addEventListener('input', e => { liveFormat(e); if (e.target.name === 'guests') updateAutoDue(); });
+personForm.addEventListener('change', e => { const n = e.target.name; if (n === 'kind') syncPersonKind(); else if (['wants_plaque','wants_statue','catering'].includes(n)) updateAutoDue(); });
 // most of the list is phone numbers (imported from a registration sheet)?
 const phoneList = () => { const ids = Object.values(S.participants).map(p => p.student_no); return ids.length > 0 && ids.filter(isPhoneId).length * 2 >= ids.length; };
 personForm.addEventListener('submit', async e => {
@@ -2014,6 +2313,15 @@ personForm.addEventListener('submit', async e => {
   const obj = {id: editingPerson ? editingPerson.id : newId(), student_no:no, full_name:f.full_name.value.trim(), amount:amt,
     verify_code: last4(f.verify_code.value) || null, note:f.note.value.trim()};
   if (hasGuestCols){ obj.major = f.major.value.trim(); obj.guests = Math.min(50, parseNum(f.guests.value)); }
+  if (hasExtraCols){
+    obj.kind = f.kind.value === 'extra' ? 'extra' : 'main';
+    if (obj.kind === 'extra'){
+      Object.assign(obj, {wants_plaque:f.wants_plaque.checked, wants_statue:f.wants_statue.checked, catering:f.catering.value});
+      if (hasGuestCols) obj.guests = 0;
+      // moving someone off the main list: the database also takes back their voting code
+      if (editingPerson && !isExtra(editingPerson) && !confirm(`«${obj.full_name || obj.student_no}» از لیست اصلی به شرکت‌کننده‌های جدید منتقل بشه؟${guestsOf(editingPerson) ? ' مهمان‌هاش صفر می‌شه و' : ''} کد رأی‌ش (اگه داشته) باطل می‌شه.`)) return;
+    }
+  }
   // user_id is deliberately not sent: if the person linked their account while this dialog was open,
   // re-sending the old (empty) value would silently unlink them
   personDlg.close(); if (await upsert('participants', obj)) toast('ذخیره شد');
@@ -2042,7 +2350,7 @@ async function openReceipt(id){
   const p = S.participants[x.participant_id] || {}, st = payState(p.id ? p : {id:null});
   $('#rcTitle').textContent = `فیش ${p.full_name || shownNo(p.student_no)}`;
   $('#rcInfo').innerHTML = `<span dir="ltr" class="tag">${esc(shownNo(p.student_no) || 'بدون شماره')}</span> <span class="tag" style="color:${PAY_COLOR[x.status]}">${PAY_STATUS[x.status]}</span>
-    <span class="sub">سهم ${fmt(p.id ? dueOf(p) : 0)} · تأییدشده قبلی ${fmt(st.approved)}${x.tracking_code ? ` · پیگیری <span dir="ltr">${esc(x.tracking_code)}</span>` : ''} · ارسال ${faDate(x.created_at)}</span>
+    <span class="sub">سهم ${fmt(p.id ? dueOf(p) : 0)} · تأییدشده قبلی ${fmt(st.approved)}${x.tracking_code ? ` · پیگیری <span dir="ltr">${esc(x.tracking_code)}</span>` : ''} · ارسال ${faDate(x.created_at)}${String(x.file_path || '').startsWith('bot/') ? ' · از ربات تلگرام' : ''}</span>
     ${x.reviewed_by ? `<span class="sub">بررسی: ${esc(x.reviewed_by)}</span>` : ''}`;
   $('#rcAmount').value = fmt(x.amount); $('#rcAmount').disabled = !canEdit || (x.status === 'approved' && !canAdmin);
   $('#rcNote').value = x.review_note || ''; $('#rcNote').disabled = !canEdit;
@@ -2127,6 +2435,7 @@ function openPayInfo(){
   f.card_number.value = cardFmt(i.card_number); f.card_holder.value = i.card_holder; f.bank.value = i.bank; f.sheba.value = i.sheba;
   f.default_amount.value = i.default_amount ? fmt(i.default_amount) : ''; f.deadline.value = i.deadline; f.note.value = i.note;
   f.guest_amount.value = i.guest_amount ? fmt(i.guest_amount) : ''; $('#guestAmtWrap').hidden = !hasGuestCols;
+  ['plaque_amount','statue_amount','catering_amount'].forEach(k => { f[k].value = i[k] ? fmt(i[k]) : ''; }); $('#extraAmtWrap').hidden = !hasExtraCols;
   lockForm(payInfoForm); payInfoDlg.showModal();
 }
 payInfoForm.addEventListener('input', liveFormat);
@@ -2137,6 +2446,7 @@ payInfoForm.addEventListener('submit', async e => {
   const fields = {card_number:card, card_holder:f.card_holder.value.trim(), bank:f.bank.value.trim(),
     sheba:toLatin(f.sheba.value).replace(/\s/g, '').toUpperCase(), default_amount:parseNum(f.default_amount.value), deadline:f.deadline.value.trim(), note:f.note.value.trim()};
   if (hasGuestCols) fields.guest_amount = parseNum(f.guest_amount.value);
+  if (hasExtraCols) ['plaque_amount','statue_amount','catering_amount'].forEach(k => { fields[k] = parseNum(f[k].value); });
   payInfoDlg.close(); S.payInfo = {...S.payInfo, ...fields}; render();
   const { error } = await sb.from('payment_info').update(fields).eq('id', 1);
   if (error){ fail(error, 'payment_info'); await loadPayInfo(); render(); } else toast('اطلاعات پرداخت ذخیره شد');
@@ -2327,7 +2637,10 @@ function renderBottomBar(){
     : currentTab === 'people' ? btn('add-person','+ شرکت‌کننده',1) + btn('import-people','ورود از شیت') + (canAdmin ? btn('notify','پیام') : '') : '';
 }
 ['#q','#fType','#fStatus','#fSort'].forEach(s => $(s).addEventListener('input', () => renderItems(totals())));
-['#pq','#pFilter','#pMajor'].forEach(s => $(s).addEventListener('input', () => { renderPeople(); hydrateThumbs(); }));
+['#pq','#pFilter','#pMajor','#pItems'].forEach(s => $(s).addEventListener('input', () => { renderPeople(); hydrateThumbs(); }));
+document.addEventListener('focusin', e => { if (e.target.matches && e.target.matches('[data-select-all]')) e.target.select(); });
+// a new participant's row is a div (it holds buttons), so it needs its own keyboard handling
+document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('div.row[data-person]')){ e.preventDefault(); openPerson(e.target.dataset.person); } });
 
 /* ---------- item dialog ---------- */
 $('#catSelect').innerHTML = CATS.map(c => `<option>${c}</option>`).join('');
@@ -2427,7 +2740,7 @@ $('#entryDel').addEventListener('click', async () => {
 });
 
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
-[itemDlg, entryDlg, invDlg, personDlg, receiptDlg, payInfoDlg, importDlg].forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
+[itemDlg, entryDlg, invDlg, personDlg, receiptDlg, payInfoDlg, importDlg, codesDlg].forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
 
 /* ---------- delegation ---------- */
 const fileInput = $('#invFile');
@@ -2449,7 +2762,14 @@ document.addEventListener('click', e => {
     if (a === 'cancel-receipt'){ if (draftReceipt) URL.revokeObjectURL(draftReceipt.url); draftReceipt = null; return render(); }
     if (a === 'edit-payinfo') return openPayInfo();
     if (a === 'import-people') return openImport();
-    if (a === 'add-person') return openPerson();
+    if (a === 'add-person') return openPerson(null, peopleKind);
+    if (a === 'cater') return setCatering(el.dataset.id, el.dataset.v);
+    if (a === 'cater-bulk') return cateringBulk(el.dataset.v);
+    if (a === 'codes') return openCodes();
+    if (a === 'codes-assign') return assignCodes();
+    if (a === 'codes-send') return sendCodes(!!el.dataset.test);
+    if (a === 'code-reissue') return reissueCode(el);
+    if (a === 'pay-link-new') return newPayLink(el);
     if (a === 'unlink-person') return unlinkPerson();
     if (a === 'manual-pay') return recordPayment(el);
     if (a === 'setup-bot') return setupBot(el);
@@ -2464,6 +2784,7 @@ document.addEventListener('click', e => {
     if (a === 'tg-retry') return tgRestore();
     if (a === 'notify') return openNotify(); }
   if ((el = g('[data-pay-for]'))){ payForId = el.dataset.payFor; guestAddFor = null; return render(); }
+  if ((el = g('[data-people-kind]'))){ peopleKind = el.dataset.peopleKind; renderPeople(); return hydrateThumbs(); }
   if ((el = g('[data-copy]'))) return copyText(el.dataset.copy, el.dataset.copyLabel);
   if ((el = g('[data-receipt]'))) return openReceipt(el.dataset.receipt);
   if ((el = g('[data-person]'))) return openPerson(el.dataset.person);
@@ -2610,6 +2931,7 @@ const NT_AUD = [
   ['review', 'فیش در انتظار بررسی', r => r.s.key === 'review'],
   ['settled', 'تسویه', r => r.s.key === 'settled'],
   ['unclaimed', 'هنوز وارد سایت نشده', r => !r.linked],
+  ['extra', 'شرکت‌کننده‌های جدید', r => isExtra(r.p)],
   ['all', 'همه', () => true],
 ];
 const NT_ROUTE = {bot:'ربات', phone:'حساب شخصی', none:'راهی نیست'};
@@ -2620,6 +2942,7 @@ const ntTemplates = () => [
   ['یادآوری پرداخت', 'سلام {name}! 👋\nیادآوری: از سهمت برای جشن {remaining} مونده. لطفاً واریز کن و عکس فیش رو از سایت بفرست. ممنون 🙏'],
   ['تشکر', 'سلام {name}! پرداختت ({paid}) رسید و تأیید شد. ممنون که همراهی کردی 🌸'],
   ['دعوت به ورود', 'سلام {name}! سهمت از جشن {amount} ـه. برای دیدن جزئیات و فرستادن فیش، از ربات وارد سایت شو.'],
+  ['لینک پرداخت', 'سلام {name}! 👋\nسهمت از جشن {remaining} مونده. از این لینک مبلغ و شماره کارت رو ببین و بعد از واریز، عکس رسید رو همون‌جا برای ربات بفرست:\n{link}'],
 ];
 const ntAcct = () => TG.state === 'on' || tgHasSession();
 // everyone, with their payment state and how a message reaches them
@@ -2639,7 +2962,7 @@ const ntChosen = () => ntAudience().filter(r => r.route !== 'none' && !NT.off.ha
 function ntFill(text, r){
   const cur = S.settings.currency || 'تومان', money2 = n => fmt(n) + ' ' + cur;
   return text.replace(/\{name\}/g, r.p.full_name || 'دوست عزیز').replace(/\{amount\}/g, money2(r.s.due))
-    .replace(/\{paid\}/g, money2(r.s.approved)).replace(/\{remaining\}/g, money2(r.s.remaining));
+    .replace(/\{paid\}/g, money2(r.s.approved)).replace(/\{remaining\}/g, money2(r.s.remaining)).replace(/\{link\}/g, payLinkOf(r.p) || '');
 }
 const ntBot = () => botConfigured ? cfg.telegramBot.replace(/^@/, '') : '';
 // the bot attaches an "open the site" button; a message from the personal account gets the bot's link instead
@@ -2653,7 +2976,7 @@ function openNotify(){
 }
 function renderNotify(){
   const people = ntPeople(), list = ntAudience(), chosen = ntChosen(), acct = ntAcct();
-  $('#ntAud').innerHTML = NT_AUD.map(([k, label, f]) => `<button class="chip${k === NT.aud ? ' on' : ''}" type="button" data-nt-aud="${k}" aria-pressed="${k === NT.aud}">${label}<small>${fmt(people.filter(f).length)}</small></button>`).join('');
+  $('#ntAud').innerHTML = NT_AUD.filter(([k, , f]) => k !== 'extra' || k === NT.aud || people.some(f)).map(([k, label, f]) => `<button class="chip${k === NT.aud ? ' on' : ''}" type="button" data-nt-aud="${k}" aria-pressed="${k === NT.aud}">${label}<small>${fmt(people.filter(f).length)}</small></button>`).join('');
   $('#ntTpl').innerHTML = '<span class="sub">متن آماده:</span>' + ntTemplates().map(([l], i) => `<button class="chip" type="button" data-nt-tpl="${i}">${l}</button>`).join('');
   const n = k => chosen.filter(r => r.route === k).length, none = list.filter(r => r.route === 'none').length;
   $('#ntSummary').textContent = `گیرنده‌ها: ${fmt(chosen.length)} نفر — ${fmt(n('bot'))} از ربات، ${fmt(n('phone'))} از حساب شخصیت` + (none ? `؛ ${fmt(none)} نفر شماره ندارن` : '') + ' (برای دیدن و برداشتن تیک بزن)';
@@ -2982,6 +3305,18 @@ function exportXlsx(){
     ['خرج‌شده تا الان', t.spent], ['بدهی صندوق به افراد', t.owedTotal], ['موجودی خالص صندوق', t.balance], ['قطعی‌های پرداخت‌نشده', t.unpaidMust]];
   const owed = Object.entries(t.owed);
   if (owed.length){ a3.push([]); a3.push(['بازپرداخت به', 'مبلغ']); owed.forEach(([n,v]) => a3.push([n, v])); }
+  const xs = Object.values(S.participants).filter(isExtra);
+  if (Object.keys(S.participants).length){
+    const ms = Object.values(S.participants).filter(p => !isExtra(p)), g = ms.reduce((a,p) => a + guestsOf(p), 0);
+    a3.push([]); a3.push(['شرکت‌کننده‌ها', 'تعداد']);
+    a3.push(['شرکت‌کننده‌های اصلی', ms.length]); if (g) a3.push(['  مهمان‌هاشون', g]);
+    if (xs.length){
+      const n = f => xs.filter(f).length;
+      a3.push(['شرکت‌کننده‌های جدید', xs.length], ['  لوح', n(p => p.wants_plaque)], ['  تندیس', n(p => p.wants_statue)],
+        ['  با پذیرایی', n(p => p.catering === 'yes')], ['  بدون پذیرایی', n(p => p.catering === 'no')], ['  پذیرایی تصمیم‌نشده', n(p => (p.catering || 'undecided') === 'undecided')]);
+    }
+    a3.push(['کل پذیرایی', ms.length + g + xs.filter(p => p.catering === 'yes').length]);
+  }
   const byCat = {}; items.forEach(it => { const k = it.category||'سایر'; byCat[k] = (byCat[k]||0) + cost(it); });
   a3.push([]); a3.push(['دسته', 'جمع']); Object.entries(byCat).sort((a,b) => b[1]-a[1]).forEach(([k,v]) => a3.push([k, v]));
   XLSX.utils.book_append_sheet(wb, sheetFrom(a3, [28,18,16], [1,2]), 'خلاصه');
@@ -3003,14 +3338,26 @@ function exportXlsx(){
   contribs().forEach(c => a5.push([++r, 'سهم نفر', c.name, Number(c.amount)||0, c.paid ? 'واریز کرده' : 'هنوز نداده', c.note||'', faDay(c.created_at), who(c.created_by)]));
   a5.push([]); a5.push(['','','دریافت‌شده', t.income]); a5.push(['','','در راه', t.incoming]);
   XLSX.utils.book_append_sheet(wb, sheetFrom(a5, [6,14,24,16,14,34,12,14], [3]), 'بودجه و سهم‌ها');
-  const parts = Object.values(S.participants).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||'','fa'));
+  // main participants and the new ones (plaque / statue) go on separate sheets
+  const everyone = Object.values(S.participants).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||'','fa'));
+  const parts = everyone.filter(p => !isExtra(p)), extras = everyone.filter(isExtra);
+  const guests = parts.reduce((a,p) => a + guestsOf(p), 0), withCodes = !!VC.status;
   if (parts.length){
-    const a6 = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','تعداد مهمان','مبلغ سهم','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت']];
-    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', guestsOf(p), s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'']); });
-    const guests = parts.reduce((a,p) => a + guestsOf(p), 0);
+    const a6 = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','تعداد مهمان','مبلغ سهم','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت', ...(withCodes ? ['کد رأی'] : [])]];
+    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', guestsOf(p), s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'', ...(withCodes ? [codeOf(p.id) ? 'دارد' : 'ندارد'] : [])]); });
     a6.push([]); a6.push(['','','جمع','', guests, parts.reduce((a,p) => a + dueOf(p), 0), parts.reduce((a,p) => a + payState(p).approved, 0)]);
     a6.push(['','','کل حضور (نفرات + مهمان‌ها)','', parts.length + guests]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a6, [6,16,24,18,10,14,14,14,14,18,10,10,30], [4,5,6,7,8]), 'شرکت‌کننده‌ها');
+    XLSX.utils.book_append_sheet(wb, sheetFrom(a6, [6,16,24,18,10,14,14,14,14,18,10,10,30,10], [4,5,6,7,8]), 'شرکت‌کننده‌ها');
+  }
+  if (extras.length){
+    const yn = v => v ? 'بله' : '—', n = f => extras.filter(f).length;
+    const a7 = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','لوح','تندیس','پذیرایی','مبلغ','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت']];
+    extras.forEach((p,i) => { const s2 = payState(p); a7.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', yn(p.wants_plaque), yn(p.wants_statue), {yes:'بله', no:'خیر'}[p.catering] || 'تصمیم نشده', s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'']); });
+    const yes = n(p => p.catering === 'yes'), no = n(p => p.catering === 'no');
+    a7.push([]); a7.push(['','','جمع','', n(p => p.wants_plaque), n(p => p.wants_statue), yes, extras.reduce((a,p) => a + dueOf(p), 0), extras.reduce((a,p) => a + payState(p).approved, 0)]);
+    a7.push(['','','پذیرایی','', '', '', `بله ${yes} · خیر ${no} · تصمیم‌نشده ${extras.length - yes - no}`]);
+    a7.push(['','','کل پذیرایی (اصلی‌ها + مهمان‌ها + جدیدهای با پذیرایی)','', '', '', parts.length + guests + yes]);
+    XLSX.utils.book_append_sheet(wb, sheetFrom(a7, [6,16,24,18,8,8,12,14,14,14,14,18,10,10,30], [7,8,9,10]), 'شرکت‌کننده‌های جدید');
   }
 
   const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());

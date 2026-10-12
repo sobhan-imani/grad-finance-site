@@ -242,6 +242,16 @@ create table if not exists public.payment_info (
 );
 alter table public.payment_info
   add column if not exists guest_amount bigint not null default 0 check (guest_amount >= 0);
+-- شرکت‌کننده‌های جدید (تکمیلی): نوع، لوح، تندیس، پذیرایی؛ و قیمت این‌ها
+alter table public.participants
+  add column if not exists kind         text    not null default 'main' check (kind in ('main','extra')),
+  add column if not exists wants_plaque boolean not null default false,
+  add column if not exists wants_statue boolean not null default false,
+  add column if not exists catering     text    not null default 'undecided' check (catering in ('undecided','yes','no'));
+alter table public.payment_info
+  add column if not exists plaque_amount   bigint not null default 0 check (plaque_amount >= 0),
+  add column if not exists statue_amount   bigint not null default 0 check (statue_amount >= 0),
+  add column if not exists catering_amount bigint not null default 0 check (catering_amount >= 0);
 insert into public.payment_info (id) values (1) on conflict do nothing;
 
 -- ۱۰) فیش‌ها (پرداخت‌ها)
@@ -454,6 +464,7 @@ begin
   if p_count is null or p_count < 1 or p_count > 10 then raise exception 'BAD_COUNT'; end if;
   if p_id::text not in (select public.my_number_participants()) then raise exception 'FORBIDDEN'; end if;
   select * into p from public.participants where id = p_id for update;
+  if p.kind <> 'main' then raise exception 'NOT_MAIN'; end if;
   if p.guests + p_count > 20 then raise exception 'TOO_MANY'; end if;
   select coalesce(guest_amount, 0) into price from public.payment_info where id = 1;
   update public.participants
@@ -651,7 +662,214 @@ create policy bot_broadcasts_select on public.bot_broadcasts for select to authe
 drop policy if exists bot_broadcasts_insert on public.bot_broadcasts;
 create policy bot_broadcasts_insert on public.bot_broadcasts for insert to authenticated with check (public.has_role('admin'));
 
--- ۱۹) همگام‌سازی زنده
+-- ۱۹) کدهای ورود رأی‌گیری: هر شرکت‌کننده‌ی اصلی یک کد تصادفی (شرکت‌کننده‌های جدید کد ندارن). هر کس فقط کد خودش (و هم‌شماره‌هاش) رو می‌بینه؛ مدیرها هم نه،
+-- تا رأی‌ها ناشناس بمونه. مدیر فقط از طریق تابع‌های پایین کار می‌کنه و هیچ‌کدومشون کد رو برنمی‌گردونن.
+-- کدی که عوض می‌شه یا صاحبش حذف می‌شه «باطل» (retired) می‌شه و دیگه به کسی داده نمی‌شه. در تاریخچه ثبت نمی‌شه.
+-- اجرای دوباره ضرری نداره.
+create table if not exists public.voting_codes (
+  code           text primary key check (code ~ '^[A-Z0-9]{4,16}$'),
+  participant_id uuid unique references public.participants(id) on delete set null,
+  retired        boolean not null default false,
+  assigned_at    timestamptz,
+  created_at     timestamptz not null default now()
+);
+alter table public.voting_codes enable row level security;
+revoke all on public.voting_codes from anon, authenticated;
+grant select on public.voting_codes to authenticated;
+grant all on public.voting_codes to service_role;
+drop policy if exists voting_codes_own on public.voting_codes;
+create policy voting_codes_own on public.voting_codes for select to authenticated
+  using (participant_id::text in (select public.my_number_participants()));
+
+-- وضعیت برای مدیر: چند کد، کیا کد دارن (بدون خود کد)
+create or replace function public.voting_code_status()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.has_role('admin') then raise exception 'FORBIDDEN'; end if;
+  return jsonb_build_object(
+    'total',    (select count(*) from public.voting_codes where not retired),
+    'assigned', (select count(*) from public.voting_codes where participant_id is not null),
+    'free',     (select count(*) from public.voting_codes where participant_id is null and not retired),
+    'retired',  (select count(*) from public.voting_codes where retired),
+    'has',      (select coalesce(jsonb_agg(participant_id), '[]'::jsonb) from public.voting_codes where participant_id is not null));
+end $$;
+
+-- اضافه کردن کدها از فایل (تکراری‌ها و کدهای باطل‌شده نادیده گرفته می‌شن)
+create or replace function public.add_voting_codes(p_codes text[])
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v text; added int := 0; existing int := 0; invalid int := 0;
+begin
+  if not public.has_role('admin') then raise exception 'FORBIDDEN'; end if;
+  foreach v in array coalesce(p_codes, '{}') loop
+    v := upper(regexp_replace(coalesce(v, ''), '\s', '', 'g'));
+    if v = '' then continue; end if;
+    if v !~ '^[A-Z0-9]{4,16}$' then invalid := invalid + 1; continue; end if;
+    insert into public.voting_codes (code) values (v) on conflict (code) do nothing;
+    if found then added := added + 1; else existing := existing + 1; end if;
+  end loop;
+  return jsonb_build_object('added', added, 'existing', existing, 'invalid', invalid);
+end $$;
+
+-- به هر شرکت‌کننده‌ی بدون کد، یک کد آزاد تصادفی
+create or replace function public.assign_voting_codes()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare k int;
+begin
+  if not public.has_role('admin') then raise exception 'FORBIDDEN'; end if;
+  with need as (select p.id, row_number() over (order by random()) n from public.participants p
+                 where p.kind = 'main' and not exists (select 1 from public.voting_codes v where v.participant_id = p.id)),
+       pool as (select code, row_number() over (order by random()) n from public.voting_codes
+                 where participant_id is null and not retired)
+  update public.voting_codes v set participant_id = need.id, assigned_at = now()
+    from need join pool using (n) where v.code = pool.code;
+  get diagnostics k = row_count;
+  return jsonb_build_object('assigned', k,
+    'free', (select count(*) from public.voting_codes where participant_id is null and not retired),
+    'without', (select count(*) from public.participants p where p.kind = 'main' and not exists (select 1 from public.voting_codes v where v.participant_id = p.id)));
+end $$;
+
+-- کد جدید برای یک نفر (کد قبلی باطل می‌شه)
+create or replace function public.reissue_voting_code(p_participant uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v text;
+begin
+  if not public.has_role('admin') then raise exception 'FORBIDDEN'; end if;
+  if not exists (select 1 from public.participants where id = p_participant and kind = 'main') then raise exception 'NOT_FOUND'; end if;
+  select code into v from public.voting_codes where participant_id is null and not retired order by random() limit 1 for update skip locked;
+  if v is null then raise exception 'NO_FREE_CODES'; end if;
+  update public.voting_codes set participant_id = null, retired = true where participant_id = p_participant;
+  update public.voting_codes set participant_id = p_participant, assigned_at = now() where code = v;
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- کد شخص حذف‌شده (یا کسی که دیگه شرکت‌کننده‌ی اصلی نیست) باطل می‌شه؛ شرکت‌کننده‌ی اصلی‌ای که بعداً اضافه بشه،
+-- اگه کد آزاد باشه خودکار یکی می‌گیره
+create or replace function public.voting_code_on_participant()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'DELETE' then
+    update public.voting_codes set participant_id = null, retired = true where participant_id = old.id;
+    return old;
+  end if;
+  if tg_op = 'UPDATE' and new.kind is not distinct from old.kind then return new; end if;
+  if new.kind <> 'main' then
+    update public.voting_codes set participant_id = null, retired = true where participant_id = new.id;
+    return new;
+  end if;
+  if exists (select 1 from public.voting_codes where participant_id = new.id) then return new; end if;
+  update public.voting_codes set participant_id = new.id, assigned_at = now()
+   where code = (select code from public.voting_codes where participant_id is null and not retired order by random() limit 1 for update skip locked);
+  return new;
+end $$;
+drop trigger if exists participants_voting_code_del on public.participants;
+create trigger participants_voting_code_del before delete on public.participants
+  for each row execute function public.voting_code_on_participant();
+drop trigger if exists participants_voting_code_new on public.participants;
+create trigger participants_voting_code_new after insert or update of kind on public.participants
+  for each row execute function public.voting_code_on_participant();
+
+-- برای ربات (فقط تابع telegram-auth با service role): کد صاحب این حساب تلگرام و هم‌شماره‌هاش
+create or replace function public.voting_codes_for_telegram(p_tg bigint)
+returns table (full_name text, code text) language sql stable security definer set search_path = public as $$
+  select p.full_name, v.code
+    from public.members m
+    join public.participants mine on mine.user_id = m.user_id
+    join public.participants p on split_part(p.student_no, '#', 1) = split_part(mine.student_no, '#', 1)
+    join public.voting_codes v on v.participant_id = p.id
+   where m.telegram_id = p_tg
+   order by p.student_no;
+$$;
+-- برای «ارسال کد برای همه»: هر کدی که صاحبش (یا صاحب شماره‌ش) با تلگرام وارد سایت شده
+create or replace function public.voting_codes_to_send()
+returns table (telegram_id bigint, full_name text, code text) language sql stable security definer set search_path = public as $$
+  select distinct on (p.id) m.telegram_id, p.full_name, v.code
+    from public.voting_codes v
+    join public.participants p on p.id = v.participant_id
+    join public.participants owner on split_part(owner.student_no, '#', 1) = split_part(p.student_no, '#', 1) and owner.user_id is not null
+    join public.members m on m.user_id = owner.user_id and m.telegram_id is not null
+   order by p.id, (owner.id = p.id) desc;
+$$;
+revoke all on function public.voting_code_status(), public.add_voting_codes(text[]), public.assign_voting_codes(),
+  public.reissue_voting_code(uuid) from public, anon;
+grant execute on function public.voting_code_status(), public.add_voting_codes(text[]), public.assign_voting_codes(),
+  public.reissue_voting_code(uuid) to authenticated;
+revoke all on function public.voting_codes_for_telegram(bigint), public.voting_codes_to_send() from public, anon, authenticated;
+grant execute on function public.voting_codes_for_telegram(bigint), public.voting_codes_to_send() to service_role;
+
+-- ۲۰) لینک پرداخت در ربات، برای کسایی که خودشون وارد سایت نشدن: t.me/<ربات>?start=<pay_token>
+-- با این لینک ربات مبلغ و شماره کارت رو (با دکمه‌ی کپی) نشون می‌ده و عکس رسید رو می‌گیره و برای بررسی ثبت می‌کنه.
+-- «لینک جدید» (pay_token تازه) لینک قبلی رو باطل می‌کنه. کد رأی از این راه نشون داده نمی‌شه، چون مدیرها هم لینک رو دارن.
+-- تابع‌ها فقط برای telegram-auth (service role) هستن. اجرای دوباره ضرری نداره.
+alter table public.participants add column if not exists pay_token uuid not null default gen_random_uuid();
+create unique index if not exists participants_pay_token_key on public.participants (pay_token);
+alter table public.bot_users add column if not exists pay_token uuid;
+
+-- مبلغ هر نفر، با همون حسابی که سایت می‌کنه
+create or replace function public.participant_due(p public.participants)
+returns bigint language sql stable security definer set search_path = public as $$
+  select case
+    when p.amount is not null then p.amount
+    when p.kind = 'extra' then (case when p.wants_plaque then i.plaque_amount else 0 end)
+                             + (case when p.wants_statue then i.statue_amount else 0 end)
+                             + (case when p.catering = 'yes' then i.catering_amount else 0 end)
+    else i.default_amount + p.guests * i.guest_amount
+  end
+  from public.payment_info i where i.id = 1;
+$$;
+
+-- کسی که این حساب تلگرام براش پرداخت می‌کنه: آخرین لینکی که باهاش Start کرده (اگه هنوز معتبره)، وگرنه شرکت‌کننده‌ای که
+-- صاحب این حساب تلگرام با اون وارد سایت شده
+create or replace function public.bot_pay_target(p_tg bigint)
+returns uuid language sql stable security definer set search_path = public as $$
+  select coalesce(
+    (select p.id from public.bot_users b join public.participants p on p.pay_token = b.pay_token where b.telegram_id = p_tg),
+    (select p.id from public.members m join public.participants p on p.user_id = m.user_id where m.telegram_id = p_tg limit 1));
+$$;
+
+-- p_token: لینکی که باهاش ربات رو Start کرده (این حساب از این به بعد برای همون نفر رسید می‌فرسته). بدون p_token: همون نفر قبلی.
+create or replace function public.bot_pay_info(p_tg bigint, p_token text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare t uuid; pid uuid; via text := 'link'; p public.participants; i public.payment_info; ok bigint; pend bigint; cur text;
+begin
+  if p_token is not null then
+    begin t := p_token::uuid; exception when others then return jsonb_build_object('ok', false, 'error', 'bad_link'); end;
+    select id into pid from public.participants where pay_token = t;
+    if pid is null then return jsonb_build_object('ok', false, 'error', 'bad_link'); end if;
+    insert into public.bot_users (telegram_id, pay_token) values (p_tg, t)
+      on conflict (telegram_id) do update set pay_token = excluded.pay_token, last_seen_at = now();
+  else
+    select x.id into pid from public.bot_users b join public.participants x on x.pay_token = b.pay_token where b.telegram_id = p_tg;
+    if pid is null then via := 'account'; pid := public.bot_pay_target(p_tg); end if;
+    if pid is null then return jsonb_build_object('ok', false, 'error', 'unknown'); end if;
+  end if;
+  select * into p from public.participants where id = pid;
+  select * into i from public.payment_info where id = 1;
+  select coalesce(sum(amount) filter (where status = 'approved'), 0), coalesce(sum(amount) filter (where status = 'submitted'), 0)
+    into ok, pend from public.payments where participant_id = pid;
+  select coalesce(nullif(currency, ''), 'تومان') into cur from public.settings where id = 1;
+  return jsonb_build_object('ok', true, 'via', via, 'id', p.id, 'full_name', p.full_name, 'due', public.participant_due(p),
+    'approved', ok, 'pending', pend, 'card_number', i.card_number, 'card_holder', i.card_holder, 'bank', i.bank,
+    'deadline', i.deadline, 'currency', coalesce(cur, 'تومان'));
+end $$;
+
+-- رسیدی که از ربات رسیده (عکسش رو telegram-auth قبلش در receipts/bot/... گذاشته)
+create or replace function public.bot_pay_receipt(p_tg bigint, p_participant uuid, p_path text, p_amount bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare pid uuid;
+begin
+  if public.bot_pay_target(p_tg) is distinct from p_participant then return jsonb_build_object('ok', false, 'error', 'unknown'); end if;
+  if p_amount is null or p_amount <= 0 or p_path !~ '^bot/' then return jsonb_build_object('ok', false, 'error', 'bad_request'); end if;
+  insert into public.payments (participant_id, file_path, amount, tracking_code) values (p_participant, p_path, p_amount, '')
+    returning id into pid;
+  return jsonb_build_object('ok', true, 'id', pid);
+end $$;
+
+revoke all on function public.participant_due(public.participants), public.bot_pay_target(bigint), public.bot_pay_info(bigint, text),
+  public.bot_pay_receipt(bigint, uuid, text, bigint) from public, anon, authenticated;
+grant execute on function public.participant_due(public.participants), public.bot_pay_target(bigint), public.bot_pay_info(bigint, text),
+  public.bot_pay_receipt(bigint, uuid, text, bigint) to service_role;
+
+-- ۲۱) همگام‌سازی زنده
 do $$
 declare t text;
 begin
