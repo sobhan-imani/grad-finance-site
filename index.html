@@ -306,6 +306,7 @@ div.rcpt{cursor:default}
 .payinfo.wide{grid-template-columns:repeat(4,1fr) auto}
 .three{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
 .vcode{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:22px;letter-spacing:3px}
+.code-card .vote-go{grid-column:1/-1;grid-row:auto;justify-self:stretch;text-align:center;text-decoration:none;margin-top:10px}
 .vc-step{display:grid;gap:6px;border-top:1px dashed var(--line);padding-top:10px}
 .vc-step .row-btns{justify-content:flex-start}
 #personCode{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -2075,8 +2076,16 @@ function codeCard(p, own){
   const code = !isExtra(p) && myCodes.get(p.id); if (!code) return '';
   return `<div class="pay-card code-card"><span class="k">کد ورود رأی‌گیری${own ? '' : ` ${esc(p.full_name || '')}`}</span><b class="num vcode" dir="ltr">${esc(code)}</b>
     <button class="btn small" type="button" data-copy="${esc(code)}" data-copy-label="کد رأی">کپی</button>
-    <span class="sub">${own ? 'مخصوص خودته' : 'مخصوص همین نفره'}؛ به کس دیگه‌ای نده.</span></div>`;
+    <span class="sub">${own ? 'مخصوص خودته' : 'مخصوص همین نفره'}؛ به کس دیگه‌ای نده.</span>
+    ${voteUrl() ? `<a class="btn primary vote-go" href="${esc(voteUrl())}" target="_blank" rel="noopener" data-ext-link>🗳 ورود به رأی‌گیری</a>` : ''}</div>`;
 }
+// the voting site, from config.js (https only)
+const voteUrl = () => /^https:\/\//.test(cfg.voteUrl || '') ? cfg.voteUrl : '';
+// inside Telegram a plain link stays in the Mini App's webview; openLink hands it to the browser instead
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[data-ext-link]'); if (!a) return;
+  try { const W = tgWA && window.Telegram && window.Telegram.WebApp; if (W && W.openLink){ e.preventDefault(); W.openLink(a.href); } } catch(_){}
+});
 /* bot payment link: for people who never sign in to the site. The bot shows them their amount and the card number
    (with copy buttons) and takes the receipt picture; it lands in the review queue like any other receipt. */
 const payLinkOf = p => p && p.pay_token && botConfigured ? `https://t.me/${cfg.telegramBot.replace(/^@/, '')}?start=${p.pay_token}` : '';

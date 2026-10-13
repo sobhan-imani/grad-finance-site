@@ -148,6 +148,10 @@ async function tg(method: string, params: unknown): Promise<TgResult> {
 const fillName = (text: string, name: string) =>
   text.replace(/( ?)\{name\}/g, (_m, sp: string) => (name ? sp + name : ""));
 const siteButton = (site: string) => ({ inline_keyboard: [[{ text: OPEN_SITE, web_app: { url: site } }]] });
+// زیر کد رأی: دکمه‌ی سایت رأی‌گیری (در مرورگر باز می‌شه). با secret اختیاری VOTE_URL عوض می‌شه؛ مقدار "off" یعنی بدون دکمه.
+const VOTE_URL = Deno.env.get("VOTE_URL") ?? "https://armo.fun/";
+const voteRow = () => /^https:\/\//.test(VOTE_URL) ? [{ text: "🗳 ورود به رأی‌گیری", url: VOTE_URL }] : null;
+const voteButton = () => { const r = voteRow(); return r ? { inline_keyboard: [r] } : undefined; };
 
 // هر کس به ربات پیام بده، برای پیام‌های همگانی نگه داشته می‌شه (اگه قبلاً ربات رو بلاک کرده بود، دوباره فعال حساب می‌شه).
 // جدول‌های ربات رو دستور SQL «ربات» می‌سازه؛ تا اجرا نشده، ربات مثل قبل فقط جواب می‌ده.
@@ -209,7 +213,7 @@ async function onTelegramUpdate(req: Request): Promise<Response> {
     chat_id: msg.chat.id,
     // with a code the reply is HTML, so the code is tap-to-copy; the welcome text is escaped for that
     ...(codes.length ? { text: escHtml(welcome) + "\n\n" + codesText(codes), parse_mode: "HTML" } : { text: welcome }),
-    reply_markup: siteButton(site),
+    reply_markup: codes.length && voteRow() ? { inline_keyboard: [...siteButton(site).inline_keyboard, voteRow()] } : siteButton(site),
   });
 }
 
@@ -521,7 +525,7 @@ type SendCodes = { test?: boolean };
 async function sendCodes(req: Request, b: SendCodes): Promise<Response> {
   const auth = await requireAdmin(req);
   if ("res" in auth) return auth.res!;
-  const btn = { markup: undefined };
+  const btn = { markup: voteButton() }; // only the voting-site button, no "open the site"
   if (b.test) {
     const own = ownTelegramId(auth);
     if (!own) return json({ error: "no_telegram" }, 400);
