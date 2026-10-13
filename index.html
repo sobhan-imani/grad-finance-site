@@ -1829,11 +1829,11 @@ function getsCard(p, own){
   const extra = isExtra(p), g = guestsOf(p), list = [];
   if (extra ? p.wants_album : true) list.push(['📘', 'آلبوم عکس (Yearbook)']);
   if (extra ? p.wants_statue : true) list.push(['🏆', 'تندیس']);
-  if (!extra) list.push(['🍽', g ? `پذیرایی برای ${own ? 'خودت' : 'خودش'} و ${fmt(g)} مهمان` : 'پذیرایی']);
+  if (!extra) list.push(['🍽', g ? `پذیرایی برای ${own ? 'خودتان' : 'خودش'} و ${fmt(g)} مهمان` : 'پذیرایی']);
   else if (p.catering === 'yes') list.push(['🍽', 'پذیرایی']);
   else if ((p.catering || 'undecided') === 'undecided') list.push(['🍽', 'پذیرایی: هنوز مشخص نشده', true]);
   if (!list.length) return '';
-  return `<div class="pay-card gets-card"><span class="k">${own ? 'چیزهایی که می‌گیری' : `چیزهایی که ${esc(p.full_name || '')} می‌گیره`}</span>
+  return `<div class="pay-card gets-card"><span class="k">${own ? 'چیزهایی که دریافت خواهید کرد' : `چیزهایی که ${esc(p.full_name || '')} دریافت خواهد کرد`}</span>
     <ul class="gets">${list.map(([icon, text, maybe]) => `<li${maybe ? ' class="maybe"' : ''}><span aria-hidden="true">${icon}</span>${text}</li>`).join('')}</ul></div>`;
 }
 // a new participant pays for what they asked for: "plaque 300,000 + statue 500,000"
