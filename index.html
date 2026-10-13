@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>دخل و خرج جشن فارغ‌التحصیلی</title>
+<title>حساب و کتاب جشن فارغ‌التحصیلی</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
 <style>
 @font-face{font-family:"Vazirmatn";font-weight:400;font-display:swap;src:url(fonts/vazirmatn-arabic-400-normal.woff2) format("woff2");unicode-range:U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EC2-10EC4,U+10EFC-10EFF,U+1EE00-1EEFF}
@@ -373,7 +373,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 <body>
 <div class="gate" id="gate">
   <div class="gate-card">
-    <h1>دخل و خرج جشن</h1>
+    <h1>حساب و کتاب جشن</h1>
     <p id="gateMsg">برای ورود، با تلگرام وارد شو.</p>
     <div id="tgBox" class="tg-box"></div>
     <div class="err" id="loginErr" aria-live="polite"></div>
@@ -1452,7 +1452,7 @@ function render(){
   const t = totals(), st = S.settings, head = Number(st.headcount)||0;
   const budget = Number(st.budget) || t.expected, budgetName = Number(st.budget) ? 'سقف بودجه' : 'کل بودجه';
   $('#title').textContent = st.title || DEFAULT_SETTINGS.title;
-  document.title = 'دخل و خرج ' + (st.title || DEFAULT_SETTINGS.title);
+  document.title = 'حساب و کتاب ' + (st.title || DEFAULT_SETTINGS.title);
 
   $('#sMin').textContent = fmt(t.min); $('#sMid').textContent = fmt(t.mid); $('#sMax').textContent = fmt(t.max);
   const pp = v => head ? `هر نفر ${fmt(Math.ceil(v/head))} ${st.currency}` : st.currency;
