@@ -3314,89 +3314,250 @@ document.addEventListener('keydown', e => {
 function tgReset(){ TG.step = null; TG.err = ''; TG.note = ''; tgDrop(); TG.state = 'off'; $('#tgAcctBody').innerHTML = ''; delete $('#tgAcctBody').dataset.key; }
 
 /* ---------- excel ---------- */
-function sheetFrom(aoa, widths, numCols){
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = widths.map(w => ({wch:w}));
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  for (let R = 1; R <= range.e.r; R++) numCols.forEach(C => { const cell = ws[XLSX.utils.encode_cell({r:R, c:C})]; if (cell && cell.t === 'n') cell.z = '#,##0'; });
+const faDay = v => v ? new Date(v).toLocaleDateString('fa-IR') : '';
+/* ---------- Excel export ----------
+   Written with ExcelJS (vendor/exceljs.min.js, MIT), loaded on the first export. Every sheet gets a title, a coloured
+   header row that stays in view while scrolling, filters, number formats, coloured statuses and a totals row; sheets are
+   right-to-left and print on one page width. SheetJS (vendor/xlsx.full.min.js) still reads imported sheets. */
+let excelLoading = null;
+function loadExcelJS(){
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  return excelLoading ||= new Promise((resolve, reject) => {
+    const sc = document.createElement('script'); sc.src = 'vendor/exceljs.min.js';
+    sc.onload = () => window.ExcelJS ? resolve(window.ExcelJS) : reject(new Error('EXCELJS_LOAD'));
+    sc.onerror = () => { excelLoading = null; sc.remove(); reject(new Error('EXCELJS_LOAD')); };
+    document.head.appendChild(sc);
+  });
+}
+const XL = {font:'Tahoma', ink:'FF16213A', muted:'FF5B6478', line:'FFD6DAE5', zebra:'FFF6F7FB', total:'FFF4E7C4', section:'FFE4E7F0', white:'FFFFFFFF',
+  ok:'FF23805A', bad:'FFB83A3A', warn:'FFB26A00', gold:'FFA87B12', must:'FF1F4FA3', maybe:'FFC27C0E', opt:'FF7A5AA6'};
+const xlFill = argb => ({type:'pattern', pattern:'solid', fgColor:{argb}});
+const xlLine = {style:'thin', color:{argb:XL.line}};
+const xlBorder = {top:xlLine, bottom:xlLine, left:xlLine, right:xlLine};
+// status words and expense types get their colour from the site
+const XL_TONE = {
+  [STATE_LABEL.settled]:XL.ok, [STATE_LABEL.review]:XL.warn, [STATE_LABEL.partial]:XL.gold, [STATE_LABEL.unpaid]:XL.bad,
+  [PAY_STATUS.approved]:XL.ok, [PAY_STATUS.submitted]:XL.warn, [PAY_STATUS.rejected]:XL.bad,
+  'پرداخت شد':XL.ok, 'پرداخت‌نشده':XL.bad, 'دریافت شد':XL.ok, 'در راه':XL.warn, 'واریز کرده':XL.ok, 'هنوز نداده':XL.bad,
+  'بله':XL.ok, 'خیر':XL.muted, 'تصمیم نشده':XL.warn, [TYPES.must.l]:XL.must, [TYPES.maybe.l]:XL.maybe, [TYPES.optional.l]:XL.opt};
+// column kinds: i row number · t text · w long text (wrapped) · n amount/count · p phone or file name (left to right)
+// · code voting code · s status / type (coloured) · d date
+function xlCell(cell, v, k, fill){
+  const empty = v === '' || v === null || v === undefined;
+  cell.value = empty ? null : v;
+  const font = {name:XL.font, size:10, color:{argb:XL.ink}}, al = {vertical:'middle', readingOrder:'rtl'};
+  if (k === 'i'){ al.horizontal = 'center'; font.color = {argb:XL.muted}; }
+  else if (k === 'n'){ al.horizontal = 'center'; if (typeof v === 'number') cell.numFmt = '#,##0'; if (typeof v === 'number' && v < 0) font.color = {argb:XL.bad}; }
+  else if (k === 'p'){ al.horizontal = 'center'; al.readingOrder = 'ltr'; }
+  else if (k === 'code'){ al.horizontal = 'center'; al.readingOrder = 'ltr'; Object.assign(font, {name:'Consolas', size:11, bold:true}); }
+  else if (k === 's'){ al.horizontal = 'center'; if (XL_TONE[v]) Object.assign(font, {bold:true, color:{argb:XL_TONE[v]}}); }
+  else if (k === 'd'){ al.horizontal = 'center'; }
+  else if (k === 'w'){ al.wrapText = true; }
+  cell.font = font; cell.alignment = al; cell.border = xlBorder;
+  if (fill) cell.fill = xlFill(fill);
+}
+const xlStamp = () => new Intl.DateTimeFormat('fa-IR', {dateStyle:'long', timeStyle:'short'}).format(new Date());
+function xlHeading(ws, cols, title, note){
+  const st = S.settings;
+  ws.mergeCells(1, 1, 1, cols); ws.mergeCells(2, 1, 2, cols);
+  const t = ws.getCell(1, 1), s = ws.getCell(2, 1);
+  t.value = `${st.title || 'جشن'} — ${title}`; t.font = {name:XL.font, size:14, bold:true, color:{argb:XL.ink}}; t.alignment = {vertical:'middle', horizontal:'right', readingOrder:'rtl'};
+  s.value = `خروجی ${xlStamp()} · مبلغ‌ها به ${st.currency || 'تومان'}${note ? ' · ' + note : ''}`; s.font = {name:XL.font, size:9, color:{argb:XL.muted}}; s.alignment = {vertical:'top', horizontal:'right', readingOrder:'rtl'};
+  ws.getRow(1).height = 28; ws.getRow(2).height = 20;
+}
+function xlSheet(wb, name, tab, cols, landscape){
+  return wb.addWorksheet(name, {properties:{tabColor:{argb:tab}},
+    views:[{rightToLeft:true, state:'frozen', ySplit:3, showGridLines:false}],
+    pageSetup:{paperSize:9, orientation:landscape ? 'landscape' : 'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0, printTitlesRow:'3:3',
+      margins:{left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3}}});
+}
+// one table per sheet: [{h:'header', w:width, k:kind}], data rows, then totals rows
+function xlTable(wb, name, title, cols, rows, {totals = [], tab = XL.ink, note = '', freezeCols = 0} = {}){
+  const n = cols.length, ws = xlSheet(wb, name, tab, cols, n > 7);
+  if (freezeCols) ws.views = [{...ws.views[0], xSplit:freezeCols}];
+  ws.columns = cols.map(c => ({width:c.w}));
+  xlHeading(ws, n, title, note);
+  const hr = ws.getRow(3); hr.height = 32;
+  cols.forEach((c, i) => { const cell = hr.getCell(i + 1); cell.value = c.h;
+    cell.font = {name:XL.font, size:10, bold:true, color:{argb:XL.white}}; cell.fill = xlFill(XL.ink);
+    cell.alignment = {vertical:'middle', horizontal:'center', wrapText:true, readingOrder:'rtl'}; cell.border = xlBorder; });
+  rows.forEach((r, ri) => { const row = ws.getRow(4 + ri); row.height = 20; cols.forEach((c, ci) => xlCell(row.getCell(ci + 1), r[ci], c.k, ri % 2 ? XL.zebra : null)); });
+  if (rows.length) ws.autoFilter = {from:{row:3, column:1}, to:{row:3 + rows.length, column:n}};
+  else { ws.mergeCells(4, 1, 4, n); const c = ws.getCell(4, 1); c.value = 'موردی ثبت نشده'; c.font = {name:XL.font, size:10, italic:true, color:{argb:XL.muted}}; c.alignment = {horizontal:'center'}; }
+  const at = 4 + Math.max(rows.length, 1);
+  totals.forEach((r, ti) => { const row = ws.getRow(at + ti); row.height = 22;
+    cols.forEach((c, ci) => { const cell = row.getCell(ci + 1); xlCell(cell, r[ci], c.k === 'i' || c.k === 's' || c.k === 'code' ? 't' : c.k, XL.total);
+      cell.font = {...cell.font, bold:true}; if (!ti) cell.border = {...xlBorder, top:{style:'medium', color:{argb:XL.ink}}}; }); });
   return ws;
 }
-const faDay = v => v ? new Date(v).toLocaleDateString('fa-IR') : '';
-function exportXlsx(){
-  if (!ready){ toast('صبر کن داده‌ها بارگذاری بشن'); return; }
-  if (!window.XLSX){ toast('ابزار ساخت اکسل بارگذاری نشد'); return; }
-  const t = totals(), st = S.settings, cur = st.currency, head = Number(st.headcount)||0;
-  const items = Object.values(S.items).sort((a,b) => (TYPES[a.type]?.order??0) - (TYPES[b.type]?.order??0) || cost(b) - cost(a));
-  const wb = XLSX.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
-
-  const a3 = [['شرح', 'مبلغ (' + cur + ')', 'سهم هر نفر'],
-    ['هزینه‌های قطعی (حداقل)', t.min, head ? Math.ceil(t.min/head) : ''],
-    ['قطعی + احتمالی (محتمل)', t.mid, head ? Math.ceil(t.mid/head) : ''],
-    ['همه موارد (کامل)', t.max, head ? Math.ceil(t.max/head) : ''], [],
-    ['سقف بودجه برنامه‌ریزی‌شده', Number(st.budget)||''], ['تعداد نفرات', head || ''],
-    ['بودجه دریافت‌شده', t.income], ['  از منابع و واریزی‌ها', t.fundIn], ['  از سهم نفرات', t.contribIn], ['در راه (قول داده‌شده)', t.incoming],
-    ['خرج‌شده تا الان', t.spent], ['بدهی صندوق به افراد', t.owedTotal], ['موجودی خالص صندوق', t.balance], ['قطعی‌های پرداخت‌نشده', t.unpaidMust]];
-  const owed = Object.entries(t.owed);
-  if (owed.length){ a3.push([]); a3.push(['بازپرداخت به', 'مبلغ']); owed.forEach(([n,v]) => a3.push([n, v])); }
-  const xs = Object.values(S.participants).filter(isExtra);
-  if (Object.keys(S.participants).length){
-    const ms = Object.values(S.participants).filter(p => !isExtra(p)), g = ms.reduce((a,p) => a + guestsOf(p), 0);
-    a3.push([]); a3.push(['شرکت‌کننده‌ها', 'تعداد']);
-    a3.push(['شرکت‌کننده‌های اصلی', ms.length]); if (g) a3.push(['  مهمان‌هاشون', g]);
-    if (xs.length){
-      const n = f => xs.filter(f).length;
-      a3.push(['شرکت‌کننده‌های جدید', xs.length], ['  لوح', n(p => p.wants_plaque)], ['  تندیس', n(p => p.wants_statue)], ['  آلبوم عکس', n(p => p.wants_album)],
-        ['  با پذیرایی', n(p => p.catering === 'yes')], ['  بدون پذیرایی', n(p => p.catering === 'no')], ['  پذیرایی تصمیم‌نشده', n(p => (p.catering || 'undecided') === 'undecided')]);
-    }
-    a3.push(['کل پذیرایی', ms.length + g + xs.filter(p => p.catering === 'yes').length]);
+// the summary sheet: label / value sections, one under the other
+function xlSection(ws, r, title, heads, rows){
+  const n = heads.length;
+  ws.mergeCells(r, 1, r, 3); const t = ws.getCell(r, 1);
+  t.value = title; t.font = {name:XL.font, size:11, bold:true, color:{argb:XL.ink}}; t.fill = xlFill(XL.section); t.alignment = {vertical:'middle', horizontal:'right', readingOrder:'rtl'};
+  ws.getRow(r).height = 24; r++;
+  if (heads.some(Boolean)){
+    heads.forEach((h, i) => { const c = ws.getCell(r, i + 1); c.value = h || null; c.font = {name:XL.font, size:9, bold:true, color:{argb:XL.muted}}; c.alignment = {horizontal:i ? 'center' : 'right', readingOrder:'rtl'}; c.border = {bottom:xlLine}; });
+    r++;
   }
-  const byCat = {}; items.forEach(it => { const k = it.category||'سایر'; byCat[k] = (byCat[k]||0) + cost(it); });
-  a3.push([]); a3.push(['دسته', 'جمع']); Object.entries(byCat).sort((a,b) => b[1]-a[1]).forEach(([k,v]) => a3.push([k, v]));
-  XLSX.utils.book_append_sheet(wb, sheetFrom(a3, [28,18,16], [1,2]), 'خلاصه');
-
-  const a1 = [['ردیف','عنوان','دلیل / توضیح','نوع','دسته','فروشنده / تماس','قیمت واحد','تعداد','برآورد','وضعیت','مبلغ واقعی','مبلغ نهایی','پرداخت از','تعداد فاکتور','جمع فاکتورها','ثبت‌کننده','آخرین تغییر']];
-  items.forEach((it,i) => a1.push([i+1, it.title, it.reason||'', (TYPES[it.type]||TYPES.must).l, it.category||'', it.vendor||'', Number(it.unit)||0, Number(it.qty)||1, estimate(it), it.paid ? 'پرداخت شد' : 'پرداخت‌نشده', it.paid && it.actual ? Number(it.actual) : '', cost(it), it.paid ? (it.payer||FUND) : '', invOf(it.id).length, invSum(it.id) || '', who(it.created_by), who(it.updated_by)]));
-  a1.push([]); a1.push(['','جمع کل','','','','','','','','','', t.max]);
-  XLSX.utils.book_append_sheet(wb, sheetFrom(a1, [6,26,40,10,16,20,14,7,14,13,14,14,14,10,14,14,14], [6,7,8,10,11,14]), 'هزینه‌ها');
-
-  const invs = Object.values(S.invoices).sort((a,b) => ts(a.created_at) - ts(b.created_at));
-  const a4 = [['ردیف','فروشنده','تاریخ فاکتور','مبلغ','مربوط به خرج','نوع خرج','یادداشت','نام فایل','تاریخ آپلود','آپلودکننده']];
-  invs.forEach((v,i) => { const it = S.items[v.item_id]; a4.push([i+1, v.vendor||'', v.invoice_date||'', Number(v.total)||0, it ? it.title : 'وصل‌نشده', it ? (TYPES[it.type]||TYPES.must).l : '', v.note||'', v.file_name||'', faDay(v.created_at), who(v.created_by)]); });
-  a4.push([]); a4.push(['','جمع','', invs.reduce((a,v) => a + (Number(v.total)||0), 0)]);
-  XLSX.utils.book_append_sheet(wb, sheetFrom(a4, [6,22,14,14,24,10,34,24,12,14], [3]), 'فاکتورها');
-
-  const a5 = [['ردیف','نوع','منبع / نام','مبلغ','وضعیت','یادداشت','تاریخ ثبت','ثبت‌کننده']];
-  let r = 0;
-  fundsOnly().forEach(f => a5.push([++r, 'واریزی / منبع', f.name, Number(f.amount)||0, f.paid ? 'دریافت شد' : 'در راه', f.note||'', faDay(f.created_at), who(f.created_by)]));
-  contribs().forEach(c => a5.push([++r, 'سهم نفر', c.name, Number(c.amount)||0, c.paid ? 'واریز کرده' : 'هنوز نداده', c.note||'', faDay(c.created_at), who(c.created_by)]));
-  a5.push([]); a5.push(['','','دریافت‌شده', t.income]); a5.push(['','','در راه', t.incoming]);
-  XLSX.utils.book_append_sheet(wb, sheetFrom(a5, [6,14,24,16,14,34,12,14], [3]), 'بودجه و سهم‌ها');
-  // main participants and the new ones (plaque / statue) go on separate sheets
+  rows.forEach(([label, ...vals], ri) => {
+    const strong = typeof label === 'object', text = strong ? label.t : label;
+    const lc = ws.getCell(r, 1); xlCell(lc, text, 't', ri % 2 ? XL.zebra : null); if (strong) lc.font = {...lc.font, bold:true};
+    for (let i = 1; i < n; i++){ const c = ws.getCell(r, i + 1); xlCell(c, vals[i - 1], 'n', ri % 2 ? XL.zebra : null); if (strong) c.font = {...c.font, bold:true}; }
+    ws.getRow(r).height = 20; r++;
+  });
+  return r + 1;
+}
+async function exportXlsx(){
+  if (!ready){ toast('صبر کن داده‌ها بارگذاری بشن'); return; }
+  const btn = $('#exportBtn'); if (btn.disabled) return;
+  btn.disabled = true; toast('در حال ساخت فایل اکسل…');
+  try { await buildXlsx(await loadExcelJS()); }
+  catch(e){ console.error('export', e); toast(/EXCELJS_LOAD/.test(e && e.message) ? 'ابزار ساخت اکسل بارگذاری نشد؛ اتصال رو چک کن و دوباره امتحان کن' : 'ساخت فایل اکسل انجام نشد'); }
+  finally { btn.disabled = false; }
+}
+async function buildXlsx(ExcelJS){
+  const t = totals(), st = S.settings, head = Number(st.headcount)||0;
+  const items = Object.values(S.items).sort((a,b) => (TYPES[a.type]?.order??0) - (TYPES[b.type]?.order??0) || cost(b) - cost(a));
+  const wb = new ExcelJS.Workbook(); wb.creator = 'دخل و خرج جشن'; wb.created = new Date();
   const everyone = Object.values(S.participants).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||'','fa'));
   const parts = everyone.filter(p => !isExtra(p)), extras = everyone.filter(isExtra);
-  const guests = parts.reduce((a,p) => a + guestsOf(p), 0), withCodes = !!VC.status;
+  const guests = parts.reduce((a,p) => a + guestsOf(p), 0), withCodes = canAdmin && !!VC.status;
+  const codeText = p => myCodes.get(p.id) || (codeOf(p.id) ? 'دارد' : '—');
+  const sumBy = (list, f) => list.reduce((a, x) => a + (Number(f(x)) || 0), 0);
+  const left = s => Math.max(0, s.due - s.approved);
+
+  /* summary */
+  const ws = wb.addWorksheet('خلاصه', {properties:{tabColor:{argb:XL.gold}}, views:[{rightToLeft:true, showGridLines:false}],
+    pageSetup:{paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0}});
+  ws.columns = [{width:38}, {width:20}, {width:20}];
+  xlHeading(ws, 3, 'خلاصه');
+  let r = 4;
+  r = xlSection(ws, r, 'برآورد هزینه‌ها', ['', 'مبلغ', head ? `سهم هر نفر (${fmt(head)} نفر)` : ''], [
+    ['هزینه‌های قطعی (حداقل)', t.min, head ? Math.ceil(t.min/head) : ''],
+    ['قطعی + احتمالی (محتمل)', t.mid, head ? Math.ceil(t.mid/head) : ''],
+    [{t:'همه موارد (کامل)'}, t.max, head ? Math.ceil(t.max/head) : '']]);
+  r = xlSection(ws, r, 'بودجه و صندوق', ['', 'مبلغ'], [
+    ['سقف بودجه برنامه‌ریزی‌شده', Number(st.budget) || ''],
+    [{t:'بودجه دریافت‌شده'}, t.income], ['   از منابع و واریزی‌ها', t.fundIn], ['   از سهم نفرات', t.contribIn],
+    ['در راه (قول داده‌شده)', t.incoming], ['خرج‌شده تا الان', t.spent], ['بدهی صندوق به افراد', t.owedTotal],
+    [{t:'موجودی خالص صندوق'}, t.balance], ['قطعی‌های پرداخت‌نشده', t.unpaidMust]]);
+  const owed = Object.entries(t.owed);
+  if (owed.length) r = xlSection(ws, r, 'بازپرداخت به افراد', ['', 'مبلغ'], owed.map(([n, v]) => [n, v]));
+  if (everyone.length){
+    const sm = parts.map(payState), sx = extras.map(payState), xs = extras.length;
+    const row = (label, f, g) => [label, f(parts, sm), xs ? g(extras, sx) : ''];
+    const both = (label, f) => row(label, f, f);
+    r = xlSection(ws, r, 'سهم شرکت‌کننده‌ها', ['', 'اصلی', xs ? 'جدید (لوح، تندیس…)' : ''], [
+      both('تعداد نفرات', l => l.length),
+      both('جمع مبلغ‌ها', (l, s) => sumBy(s, x => x.due)),
+      both({t:'تأییدشده'}, (l, s) => sumBy(s, x => x.approved)),
+      both('فیش در انتظار بررسی', (l, s) => sumBy(s, x => x.pending)),
+      both({t:'مانده'}, (l, s) => sumBy(s, left)),
+      both('تسویه‌شده (نفر)', (l, s) => s.filter(x => x.key === 'settled').length),
+      both('پرداخت‌نکرده (نفر)', (l, s) => s.filter(x => x.key === 'unpaid').length)]);
+    const n = f => extras.filter(f).length, yes = n(p => p.catering === 'yes');
+    r = xlSection(ws, r, 'حضور و پذیرایی', ['', 'تعداد'], [
+      ['شرکت‌کننده‌های اصلی', parts.length], ['مهمان‌هاشون', guests], ...(xs ? [['شرکت‌کننده‌های جدید', xs],
+      ['   لوح', n(p => p.wants_plaque)], ['   تندیس', n(p => p.wants_statue)], ...(hasAlbumCols ? [['   آلبوم عکس', n(p => p.wants_album)]] : []),
+      ['   با پذیرایی', yes], ['   بدون پذیرایی', n(p => p.catering === 'no')], ['   پذیرایی تصمیم‌نشده', n(p => (p.catering || 'undecided') === 'undecided')]] : []),
+      [{t:'کل پذیرایی'}, parts.length + guests + yes]]);
+  }
+  if (withCodes){
+    const s = VC.status;
+    r = xlSection(ws, r, 'کدهای رأی‌گیری', ['', 'تعداد'], [['کدهای فعال', s.total], ['تخصیص‌داده', s.assigned], ['آزاد', s.free],
+      ...(s.retired ? [['باطل‌شده', s.retired]] : []), [{t:'شرکت‌کننده‌های اصلی بدون کد'}, parts.filter(p => !codeOf(p.id)).length]]);
+  }
+  const byCat = {}; items.forEach(it => { const k = it.category || 'سایر'; byCat[k] = (byCat[k] || 0) + cost(it); });
+  if (items.length) xlSection(ws, r, 'هزینه به تفکیک دسته', ['', 'جمع'], [...Object.entries(byCat).sort((a,b) => b[1] - a[1]), [{t:'جمع کل'}, t.max]]);
+
+  /* expenses */
+  xlTable(wb, 'هزینه‌ها', 'هزینه‌ها', [
+    {h:'ردیف', w:6, k:'i'}, {h:'عنوان', w:26}, {h:'دلیل / توضیح', w:34, k:'w'}, {h:'نوع', w:10, k:'s'}, {h:'دسته', w:14}, {h:'فروشنده / تماس', w:18},
+    {h:'قیمت واحد', w:13, k:'n'}, {h:'تعداد', w:7, k:'n'}, {h:'برآورد', w:14, k:'n'}, {h:'وضعیت', w:12, k:'s'}, {h:'مبلغ واقعی', w:13, k:'n'},
+    {h:'مبلغ نهایی', w:14, k:'n'}, {h:'پرداخت از', w:13}, {h:'فاکتور', w:8, k:'n'}, {h:'جمع فاکتورها', w:14, k:'n'}, {h:'ثبت‌کننده', w:13}, {h:'آخرین تغییر', w:13}],
+    items.map((it, i) => [i + 1, it.title, it.reason || '', (TYPES[it.type] || TYPES.must).l, it.category || '', it.vendor || '', Number(it.unit) || 0, Number(it.qty) || 1,
+      estimate(it), it.paid ? 'پرداخت شد' : 'پرداخت‌نشده', it.paid && it.actual ? Number(it.actual) : '', cost(it), it.paid ? (it.payer || FUND) : '',
+      invOf(it.id).length, invSum(it.id) || '', who(it.created_by), who(it.updated_by)]),
+    {tab:XL.must, freezeCols:2, totals:[['', 'جمع کل', '', '', '', '', '', '', sumBy(items, estimate), '', '', sumBy(items, cost), '', sumBy(items, it => invOf(it.id).length), sumBy(items, it => invSum(it.id))]]});
+
+  /* invoices */
+  const invs = Object.values(S.invoices).sort((a,b) => ts(a.created_at) - ts(b.created_at));
+  xlTable(wb, 'فاکتورها', 'فاکتورها', [
+    {h:'ردیف', w:6, k:'i'}, {h:'فروشنده', w:22}, {h:'تاریخ فاکتور', w:13, k:'d'}, {h:'مبلغ', w:14, k:'n'}, {h:'مربوط به خرج', w:24}, {h:'نوع خرج', w:10, k:'s'},
+    {h:'یادداشت', w:30, k:'w'}, {h:'نام فایل', w:24, k:'p'}, {h:'تاریخ آپلود', w:12, k:'d'}, {h:'آپلودکننده', w:14}],
+    invs.map((v, i) => { const it = S.items[v.item_id]; return [i + 1, v.vendor || '', v.invoice_date || '', Number(v.total) || 0, it ? it.title : 'وصل‌نشده',
+      it ? (TYPES[it.type] || TYPES.must).l : '', v.note || '', v.file_name || '', faDay(v.created_at), who(v.created_by)]; }),
+    {tab:XL.opt, totals:[['', 'جمع', '', sumBy(invs, v => v.total)]]});
+
+  /* budget */
+  const entries = [...fundsOnly().map(f => ['واریزی / منبع', f, f.paid ? 'دریافت شد' : 'در راه']), ...contribs().map(c => ['سهم نفر', c, c.paid ? 'واریز کرده' : 'هنوز نداده'])];
+  xlTable(wb, 'بودجه و سهم‌ها', 'بودجه و سهم‌ها', [
+    {h:'ردیف', w:6, k:'i'}, {h:'نوع', w:14}, {h:'منبع / نام', w:26}, {h:'مبلغ', w:15, k:'n'}, {h:'وضعیت', w:13, k:'s'}, {h:'یادداشت', w:32, k:'w'}, {h:'تاریخ ثبت', w:12, k:'d'}, {h:'ثبت‌کننده', w:14}],
+    entries.map(([kind, f, state], i) => [i + 1, kind, f.name, Number(f.amount) || 0, state, f.note || '', faDay(f.created_at), who(f.created_by)]),
+    {tab:XL.ok, totals:[['', '', 'دریافت‌شده', t.income], ['', '', 'در راه', t.incoming]]});
+
+  /* participants: the main list and the new ones on separate sheets */
   if (parts.length){
-    const a6 = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','تعداد مهمان','مبلغ سهم','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت', ...(withCodes ? ['کد رأی'] : [])]];
-    parts.forEach((p,i) => { const s2 = payState(p); a6.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', guestsOf(p), s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'', ...(withCodes ? [myCodes.get(p.id) || (codeOf(p.id) ? 'دارد' : 'ندارد')] : [])]); });
-    a6.push([]); a6.push(['','','جمع','', guests, parts.reduce((a,p) => a + dueOf(p), 0), parts.reduce((a,p) => a + payState(p).approved, 0)]);
-    a6.push(['','','کل حضور (نفرات + مهمان‌ها)','', parts.length + guests]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a6, [6,16,24,18,10,14,14,14,14,18,10,10,30,10], [4,5,6,7,8]), 'شرکت‌کننده‌ها');
+    const ss = parts.map(payState);
+    xlTable(wb, 'شرکت‌کننده‌ها', 'شرکت‌کننده‌های اصلی', [
+      {h:'ردیف', w:6, k:'i'}, {h:'موبایل / شماره دانشجویی', w:16, k:'p'}, {h:'نام', w:24}, {h:'گرایش', w:16}, {h:'مهمان', w:8, k:'n'}, {h:'مبلغ سهم', w:14, k:'n'},
+      {h:'تأییدشده', w:14, k:'n'}, {h:'در انتظار بررسی', w:13, k:'n'}, {h:'مانده', w:14, k:'n'}, {h:'وضعیت', w:16, k:'s'}, {h:'حساب وصل', w:9, k:'s'},
+      {h:'فیش', w:7, k:'n'}, {h:'یادداشت', w:28, k:'w'}, ...(withCodes ? [{h:'کد رأی', w:12, k:'code'}] : [])],
+      parts.map((p, i) => { const s = ss[i]; return [i + 1, shownNo(p.student_no) || 'بدون شماره', p.full_name || '', p.major || '', guestsOf(p), s.due, s.approved, s.pending, left(s),
+        STATE_LABEL[s.key], p.user_id ? 'بله' : 'خیر', s.count, p.note || '', ...(withCodes ? [codeText(p)] : [])]; }),
+      {tab:XL.gold, freezeCols:3, note:withCodes ? 'ستون «کد رأی» فقط در خروجی مدیرها می‌آد' : '',
+       totals:[['', '', 'جمع', '', guests, sumBy(ss, s => s.due), sumBy(ss, s => s.approved), sumBy(ss, s => s.pending), sumBy(ss, left), '', '', sumBy(ss, s => s.count)],
+               ['', '', 'کل حضور (نفرات + مهمان‌ها)', '', parts.length + guests]]});
   }
   if (extras.length){
-    const yn = v => v ? 'بله' : '—', n = f => extras.filter(f).length;
-    const a7 = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','لوح','تندیس','آلبوم عکس','پذیرایی','مبلغ','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت', ...(withCodes ? ['کد رأی'] : [])]];
-    extras.forEach((p,i) => { const s2 = payState(p); a7.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', yn(p.wants_plaque), yn(p.wants_statue), yn(p.wants_album), {yes:'بله', no:'خیر'}[p.catering] || 'تصمیم نشده', s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'', ...(withCodes ? [myCodes.get(p.id) || (codeOf(p.id) ? 'دارد' : '—')] : [])]); });
+    const ss = extras.map(payState), yn = v => v ? 'بله' : '—', n = f => extras.filter(f).length;
     const yes = n(p => p.catering === 'yes'), no = n(p => p.catering === 'no');
-    a7.push([]); a7.push(['','','جمع','', n(p => p.wants_plaque), n(p => p.wants_statue), n(p => p.wants_album), yes, extras.reduce((a,p) => a + dueOf(p), 0), extras.reduce((a,p) => a + payState(p).approved, 0)]);
-    a7.push(['','','پذیرایی','', '', '', '', `بله ${yes} · خیر ${no} · تصمیم‌نشده ${extras.length - yes - no}`]);
-    a7.push(['','','کل پذیرایی (اصلی‌ها + مهمان‌ها + جدیدهای با پذیرایی)','', '', '', '', parts.length + guests + yes]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a7, [6,16,24,18,8,8,10,12,14,14,14,14,18,10,10,30,10], [8,9,10,11]), 'شرکت‌کننده‌های جدید');
+    xlTable(wb, 'شرکت‌کننده‌های جدید', 'شرکت‌کننده‌های جدید (لوح، تندیس و آلبوم)', [
+      {h:'ردیف', w:6, k:'i'}, {h:'موبایل / شماره دانشجویی', w:16, k:'p'}, {h:'نام', w:24}, {h:'گرایش', w:16}, {h:'لوح', w:7, k:'s'}, {h:'تندیس', w:7, k:'s'},
+      {h:'آلبوم عکس', w:9, k:'s'}, {h:'پذیرایی', w:12, k:'s'}, {h:'مبلغ', w:14, k:'n'}, {h:'تأییدشده', w:14, k:'n'}, {h:'در انتظار بررسی', w:13, k:'n'},
+      {h:'مانده', w:14, k:'n'}, {h:'وضعیت', w:16, k:'s'}, {h:'حساب وصل', w:9, k:'s'}, {h:'فیش', w:7, k:'n'}, {h:'یادداشت', w:28, k:'w'},
+      ...(withCodes ? [{h:'کد رأی', w:12, k:'code'}] : [])],
+      extras.map((p, i) => { const s = ss[i]; return [i + 1, shownNo(p.student_no) || 'بدون شماره', p.full_name || '', p.major || '', yn(p.wants_plaque), yn(p.wants_statue),
+        yn(p.wants_album), {yes:'بله', no:'خیر'}[p.catering] || 'تصمیم نشده', s.due, s.approved, s.pending, left(s), STATE_LABEL[s.key], p.user_id ? 'بله' : 'خیر',
+        s.count, p.note || '', ...(withCodes ? [codeText(p)] : [])]; }),
+      {tab:XL.maybe, freezeCols:3,
+       totals:[['', '', 'جمع', '', n(p => p.wants_plaque), n(p => p.wants_statue), n(p => p.wants_album), yes, sumBy(ss, s => s.due), sumBy(ss, s => s.approved),
+                sumBy(ss, s => s.pending), sumBy(ss, left), '', '', sumBy(ss, s => s.count)],
+               ['', '', `پذیرایی: بله ${fmt(yes)} · خیر ${fmt(no)} · تصمیم‌نشده ${fmt(extras.length - yes - no)}`],
+               ['', '', 'کل پذیرایی (اصلی‌ها + مهمان‌ها + جدیدهای با پذیرایی)', '', '', '', '', parts.length + guests + yes]]});
+  }
+
+  /* receipts */
+  const pays = Object.values(S.payments).sort((a,b) => ts(a.created_at) - ts(b.created_at));
+  if (pays.length){
+    const via = x => String(x.file_path || '').startsWith('bot/') ? 'ربات تلگرام' : !hasFile(x) ? 'ثبت دستی' : 'سایت';
+    xlTable(wb, 'فیش‌ها', 'فیش‌های پرداخت', [
+      {h:'ردیف', w:6, k:'i'}, {h:'نام', w:24}, {h:'موبایل / شماره', w:16, k:'p'}, {h:'لیست', w:10}, {h:'مبلغ', w:14, k:'n'}, {h:'وضعیت', w:14, k:'s'},
+      {h:'کد پیگیری', w:16, k:'p'}, {h:'تاریخ', w:12, k:'d'}, {h:'از طریق', w:12}, {h:'بررسی‌کننده', w:14}, {h:'یادداشت بررسی', w:28, k:'w'}],
+      pays.map((x, i) => { const p = S.participants[x.participant_id] || {}; return [i + 1, p.full_name || '', shownNo(p.student_no) || '', isExtra(p) ? 'جدید' : 'اصلی',
+        Number(x.amount) || 0, PAY_STATUS[x.status] || x.status, x.tracking_code || '', faDay(x.created_at), via(x), x.reviewed_by || '', x.review_note || '']; }),
+      {tab:XL.warn, totals:[['', 'تأییدشده', '', '', sumBy(pays.filter(x => x.status === 'approved'), x => x.amount)],
+                            ['', 'در انتظار بررسی', '', '', sumBy(pays.filter(x => x.status === 'submitted'), x => x.amount)]]});
+  }
+
+  /* voting codes, for admins: one list to print or hand out */
+  if (withCodes){
+    const holders = everyone.filter(p => myCodes.get(p.id));
+    if (holders.length) xlTable(wb, 'کدهای رأی', 'کدهای ورود رأی‌گیری', [
+      {h:'ردیف', w:6, k:'i'}, {h:'نام', w:26}, {h:'موبایل / شماره', w:16, k:'p'}, {h:'لیست', w:12}, {h:'کد رأی', w:14, k:'code'}],
+      holders.map((p, i) => [i + 1, p.full_name || '', shownNo(p.student_no) || '', isExtra(p) ? 'جدید' : 'اصلی', myCodes.get(p.id)]),
+      {tab:XL.ink, note:'محرمانه؛ هر کد مخصوص صاحبشه'});
   }
 
   const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
   const ds = ['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-');
-  XLSX.writeFile(wb, `${(st.title||'جشن').replace(/[\\/:*?"<>|]/g,' ').trim()} - ${ds}.xlsx`);
-  if (tgWA) toast('اگه داخل تلگرام دانلود نشد، سایت رو در مرورگر باز کن و از اونجا خروجی بگیر');
+  const buf = await wb.xlsx.writeBuffer();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  a.download = `${(st.title||'جشن').replace(/[\\/:*?"<>|]/g,' ').trim()} - ${ds}.xlsx`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+  toast(tgWA ? 'اگه داخل تلگرام دانلود نشد، سایت رو در مرورگر باز کن و از اونجا خروجی بگیر' : 'فایل اکسل ساخته شد');
 }
 $('#exportBtn').addEventListener('click', exportXlsx);
 
