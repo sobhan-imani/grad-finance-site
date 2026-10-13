@@ -171,28 +171,37 @@ async function welcomeText(): Promise<string> {
 async function onTelegramUpdate(req: Request): Promise<Response> {
   if (!safeEqual(req.headers.get("x-telegram-bot-api-secret-token") ?? "", await webhookSecret())) return json({ error: "forbidden" }, 401);
   const site = new URL(req.url).searchParams.get("site") ?? "";
-  let update: { message?: Record<string, any> };
+  let update: { message?: Record<string, any>; callback_query?: Record<string, any> };
   try { update = await req.json(); } catch { return new Response("ok"); }
+  if (update.callback_query) return onButton(update.callback_query);
   const msg = update.message;
   if (!msg || msg.chat?.type !== "private") return new Response("ok");
   const tgId = Number(msg.from?.id);
-  // عکس رسید، از کسی که با لینک پرداخت اومده (یا با تلگرام وارد سایت شده)
-  if (!msg.contact && (msg.photo || msg.document)) {
-    await rememberBotUser(msg.from);
-    return json({ method: "sendMessage", chat_id: msg.chat.id, text: await onReceipt(msg) });
-  }
-  // لینک پرداخت: t.me/<ربات>?start=<pay_token>
+  const reply = (text: string) => json({ method: "sendMessage", chat_id: msg.chat.id, text });
+  // لینک پرداخت: t.me/<ربات>?start=<pay_token> (اگه وسط ثبت رسید بود، اون رو کنار می‌ذاره)
   const start = /^\/start(?:@\w+)?\s+([\w-]{1,64})\s*$/.exec(String(msg.text ?? ""));
   if (start) {
-    const [, pay] = await Promise.all([rememberBotUser(msg.from), payInfo(tgId, start[1])]);
+    const [, pay] = await Promise.all([rememberBotUser(msg.from), payInfo(tgId, start[1]), setReceiptWait(tgId, false)]);
     return json({ method: "sendMessage", chat_id: msg.chat.id, ...payMessage(pay) });
   }
+  // بعد از زدن «ثبت پرداخت»، پیام بعدی باید عکس رسید باشه؛ هر چیز دیگه‌ای خطا می‌ده و ثبت رسید تموم می‌شه
+  if (!msg.contact) {
+    const waiting = await receiptWait(tgId);
+    if (waiting) {
+      await Promise.all([rememberBotUser(msg.from), setReceiptWait(tgId, false)]);
+      if (msg.photo || msg.document) return reply(await onReceipt(msg));
+      return reply(`❌ رسید ثبت نشد، چون عکس رسید نفرستادی. برای ثبت، دوباره دکمه‌ی «${RECEIPT_BUTTON}» رو بزن و بعدش عکس رو بفرست.`);
+    }
+    if (msg.photo || msg.document) {
+      await rememberBotUser(msg.from);
+      return reply(`برای ثبت رسید، اول دکمه‌ی «${RECEIPT_BUTTON}» رو زیر پیام پرداخت بزن (یا لینک پرداختی که مسئول‌های مالی فرستادن رو دوباره باز کن)، بعد عکس رو بفرست.`);
+    }
+  }
   // پیام «شماره» که دکمه‌ی تأیید شماره‌ی سایت می‌فرسته جواب نمی‌گیره، ولی فرستنده‌ش هم ربات رو Start کرده
-  const [, text, codes, pay] = await Promise.all([rememberBotUser(msg.from), msg.contact ? "" : welcomeText(),
-    msg.contact ? [] : votingCodes(tgId), msg.contact ? null : payInfo(tgId)]);
+  // جزئیات پرداخت فقط با باز کردن خود لینک نشون داده می‌شه؛ بقیه‌ی پیام‌ها (حتی /start) همون جواب همیشگی رو می‌گیرن
+  const [, text, codes] = await Promise.all([rememberBotUser(msg.from), msg.contact ? "" : welcomeText(),
+    msg.contact ? [] : votingCodes(tgId)]);
   if (msg.contact) return new Response("ok");
-  // کسی که با لینک پرداخت اومده، هر پیامی بده دوباره مبلغ و کارت رو می‌بینه
-  if (pay?.ok && pay.via === "link") return json({ method: "sendMessage", chat_id: msg.chat.id, ...payMessage(pay) });
   if (!site.startsWith("https://")) return new Response("ok");
   const welcome = fillName(text, String(msg.from?.first_name ?? ""));
   return json({
@@ -244,17 +253,17 @@ function payMessage(p: PayInfo | null): { text: string; reply_markup?: unknown }
     lines.push(left ? `مونده: ${m(left)}` : approved >= due ? "سهمت کامل پرداخت شده. ممنون! 🌸" : "رسیدت در انتظار بررسیه.");
   }
   const holder = [p.card_holder && `به نام ${p.card_holder}`, p.bank].filter(Boolean).join(" · ");
-  lines.push("", card ? `شماره کارت: ${card.match(/.{1,4}/g)!.join(" ")}` : "شماره کارت هنوز ثبت نشده.");
+  // \u200E (علامت چپ‌به‌راست): بدون اون، تلگرام چهارتایی‌های شماره کارت رو وسط متن فارسی جابه‌جا نشون می‌ده
+  lines.push("", card ? `شماره کارت: \u200E${card.match(/.{1,4}/g)!.join(" ")}` : "شماره کارت هنوز ثبت نشده.");
   if (card && holder) lines.push(holder);
   if (p.deadline) lines.push(`مهلت پرداخت: ${p.deadline}`);
-  lines.push("", left
-    ? "بعد از واریز، عکس رسید (اسکرین‌شات) رو همین‌جا بفرست. اگه مبلغی که واریز کردی با «مونده» فرق داره، عددش رو زیر عکس (کپشن) بنویس."
-    : "اگه پرداختی داشتی، عکس رسید رو همین‌جا بفرست و مبلغش رو زیر عکس (کپشن) بنویس.");
+  lines.push("", `بعد از واریز، دکمه‌ی «${RECEIPT_BUTTON}» رو بزن و عکس رسید (اسکرین‌شات) رو بفرست.`);
   // بانک‌ها مبلغ رو به ریال می‌خوان: مبلغ تومانی با یک صفر بیشتر کپی می‌شه
   const rial = (n: number) => cur === "تومان" ? n * 10 : n;
-  const buttons = [left || due ? { text: "کپی مبلغ (ریال)", copy_text: { text: String(rial(left || due)) } } : null,
+  const copy = [left || due ? { text: "کپی مبلغ (ریال)", copy_text: { text: String(rial(left || due)) } } : null,
     card ? { text: "کپی شماره کارت", copy_text: { text: card } } : null].filter(Boolean);
-  return { text: lines.join("\n"), ...(buttons.length ? { reply_markup: { inline_keyboard: [buttons] } } : {}) };
+  const rows = [...(copy.length ? [copy] : []), [{ text: RECEIPT_BUTTON, callback_data: RECEIPT_ACTION }]];
+  return { text: lines.join("\n"), reply_markup: { inline_keyboard: rows } };
 }
 // مبلغ از کپشن عکس: «۱٬۵۰۰٬۰۰۰»، «1,500,000» یا «1500000 تومان»
 function captionAmount(caption: unknown): number {
@@ -264,6 +273,36 @@ function captionAmount(caption: unknown): number {
     if (n >= 1000 && n <= 1e11) return n;
   }
   return 0;
+}
+// «ثبت پرداخت»: بعد از زدنش، ربات تا RECEIPT_WAIT_MIN دقیقه منتظر یک عکس رسیده (در bot_users.receipt_wait_at)
+const RECEIPT_BUTTON = "🧾 ثبت پرداخت", RECEIPT_ACTION = "receipt", RECEIPT_WAIT_MIN = 30;
+async function receiptWait(tgId: number): Promise<boolean> {
+  if (!Number.isSafeInteger(tgId) || tgId <= 0) return false;
+  try {
+    const { data, error } = await admin.from("bot_users").select("receipt_wait_at").eq("telegram_id", tgId).maybeSingle();
+    const at = !error && data?.receipt_wait_at ? Date.parse(String(data.receipt_wait_at)) : NaN;
+    return Date.now() - at < RECEIPT_WAIT_MIN * 60_000;
+  } catch { return false; }
+}
+async function setReceiptWait(tgId: number, on: boolean) {
+  if (!Number.isSafeInteger(tgId) || tgId <= 0) return;
+  try { await admin.from("bot_users").update({ receipt_wait_at: on ? new Date().toISOString() : null }).eq("telegram_id", tgId); }
+  catch { /* column missing (SQL not run): the button just says to send the photo */ }
+}
+async function onButton(cq: Record<string, any>): Promise<Response> {
+  const tgId = Number(cq.from?.id), chat = cq.message?.chat;
+  if (cq.data !== RECEIPT_ACTION || !chat || chat.type !== "private") {
+    return json({ method: "answerCallbackQuery", callback_query_id: cq.id });
+  }
+  const pay = await payInfo(tgId);
+  await tg("answerCallbackQuery", { callback_query_id: cq.id }).catch(() => null);
+  if (!pay?.ok) return json({ method: "sendMessage", chat_id: chat.id,
+    text: pay ? "این لینک پرداخت دیگه معتبر نیست؛ از مسئول‌های مالی لینک جدید بگیر." : "الان نشد؛ چند دقیقه‌ی دیگه دوباره دکمه رو بزن." });
+  await Promise.all([rememberBotUser(cq.from), setReceiptWait(tgId, true)]);
+  const left = remainingOf(pay), cur = pay.currency || "تومان";
+  return json({ method: "sendMessage", chat_id: chat.id, text: `حالا عکس رسید (اسکرین‌شات) رو بفرست${pay.full_name ? ` (برای ${pay.full_name})` : ""}.`
+    + (left ? ` اگه مبلغی که واریز کردی با ${faNum(left)} ${cur} فرق داره، عددش رو زیر عکس (کپشن) بنویس.` : " مبلغی که واریز کردی رو زیر عکس (کپشن) بنویس.")
+    + "\nاگه پیام دیگه‌ای بفرستی، ثبت رسید لغو می‌شه." });
 }
 const MAX_RECEIPT = 2 * 1024 * 1024; // حد سطل receipts
 const RECEIPT_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
@@ -341,7 +380,7 @@ async function setupBot(req: Request, siteRaw: string): Promise<Response> {
   const site = new URL(href);
   const hook = await tg("setWebhook", {
     url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/telegram-auth?site=${encodeURIComponent(site.href)}`,
-    secret_token: await webhookSecret(), allowed_updates: ["message"], drop_pending_updates: true,
+    secret_token: await webhookSecret(), allowed_updates: ["message", "callback_query"], drop_pending_updates: true,
   });
   if (!hook.ok) return json({ error: "telegram_failed", detail: hook.description }, 502);
   const menu = await tg("setChatMenuButton", { menu_button: { type: "web_app", text: OPEN_SITE, web_app: { url: site.href } } });
