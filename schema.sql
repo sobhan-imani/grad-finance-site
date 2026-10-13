@@ -805,6 +805,8 @@ grant execute on function public.voting_codes_for_telegram(bigint), public.votin
 alter table public.participants add column if not exists pay_token uuid not null default gen_random_uuid();
 create unique index if not exists participants_pay_token_key on public.participants (pay_token);
 alter table public.bot_users add column if not exists pay_token uuid;
+-- بعد از زدن «ثبت پرداخت» در ربات: از کی منتظر عکس رسیده (پیام بعدی اگه عکس نباشه، ثبت رسید لغو می‌شه)
+alter table public.bot_users add column if not exists receipt_wait_at timestamptz;
 
 -- مبلغ هر نفر، با همون حسابی که سایت می‌کنه
 create or replace function public.participant_due(p public.participants)
