@@ -247,10 +247,12 @@ alter table public.participants
   add column if not exists kind         text    not null default 'main' check (kind in ('main','extra')),
   add column if not exists wants_plaque boolean not null default false,
   add column if not exists wants_statue boolean not null default false,
+  add column if not exists wants_album  boolean not null default false,   -- آلبوم عکس (Yearbook)
   add column if not exists catering     text    not null default 'undecided' check (catering in ('undecided','yes','no'));
 alter table public.payment_info
   add column if not exists plaque_amount   bigint not null default 0 check (plaque_amount >= 0),
   add column if not exists statue_amount   bigint not null default 0 check (statue_amount >= 0),
+  add column if not exists album_amount    bigint not null default 0 check (album_amount >= 0),
   add column if not exists catering_amount bigint not null default 0 check (catering_amount >= 0);
 insert into public.payment_info (id) values (1) on conflict do nothing;
 
@@ -815,6 +817,7 @@ returns bigint language sql stable security definer set search_path = public as 
     when p.amount is not null then p.amount
     when p.kind = 'extra' then (case when p.wants_plaque then i.plaque_amount else 0 end)
                              + (case when p.wants_statue then i.statue_amount else 0 end)
+                             + (case when p.wants_album then i.album_amount else 0 end)
                              + (case when p.catering = 'yes' then i.catering_amount else 0 end)
     else i.default_amount + p.guests * i.guest_amount
   end

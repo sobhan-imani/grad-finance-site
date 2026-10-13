@@ -469,7 +469,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
       <input type="search" id="pq" placeholder="جستجو در نام، شماره یا گرایش…">
       <select id="pMajor" aria-label="گرایش" hidden><option value="">همه گرایش‌ها</option></select>
       <select id="pFilter" aria-label="وضعیت"><option value="">همه</option><option value="review">فیش در انتظار بررسی</option><option value="unpaid">پرداخت نکرده</option><option value="partial">بخشی پرداخت شده</option><option value="settled">تسویه</option><option value="unclaimed">هنوز وارد نشده</option></select>
-      <select id="pItems" aria-label="لوح، تندیس و پذیرایی" hidden><option value="">لوح، تندیس، پذیرایی</option><option value="plaque">لوح می‌خوان</option><option value="statue">تندیس می‌خوان</option><option value="cat-undecided">پذیرایی: تصمیم نشده</option><option value="cat-yes">با پذیرایی</option><option value="cat-no">بدون پذیرایی</option></select>
+      <select id="pItems" aria-label="لوح، تندیس، آلبوم عکس و پذیرایی" hidden><option value="">لوح، تندیس، آلبوم، پذیرایی</option><option value="plaque">لوح می‌خوان</option><option value="statue">تندیس می‌خوان</option><option value="album">آلبوم عکس می‌خوان</option><option value="cat-undecided">پذیرایی: تصمیم نشده</option><option value="cat-yes">با پذیرایی</option><option value="cat-no">بدون پذیرایی</option></select>
       <button class="btn desk need-edit push" type="button" data-act="import-people">ورود از شیت</button>
       <button class="btn primary desk need-edit" type="button" data-act="add-person">+ شرکت‌کننده</button>
       <button class="btn desk need-admin" type="button" data-act="notify">پیام به شرکت‌کننده‌ها</button>
@@ -630,6 +630,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
         <div class="checks">
           <label class="check"><input type="checkbox" name="wants_plaque"> لوح</label>
           <label class="check"><input type="checkbox" name="wants_statue"> تندیس</label>
+          <label class="check" id="albumWrap"><input type="checkbox" name="wants_album"> آلبوم عکس <span class="hint">(Yearbook)</span></label>
         </div>
         <label class="lbl">پذیرایی<select class="field" name="catering"><option value="undecided">هنوز تصمیم نگرفتیم</option><option value="yes">بله، پذیرایی بهش می‌رسه</option><option value="no">نه، بدون پذیرایی</option></select></label>
       </div>
@@ -732,6 +733,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
         <div class="three">
           <label class="lbl">مبلغ لوح<input class="field" name="plaque_amount" inputmode="numeric"></label>
           <label class="lbl">مبلغ تندیس<input class="field" name="statue_amount" inputmode="numeric"></label>
+          <label class="lbl" id="albumAmtWrap">مبلغ آلبوم عکس<input class="field" name="album_amount" inputmode="numeric"></label>
           <label class="lbl">مبلغ پذیرایی <span class="hint">هر نفر</span><input class="field" name="catering_amount" inputmode="numeric"></label>
         </div>
       </fieldset>
@@ -949,7 +951,11 @@ let hasExtraCols = false;
 async function probeExtraCols(){
   const [a, b] = await Promise.all([sb.from('participants').select('kind,wants_plaque,wants_statue,catering').limit(1), sb.from('payment_info').select('plaque_amount,statue_amount,catering_amount').limit(1)]);
   hasExtraCols = !a.error && !b.error;
+  // the photo album (yearbook) came later, with its own SQL
+  const [c, d] = await Promise.all([sb.from('participants').select('wants_album').limit(1), sb.from('payment_info').select('album_amount').limit(1)]);
+  hasAlbumCols = hasExtraCols && !c.error && !d.error;
 }
+let hasAlbumCols = false;
 async function loadParticipantData(){
   // settings is only needed for the currency label; participants may not be allowed to read it
   await Promise.all([reload('participants'), reload('payments'), loadPayInfo(), loadSettings().catch(() => {}), loadMyCodes()]);
@@ -1354,12 +1360,12 @@ const role_rank = r => ({admin:3, editor:2, viewer:1}[r] || 0);
 /* ---------- history ---------- */
 const FIELD_LABELS = {welcome_text:'متن پیام خوش‌آمد', student_no:'شماره', full_name:'نام', major:'گرایش', guests:'تعداد مهمان', guest_amount:'مبلغ هر مهمان', status:'وضعیت فیش', review_note:'یادداشت بررسی', tracking_code:'کد پیگیری', card_number:'شماره کارت', card_holder:'به نام', default_amount:'مبلغ پیش‌فرض', deadline:'مهلت', user_id:'حساب متصل', verify_code:'کد تأیید', title:'عنوان', reason:'دلیل', type:'نوع', category:'دسته', vendor:'فروشنده', unit:'قیمت واحد', qty:'تعداد', paid:'وضعیت', actual:'مبلغ واقعی', payer:'پرداخت از',
   name:'نام', amount:'مبلغ', note:'یادداشت', item_id:'خرج مربوط', total:'مبلغ فاکتور', invoice_date:'تاریخ فاکتور', budget:'سقف بودجه', headcount:'تعداد نفرات', currency:'واحد پول',
-  kind:'دسته', wants_plaque:'لوح', wants_statue:'تندیس', catering:'پذیرایی', plaque_amount:'مبلغ لوح', statue_amount:'مبلغ تندیس', catering_amount:'مبلغ پذیرایی'};
+  kind:'دسته', wants_plaque:'لوح', wants_statue:'تندیس', wants_album:'آلبوم عکس', catering:'پذیرایی', plaque_amount:'مبلغ لوح', statue_amount:'مبلغ تندیس', album_amount:'مبلغ آلبوم عکس', catering_amount:'مبلغ پذیرایی'};
 function valText(k, v, tbl, kind){
   if (v === null || v === undefined || v === '') return '—';
-  if (['unit','actual','amount','total','budget','headcount','qty','default_amount','guest_amount','guests','plaque_amount','statue_amount','catering_amount'].includes(k)) return fmt(v);
+  if (['unit','actual','amount','total','budget','headcount','qty','default_amount','guest_amount','guests','plaque_amount','statue_amount','album_amount','catering_amount'].includes(k)) return fmt(v);
   if (k === 'kind') return v === 'extra' ? 'جدید (لوح و تندیس)' : 'اصلی';
-  if (k === 'wants_plaque' || k === 'wants_statue') return v ? 'می‌خواد' : 'نمی‌خواد';
+  if (k === 'wants_plaque' || k === 'wants_statue' || k === 'wants_album') return v ? 'می‌خواد' : 'نمی‌خواد';
   if (k === 'catering') return {yes:'بله', no:'خیر', undecided:'تصمیم نشده'}[v] || v;
   if (k === 'status') return PAY_STATUS[v] || v;
   if (k === 'user_id') return 'متصل';
@@ -1721,18 +1727,18 @@ function fillSettings(){
 /* ---------- participants & receipts ---------- */
 const PAY_STATUS = {submitted:'در انتظار بررسی', approved:'تأیید شد', rejected:'رد شد'};
 const PAY_COLOR = {submitted:'var(--warn)', approved:'var(--ok)', rejected:'var(--bad)'};
-const DEFAULT_PAYINFO = {card_number:'', card_holder:'', bank:'', sheba:'', default_amount:0, guest_amount:0, plaque_amount:0, statue_amount:0, catering_amount:0, deadline:'', note:''};
+const DEFAULT_PAYINFO = {card_number:'', card_holder:'', bank:'', sheba:'', default_amount:0, guest_amount:0, plaque_amount:0, statue_amount:0, album_amount:0, catering_amount:0, deadline:'', note:''};
 const cardFmt = n => (toLatin(n).replace(/\D/g, '').match(/.{1,4}/g) || []).join(' ');
 // "New participants" (kind 'extra') joined after the main list was final: they don't pay a share, only for what they
 // asked for (a plaque, a statue) plus catering once the team decides they get it. They bring no guests.
 const isExtra = p => p.kind === 'extra';
 const CATERING = {undecided:'پذیرایی: تصمیم نشده', yes:'با پذیرایی', no:'بدون پذیرایی'};
-const extraItems = p => [p.wants_plaque && 'لوح', p.wants_statue && 'تندیس'].filter(Boolean);
+const extraItems = p => [p.wants_plaque && 'لوح', p.wants_statue && 'تندیس', p.wants_album && 'آلبوم عکس'].filter(Boolean);
 const guestsOf = p => isExtra(p) ? 0 : Math.max(0, Math.floor(Number(p.guests) || 0));
 // what someone owes: their own share plus the guest price for each guest (for a new participant: the price of each
 // thing they asked for), unless a total was set by hand for them
 const autoDue = p => isExtra(p)
-  ? (p.wants_plaque ? Number(S.payInfo.plaque_amount || 0) : 0) + (p.wants_statue ? Number(S.payInfo.statue_amount || 0) : 0) + (p.catering === 'yes' ? Number(S.payInfo.catering_amount || 0) : 0)
+  ? (p.wants_plaque ? Number(S.payInfo.plaque_amount || 0) : 0) + (p.wants_statue ? Number(S.payInfo.statue_amount || 0) : 0) + (p.wants_album ? Number(S.payInfo.album_amount || 0) : 0) + (p.catering === 'yes' ? Number(S.payInfo.catering_amount || 0) : 0)
   : Number(S.payInfo.default_amount || 0) + guestsOf(p) * Number(S.payInfo.guest_amount || 0);
 const dueOf = p => (p.amount !== null && p.amount !== undefined) ? Number(p.amount) : autoDue(p);
 const paysOf = pid => Object.values(S.payments).filter(x => x.participant_id === pid).sort((a,b) => ts(b.created_at) - ts(a.created_at));
@@ -1793,7 +1799,7 @@ function guestLine(p, m, own = true){
 // a new participant pays for what they asked for: "plaque 300,000 + statue 500,000"
 function extraLine(p, m){
   const i = S.payInfo, custom = p.amount !== null && p.amount !== undefined;
-  const parts = [p.wants_plaque && `لوح${custom ? '' : ' ' + m(i.plaque_amount || 0)}`, p.wants_statue && `تندیس${custom ? '' : ' ' + m(i.statue_amount || 0)}`,
+  const parts = [p.wants_plaque && `لوح${custom ? '' : ' ' + m(i.plaque_amount || 0)}`, p.wants_statue && `تندیس${custom ? '' : ' ' + m(i.statue_amount || 0)}`, p.wants_album && `آلبوم عکس${custom ? '' : ' ' + m(i.album_amount || 0)}`,
     p.catering === 'yes' && `پذیرایی${custom ? '' : ' ' + m(i.catering_amount || 0)}`].filter(Boolean);
   return (parts.length ? `<span class="sub">${parts.join(custom ? ' و ' : ' + ')}</span>` : '')
     + ((p.catering || 'undecided') === 'undecided' ? '<span class="sub">پذیرایی هنوز مشخص نشده؛ اگه اضافه بشه، مبلغ هم بیشتر می‌شه.</span>' : '');
@@ -1966,7 +1972,7 @@ function renderPeople(){
   $('#payInfoCard').innerHTML = `<div class="payinfo ${info.card_number ? '' : 'warn'}${hasExtraCols ? ' wide' : ''}">
     <div><span class="k">کارت مقصد</span><b dir="ltr" class="num">${info.card_number ? esc(cardFmt(info.card_number)) : '—'}</b>${info.card_holder ? `<span class="sub">${esc(info.card_holder)}</span>` : ''}</div>
     <div><span class="k">مبلغ پیش‌فرض سهم</span><b>${info.default_amount ? fmt(info.default_amount) + ' ' + cur : '—'}</b>${hasGuestCols ? `<span class="sub">هر مهمان ${info.guest_amount ? fmt(info.guest_amount) + ' ' + cur : 'رایگان'}</span>` : ''}</div>
-    ${hasExtraCols ? `<div><span class="k">شرکت‌کننده‌های جدید</span><b>لوح ${money(info.plaque_amount)} · تندیس ${money(info.statue_amount)}</b><span class="sub">پذیرایی هر نفر ${money(info.catering_amount)}</span></div>` : ''}
+    ${hasExtraCols ? `<div><span class="k">شرکت‌کننده‌های جدید</span><b>لوح ${money(info.plaque_amount)} · تندیس ${money(info.statue_amount)}${hasAlbumCols ? ` · آلبوم ${money(info.album_amount)}` : ''}</b><span class="sub">پذیرایی هر نفر ${money(info.catering_amount)}</span></div>` : ''}
     <div><span class="k">مهلت</span><b>${esc(info.deadline) || '—'}</b></div>
     <button class="btn small need-edit" type="button" data-act="edit-payinfo">ویرایش اطلاعات پرداخت</button>
     ${info.card_number ? '' : '<p class="sub bad" style="grid-column:1/-1;margin:0">تا شماره کارت وارد نشه، شرکت‌کننده‌ها جایی برای واریز نمی‌بینن.</p>'}
@@ -1992,7 +1998,7 @@ function renderPeople(){
     // catering is decided later: show how the head count comes out either way
     const n = f => extras.filter(f).length, yes = n(p => p.catering === 'yes'), no = n(p => p.catering === 'no'), und = extras.length - yes - no;
     const base = mains.length + guests;
-    $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span><span>لوح ${fmt(n(p => p.wants_plaque))}</span><span>تندیس ${fmt(n(p => p.wants_statue))}</span>`
+    $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span><span>لوح ${fmt(n(p => p.wants_plaque))}</span><span>تندیس ${fmt(n(p => p.wants_statue))}</span>${hasAlbumCols ? `<span>آلبوم عکس ${fmt(n(p => p.wants_album))}</span>` : ''}`
       + `<span>پذیرایی: بله ${fmt(yes)} · نه ${fmt(no)} · تصمیم‌نشده ${fmt(und)}</span>`
       + `<span title="اصلی‌ها و مهمان‌هاشون، به‌علاوه‌ی جدیدهایی که پذیرایی دارن">کل پذیرایی ${fmt(base + yes)}${und ? ` (اگه تصمیم‌نشده‌ها هم بیان ${fmt(base + yes + und)})` : ''}</span>`
       + `<span>تسویه ${fmt(cnt('settled'))}</span><span>تأییدشده ${fmt(sum('approved'))}</span><span>مانده ${left()}</span>`
@@ -2015,7 +2021,7 @@ function renderPeople(){
   const rows = states.filter(([p, s]) => {
     if (f === 'unclaimed' ? isLinked(p) : f && s.key !== f) return false;
     if (mv && (p.major || '').trim() !== mv) return false;
-    if (fi && !(fi === 'plaque' ? p.wants_plaque : fi === 'statue' ? p.wants_statue : 'cat-' + (p.catering || 'undecided') === fi)) return false;
+    if (fi && !(fi === 'plaque' ? p.wants_plaque : fi === 'statue' ? p.wants_statue : fi === 'album' ? p.wants_album : 'cat-' + (p.catering || 'undecided') === fi)) return false;
     if (q && !toLatin([p.full_name, p.student_no, p.major, p.note, canAdmin ? myCodes.get(p.id) : ''].join(' ')).toLowerCase().includes(q)) return false;
     return true;
   }).sort(([a,sa],[b,sb2]) => ['review','unpaid','partial','settled'].indexOf(sa.key) - ['review','unpaid','partial','settled'].indexOf(sb2.key) || (a.full_name||'').localeCompare(b.full_name||'','fa'));
@@ -2196,14 +2202,14 @@ const personDlg = $('#personDlg'), personForm = $('#personForm'); let editingPer
 function openPerson(id, kind){
   if (!ready || (!id && !canEdit)) return;
   editingPerson = id ? S.participants[id] : null;
-  const p = editingPerson || {student_no:'', full_name:'', amount:null, verify_code:'', note:'', major:'', guests:0, kind:kind || 'main', wants_plaque:false, wants_statue:false, catering:'undecided'};
+  const p = editingPerson || {student_no:'', full_name:'', amount:null, verify_code:'', note:'', major:'', guests:0, kind:kind || 'main', wants_plaque:false, wants_statue:false, wants_album:false, catering:'undecided'};
   const f = personForm.elements;
   f.student_no.value = shownNo(p.student_no); f.full_name.value = p.full_name || '';
   f.major.value = p.major || ''; f.guests.value = guestsOf(p) ? fmt(guestsOf(p)) : '';
   $('#personExtra').hidden = !hasGuestCols;
   $('#personKind').hidden = !hasExtraCols;
   f.kind.value = isExtra(p) ? 'extra' : 'main';
-  f.wants_plaque.checked = !!p.wants_plaque; f.wants_statue.checked = !!p.wants_statue; f.catering.value = p.catering || 'undecided';
+  f.wants_plaque.checked = !!p.wants_plaque; f.wants_statue.checked = !!p.wants_statue; f.wants_album.checked = !!p.wants_album; $('#albumWrap').hidden = !hasAlbumCols; f.catering.value = p.catering || 'undecided';
   f.amount.value = p.amount !== null && p.amount !== undefined ? fmt(p.amount) : '';
   syncPersonKind();
   f.verify_code.value = p.verify_code || ''; f.note.value = p.note || '';
@@ -2229,7 +2235,7 @@ function openPerson(id, kind){
 }
 // the amount placeholder shows what "empty = automatic" works out to for the guests (or items) typed in
 const personDraft = () => { const f = personForm.elements; return {guests:parseNum(f.guests.value), kind:hasExtraCols && f.kind.value === 'extra' ? 'extra' : 'main',
-  wants_plaque:f.wants_plaque.checked, wants_statue:f.wants_statue.checked, catering:f.catering.value}; };
+  wants_plaque:f.wants_plaque.checked, wants_statue:f.wants_statue.checked, wants_album:hasAlbumCols && f.wants_album.checked, catering:f.catering.value}; };
 function updateAutoDue(){ personForm.elements.amount.placeholder = `خودکار: ${fmt(autoDue(personDraft()))}`; }
 // a new participant has items and catering instead of guests
 function syncPersonKind(){ const x = isExtra(personDraft()); $('#personItems').hidden = !x; $('#guestsWrap').hidden = x; updateAutoDue(); }
@@ -2283,7 +2289,7 @@ async function recordPayment(btn){
 // Enter inside the payment fields would otherwise submit (and close) the whole person form
 $('#manualPay').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); recordPayment($('#manualPay [data-act="manual-pay"]')); } });
 personForm.addEventListener('input', e => { liveFormat(e); if (e.target.name === 'guests') updateAutoDue(); });
-personForm.addEventListener('change', e => { const n = e.target.name; if (n === 'kind') syncPersonKind(); else if (['wants_plaque','wants_statue','catering'].includes(n)) updateAutoDue(); });
+personForm.addEventListener('change', e => { const n = e.target.name; if (n === 'kind') syncPersonKind(); else if (['wants_plaque','wants_statue','wants_album','catering'].includes(n)) updateAutoDue(); });
 // most of the list is phone numbers (imported from a registration sheet)?
 const phoneList = () => { const ids = Object.values(S.participants).map(p => p.student_no); return ids.length > 0 && ids.filter(isPhoneId).length * 2 >= ids.length; };
 personForm.addEventListener('submit', async e => {
@@ -2321,6 +2327,7 @@ personForm.addEventListener('submit', async e => {
     obj.kind = f.kind.value === 'extra' ? 'extra' : 'main';
     if (obj.kind === 'extra'){
       Object.assign(obj, {wants_plaque:f.wants_plaque.checked, wants_statue:f.wants_statue.checked, catering:f.catering.value});
+      if (hasAlbumCols) obj.wants_album = f.wants_album.checked;
       if (hasGuestCols) obj.guests = 0;
       // moving someone off the main list: the database also takes back their voting code
       if (editingPerson && !isExtra(editingPerson) && !confirm(`«${obj.full_name || obj.student_no}» از لیست اصلی به شرکت‌کننده‌های جدید منتقل بشه؟${guestsOf(editingPerson) ? ' مهمان‌هاش صفر می‌شه و' : ''} کد رأی‌ش (اگه داشته) باطل می‌شه.`)) return;
@@ -2439,7 +2446,7 @@ function openPayInfo(){
   f.card_number.value = cardFmt(i.card_number); f.card_holder.value = i.card_holder; f.bank.value = i.bank; f.sheba.value = i.sheba;
   f.default_amount.value = i.default_amount ? fmt(i.default_amount) : ''; f.deadline.value = i.deadline; f.note.value = i.note;
   f.guest_amount.value = i.guest_amount ? fmt(i.guest_amount) : ''; $('#guestAmtWrap').hidden = !hasGuestCols;
-  ['plaque_amount','statue_amount','catering_amount'].forEach(k => { f[k].value = i[k] ? fmt(i[k]) : ''; }); $('#extraAmtWrap').hidden = !hasExtraCols;
+  ['plaque_amount','statue_amount','album_amount','catering_amount'].forEach(k => { f[k].value = i[k] ? fmt(i[k]) : ''; }); $('#extraAmtWrap').hidden = !hasExtraCols; $('#albumAmtWrap').hidden = !hasAlbumCols;
   lockForm(payInfoForm); payInfoDlg.showModal();
 }
 payInfoForm.addEventListener('input', liveFormat);
@@ -2451,6 +2458,7 @@ payInfoForm.addEventListener('submit', async e => {
     sheba:toLatin(f.sheba.value).replace(/\s/g, '').toUpperCase(), default_amount:parseNum(f.default_amount.value), deadline:f.deadline.value.trim(), note:f.note.value.trim()};
   if (hasGuestCols) fields.guest_amount = parseNum(f.guest_amount.value);
   if (hasExtraCols) ['plaque_amount','statue_amount','catering_amount'].forEach(k => { fields[k] = parseNum(f[k].value); });
+  if (hasAlbumCols) fields.album_amount = parseNum(f.album_amount.value);
   payInfoDlg.close(); S.payInfo = {...S.payInfo, ...fields}; render();
   const { error } = await sb.from('payment_info').update(fields).eq('id', 1);
   if (error){ fail(error, 'payment_info'); await loadPayInfo(); render(); } else toast('اطلاعات پرداخت ذخیره شد');
@@ -3316,7 +3324,7 @@ function exportXlsx(){
     a3.push(['شرکت‌کننده‌های اصلی', ms.length]); if (g) a3.push(['  مهمان‌هاشون', g]);
     if (xs.length){
       const n = f => xs.filter(f).length;
-      a3.push(['شرکت‌کننده‌های جدید', xs.length], ['  لوح', n(p => p.wants_plaque)], ['  تندیس', n(p => p.wants_statue)],
+      a3.push(['شرکت‌کننده‌های جدید', xs.length], ['  لوح', n(p => p.wants_plaque)], ['  تندیس', n(p => p.wants_statue)], ['  آلبوم عکس', n(p => p.wants_album)],
         ['  با پذیرایی', n(p => p.catering === 'yes')], ['  بدون پذیرایی', n(p => p.catering === 'no')], ['  پذیرایی تصمیم‌نشده', n(p => (p.catering || 'undecided') === 'undecided')]);
     }
     a3.push(['کل پذیرایی', ms.length + g + xs.filter(p => p.catering === 'yes').length]);
@@ -3355,13 +3363,13 @@ function exportXlsx(){
   }
   if (extras.length){
     const yn = v => v ? 'بله' : '—', n = f => extras.filter(f).length;
-    const a7 = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','لوح','تندیس','پذیرایی','مبلغ','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت']];
-    extras.forEach((p,i) => { const s2 = payState(p); a7.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', yn(p.wants_plaque), yn(p.wants_statue), {yes:'بله', no:'خیر'}[p.catering] || 'تصمیم نشده', s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'']); });
+    const a7 = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','لوح','تندیس','آلبوم عکس','پذیرایی','مبلغ','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت']];
+    extras.forEach((p,i) => { const s2 = payState(p); a7.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', yn(p.wants_plaque), yn(p.wants_statue), yn(p.wants_album), {yes:'بله', no:'خیر'}[p.catering] || 'تصمیم نشده', s2.due, s2.approved, s2.pending, Math.max(0, s2.due - s2.approved), STATE_LABEL[s2.key], p.user_id ? 'بله' : 'خیر', s2.count, p.note||'']); });
     const yes = n(p => p.catering === 'yes'), no = n(p => p.catering === 'no');
-    a7.push([]); a7.push(['','','جمع','', n(p => p.wants_plaque), n(p => p.wants_statue), yes, extras.reduce((a,p) => a + dueOf(p), 0), extras.reduce((a,p) => a + payState(p).approved, 0)]);
-    a7.push(['','','پذیرایی','', '', '', `بله ${yes} · خیر ${no} · تصمیم‌نشده ${extras.length - yes - no}`]);
-    a7.push(['','','کل پذیرایی (اصلی‌ها + مهمان‌ها + جدیدهای با پذیرایی)','', '', '', parts.length + guests + yes]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a7, [6,16,24,18,8,8,12,14,14,14,14,18,10,10,30], [7,8,9,10]), 'شرکت‌کننده‌های جدید');
+    a7.push([]); a7.push(['','','جمع','', n(p => p.wants_plaque), n(p => p.wants_statue), n(p => p.wants_album), yes, extras.reduce((a,p) => a + dueOf(p), 0), extras.reduce((a,p) => a + payState(p).approved, 0)]);
+    a7.push(['','','پذیرایی','', '', '', '', `بله ${yes} · خیر ${no} · تصمیم‌نشده ${extras.length - yes - no}`]);
+    a7.push(['','','کل پذیرایی (اصلی‌ها + مهمان‌ها + جدیدهای با پذیرایی)','', '', '', '', parts.length + guests + yes]);
+    XLSX.utils.book_append_sheet(wb, sheetFrom(a7, [6,16,24,18,8,8,10,12,14,14,14,14,18,10,10,30], [8,9,10,11]), 'شرکت‌کننده‌های جدید');
   }
 
   const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
