@@ -664,7 +664,7 @@ create policy bot_broadcasts_select on public.bot_broadcasts for select to authe
 drop policy if exists bot_broadcasts_insert on public.bot_broadcasts;
 create policy bot_broadcasts_insert on public.bot_broadcasts for insert to authenticated with check (public.has_role('admin'));
 
--- ۱۹) کدهای ورود رأی‌گیری: هر شرکت‌کننده‌ی اصلی یک کد تصادفی (شرکت‌کننده‌های جدید کد ندارن). هر کس کد خودش (و هم‌شماره‌هاش) رو می‌بینه؛
+-- ۱۹) کدهای ورود رأی‌گیری: هر شرکت‌کننده‌ی اصلی یک کد تصادفی؛ شرکت‌کننده‌های جدید فقط اگه مدیر دستی بهشون بده. هر کس کد خودش (و هم‌شماره‌هاش) رو می‌بینه؛
 -- مدیرها همه‌ی کدها رو می‌بینن (برای کسی که از ربات و سایت استفاده نمی‌کنه). تغییر کدها فقط از طریق تابع‌های پایینه.
 -- کدی که عوض می‌شه یا صاحبش حذف می‌شه «باطل» (retired) می‌شه و دیگه به کسی داده نمی‌شه. در تاریخچه ثبت نمی‌شه.
 -- اجرای دوباره ضرری نداره.
@@ -732,18 +732,29 @@ begin
     'without', (select count(*) from public.participants p where p.kind = 'main' and not exists (select 1 from public.voting_codes v where v.participant_id = p.id)));
 end $$;
 
--- کد جدید برای یک نفر (کد قبلی باطل می‌شه)
+-- کد جدید برای یک نفر (اصلی یا جدید؛ کد قبلی‌ش اگه داشته باطل می‌شه)
 create or replace function public.reissue_voting_code(p_participant uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare v text;
 begin
   if not public.has_role('admin') then raise exception 'FORBIDDEN'; end if;
-  if not exists (select 1 from public.participants where id = p_participant and kind = 'main') then raise exception 'NOT_FOUND'; end if;
+  if not exists (select 1 from public.participants where id = p_participant) then raise exception 'NOT_FOUND'; end if;
   select code into v from public.voting_codes where participant_id is null and not retired order by random() limit 1 for update skip locked;
   if v is null then raise exception 'NO_FREE_CODES'; end if;
   update public.voting_codes set participant_id = null, retired = true where participant_id = p_participant;
   update public.voting_codes set participant_id = p_participant, assigned_at = now() where code = v;
   return jsonb_build_object('ok', true);
+end $$;
+
+-- پس گرفتن کد یک نفر: کدش باطل می‌شه و دیگه به کسی داده نمی‌شه
+create or replace function public.revoke_voting_code(p_participant uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare k int;
+begin
+  if not public.has_role('admin') then raise exception 'FORBIDDEN'; end if;
+  update public.voting_codes set participant_id = null, retired = true where participant_id = p_participant;
+  get diagnostics k = row_count;
+  return jsonb_build_object('ok', true, 'revoked', k);
 end $$;
 
 -- کد شخص حذف‌شده (یا کسی که دیگه شرکت‌کننده‌ی اصلی نیست) باطل می‌شه؛ شرکت‌کننده‌ی اصلی‌ای که بعداً اضافه بشه،
@@ -794,9 +805,9 @@ returns table (telegram_id bigint, full_name text, code text) language sql stabl
    order by p.id, (owner.id = p.id) desc;
 $$;
 revoke all on function public.voting_code_status(), public.add_voting_codes(text[]), public.assign_voting_codes(),
-  public.reissue_voting_code(uuid) from public, anon;
+  public.reissue_voting_code(uuid), public.revoke_voting_code(uuid) from public, anon;
 grant execute on function public.voting_code_status(), public.add_voting_codes(text[]), public.assign_voting_codes(),
-  public.reissue_voting_code(uuid) to authenticated;
+  public.reissue_voting_code(uuid), public.revoke_voting_code(uuid) to authenticated;
 revoke all on function public.voting_codes_for_telegram(bigint), public.voting_codes_to_send() from public, anon, authenticated;
 grant execute on function public.voting_codes_for_telegram(bigint), public.voting_codes_to_send() to service_role;
 
