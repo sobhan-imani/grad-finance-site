@@ -555,7 +555,7 @@ async function sendCodes(req: Request, b: SendCodes): Promise<Response> {
   });
 }
 
-// خروجی اکسل از داخل تلگرام: دانلود فایل داخل تلگرام کار نمی‌کنه، پس سایت فایل رو (base64) می‌فرسته و ربات به‌عنوان
+// خروجی اکسل و پشتیبان (zip) از داخل تلگرام: دانلود فایل داخل تلگرام کار نمی‌کنه، پس سایت فایل رو (base64) می‌فرسته و ربات به‌عنوان
 // سند برای خود همون عضو تیم مالی می‌فرستتش. فقط برای کسایی که اکسل گرفتن براشون مجازه (مدیر، ویرایشگر، بیننده).
 type SendFile = { name?: unknown; data?: unknown; caption?: unknown };
 const MAX_FILE = 10 * 1024 * 1024;
@@ -565,13 +565,14 @@ async function sendFile(req: Request, b: SendFile): Promise<Response> {
   const own = ownTelegramId(auth);
   if (!own) return json({ error: "no_telegram" }, 400);
   const name = String(b.name ?? "").replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ").trim().slice(0, 120);
-  if (!/\.xlsx$/i.test(name)) return json({ error: "bad_file" }, 400);
+  const type = /\.xlsx$/i.test(name) ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : /\.zip$/i.test(name) ? "application/zip" : "";
+  if (!type) return json({ error: "bad_file" }, 400);
   let bytes: Uint8Array;
   try { bytes = Uint8Array.from(atob(String(b.data ?? "")), (c) => c.charCodeAt(0)); } catch { return json({ error: "bad_file" }, 400); }
   if (!bytes.length || bytes.length > MAX_FILE) return json({ error: "bad_file" }, 400);
   const form = new FormData();
   form.append("chat_id", String(own));
-  form.append("document", new Blob([bytes.buffer as ArrayBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), name);
+  form.append("document", new Blob([bytes.buffer as ArrayBuffer], { type }), name);
   const caption = String(b.caption ?? "").slice(0, 900);
   if (caption) form.append("caption", caption);
   let r: TgResult;

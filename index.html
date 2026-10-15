@@ -530,6 +530,11 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
         <div class="row-btns"><button class="btn" type="button" data-act="bc-test">ارسال آزمایشی برای خودم</button><button class="btn primary" type="button" data-act="bc-send">ارسال برای همه</button></div>
         <span class="sub" id="bcMsg" aria-live="polite"></span>
       </div>
+      <div class="lbl need-admin">پشتیبان کامل
+        <span class="hint">همه‌ی جدول‌ها (شرکت‌کننده‌ها، فیش‌ها، کدها، هزینه‌ها، فاکتورها، تاریخچه، ربات…) به‌صورت JSON، به‌علاوه‌ی عکس همه‌ی فیش‌ها و فاکتورها، در یک فایل zip. داخل تلگرام، ربات فایل رو (اگه بزرگ باشه چندبخشی) برات می‌فرسته.</span>
+        <div class="row-btns"><button class="btn" type="button" data-act="full-backup">گرفتن پشتیبان کامل</button></div>
+        <span class="sub" id="bkMsg" aria-live="polite"></span>
+      </div>
       <div class="lbl need-admin" id="tgAcct">حساب تلگرام شخصی من
         <span class="hint">اختیاری. ربات فقط به کسایی پیام می‌ده که با تلگرام وارد سایت شدن. با وصل کردن حساب خودت، «پیام به شرکت‌کننده‌ها» (تب شرکت‌کننده‌ها) به بقیه هم با شماره‌شون از حساب تو می‌رسه. نشست فقط روی همین مرورگر ذخیره می‌شه، نه توی دیتابیس، و تا «قطع اتصال» رو نزنی می‌مونه. چون تلگرام فیلتره، این بخش فقط با VPN کار می‌کنه.</span>
         <div id="tgAcctBody"></div>
@@ -2824,6 +2829,7 @@ document.addEventListener('click', e => {
     if (a === 'upload'){ uploadTarget = null; return fileInput.click(); }
     if (a === 'export') return openXlsx();
     if (a === 'xl-build') return xlBuild();
+    if (a === 'full-backup') return fullBackup(el);
     if (a === 'xl-all' || a === 'xl-none'){ xlDlg.querySelectorAll('input[data-xl]:not(:disabled)').forEach(i => { i.checked = a === 'xl-all'; }); return xlSync(); }
     if (a === 'logout') return logout();
     if (a === 'recheck') return recheck();
@@ -3505,7 +3511,7 @@ function exportXlsx(want){
 
   const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
   const ds = ['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-');
-  const name = `${(st.title||'جشن').replace(/[\\/:*?"<>|]/g,' ').trim()} - ${ds}.xlsx`;
+  const name = `grad-finance-${ds}.xlsx`; // a plain Latin name: Persian ones get mangled by some apps
   // inside Telegram a download goes nowhere, so the bot sends the file to the person instead
   if (tgWA) return xlToBot(wb, name, [...want].map(k => (xlChoices().find(c => c[0] === k) || [])[1]).filter(Boolean));
   XLSX.writeFile(wb, name);
@@ -3523,6 +3529,103 @@ async function xlToBot(wb, name, sheets){
   toast(XL_BOT_ERR[b.error] || 'فرستادن فایل در ربات نشد؛ مطمئن شو تابع telegram-auth به‌روز شده، یا سایت رو در مرورگر باز کن.');
 }
 $('#exportBtn').addEventListener('click', openXlsx);
+/* ---------- full backup (admin) ----------
+   Every table the admin can read, as JSON, plus the receipt and invoice pictures, in one zip. Rows are read fresh from
+   the database (1000 at a time), not from the page. Inside Telegram the bot sends it instead, split in parts under 6 MB. */
+const BK_TABLES = [['settings','id'], ['payment_info','id'], ['members','user_id'], ['participants','id'], ['payments','id'], ['voting_codes','code'],
+  ['items','id'], ['invoices','id'], ['funds','id'], ['activity','id'], ['bot_settings','id'], ['bot_users','telegram_id'], ['bot_broadcasts','id']];
+const BK_PART = 6 * 1024 * 1024;
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8){ let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+// a plain (stored, uncompressed) zip; pictures are compressed already. File names are UTF-8.
+function makeZip(files){
+  const enc = new TextEncoder(), parts = [], central = [], d = new Date();
+  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  let off = 0;
+  files.forEach(f => {
+    const name = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(10, time, true); h.setUint16(12, date, true);
+    h.setUint32(14, crc, true); h.setUint32(18, size, true); h.setUint32(22, size, true); h.setUint16(26, name.length, true);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(12, time, true); c.setUint16(14, date, true);
+    c.setUint32(16, crc, true); c.setUint32(20, size, true); c.setUint32(24, size, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+    parts.push(new Uint8Array(h.buffer), name, f.data); central.push(new Uint8Array(c.buffer), name);
+    off += 30 + name.length + size;
+  });
+  const e = new DataView(new ArrayBuffer(22)), cd = central.reduce((a, b) => a + b.length, 0);
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cd, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], {type:'application/zip'});
+}
+async function bkTable(table, key){
+  const rows = [];
+  for (let from = 0; ; from += 1000){
+    const { data, error } = await sb.from(table).select('*').order(key).range(from, from + 999);
+    if (error) return {rows, error:error.message || String(error.code || 'error')};
+    rows.push(...(data || []));
+    if (!data || data.length < 1000) return {rows};
+  }
+}
+async function bkFiles(bucket, paths, got, status){
+  const out = [], missing = [];
+  for (let i = 0; i < paths.length; i += 50){
+    const chunk = paths.slice(i, i + 50);
+    const { data, error } = await sb.storage.from(bucket).createSignedUrls(chunk, 600);
+    if (error){ missing.push(...chunk); continue; }
+    const urls = new Map((data || []).filter(x => x.signedUrl).map(x => [x.path, x.signedUrl]));
+    for (let j = 0; j < chunk.length; j += 4) await Promise.all(chunk.slice(j, j + 4).map(async p => {
+      try { const r = await fetch(urls.get(p)); if (!r.ok) throw 0; out.push({name:`${bucket}/${p}`, data:new Uint8Array(await r.arrayBuffer())}); }
+      catch(e){ missing.push(p); }
+      status(++got.n);
+    }));
+  }
+  return {out, missing};
+}
+const u8ToB64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+let bkBusy = false;
+async function fullBackup(btn){
+  if (!canAdmin || bkBusy) return;
+  bkBusy = true; btn.disabled = true;
+  const msg = $('#bkMsg'), say = (t, cls = '') => { msg.className = 'sub ' + cls; msg.textContent = t; };
+  try {
+    say('در حال خواندن جدول‌ها…');
+    const tables = {}, errors = {};
+    for (const [t, key] of BK_TABLES){ const r = await bkTable(t, key); tables[t] = r.rows; if (r.error) errors[t] = r.error; }
+    const receipts = [...new Set((tables.payments || []).filter(hasFile).map(x => x.file_path))];
+    const invoices = [...new Set((tables.invoices || []).map(v => v.file_path).filter(Boolean))];
+    const total = receipts.length + invoices.length, got = {n:0}, status = n => say(`در حال دریافت عکس‌ها: ${fmt(n)} از ${fmt(total)}…`);
+    const r1 = await bkFiles('receipts', receipts, got, status), r2 = await bkFiles(BUCKET, invoices, got, status);
+    const stamp = new Date();
+    const data = {app:'grad-finance-site', exported_at:stamp.toISOString(), supabase_url:cfg.supabaseUrl || '', tables, errors,
+      files:{receipts:receipts.length - r1.missing.length, invoices:invoices.length - r2.missing.length}, missing_files:{receipts:r1.missing, invoices:r2.missing}};
+    const enc = new TextEncoder();
+    const head = [{name:'data.json', data:enc.encode(JSON.stringify(data, null, 1))},
+      {name:'README.txt', data:enc.encode(`پشتیبان کامل «${S.settings.title || 'جشن'}» — ${stamp.toLocaleString('fa-IR')}\n\ndata.json: همه‌ی جدول‌ها (هر جدول یک فهرست از ردیف‌ها).\nreceipts/ و invoices/: عکس فیش‌ها و فاکتورها با همون مسیری که در Storage سوپابیس دارن.\nبرای برگرداندن: schema.sql رو در پروژه‌ی تازه اجرا کن، بعد ردیف‌ها رو از data.json وارد کن و پوشه‌ها رو در سطل‌های receipts و invoices آپلود کن.\n`)}];
+    const files = [...head, ...r1.out, ...r2.out];
+    const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(stamp);
+    const base = `grad-finance-backup-${['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-')}`;
+    const problems = Object.keys(errors).length + r1.missing.length + r2.missing.length;
+    const tail = `${fmt(Object.values(tables).reduce((a, r) => a + r.length, 0))} ردیف، ${fmt(r1.out.length + r2.out.length)} عکس` + (problems ? ` (${fmt(problems)} مورد خوانده نشد؛ فهرستش در data.json هست)` : '');
+    if (!tgWA){
+      const a = document.createElement('a'); a.href = URL.createObjectURL(makeZip(files)); a.download = base + '.zip';
+      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+      say('پشتیبان دانلود شد: ' + tail, problems ? 'bad' : 'pos'); return;
+    }
+    // inside Telegram: the bot sends it, in parts small enough to upload
+    const groups = [[]]; let size = 0;
+    files.forEach(f => { if (size + f.data.length > BK_PART && groups.at(-1).length){ groups.push([]); size = 0; } groups.at(-1).push(f); size += f.data.length; });
+    for (let i = 0; i < groups.length; i++){
+      say(`در حال فرستادن در ربات: بخش ${fmt(i + 1)} از ${fmt(groups.length)}…`);
+      const zip = new Uint8Array(await makeZip(groups[i]).arrayBuffer());
+      const name = groups.length > 1 ? `${base}-part${i + 1}of${groups.length}.zip` : base + '.zip';
+      const { error } = await sb.functions.invoke('telegram-auth', {body:{send_file:{name, data:u8ToB64(zip), caption:`🗄 پشتیبان کامل${groups.length > 1 ? ` · بخش ${i + 1} از ${groups.length}` : ''}\n${tail}`}}});
+      if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} say(XL_BOT_ERR[b.error] || 'فرستادن در ربات نشد؛ مطمئن شو تابع telegram-auth به‌روز شده، یا سایت رو در مرورگر باز کن.', 'bad'); return; }
+    }
+    say(`پشتیبان در ربات برات فرستاده شد${groups.length > 1 ? ` (${fmt(groups.length)} بخش)` : ''}: ` + tail, problems ? 'bad' : 'pos');
+  } catch(e){ console.error('backup', e); say('ساخت پشتیبان انجام نشد؛ دوباره امتحان کن.', 'bad'); }
+  finally { bkBusy = false; btn.disabled = false; }
+}
+
 
 boot();
 })();
