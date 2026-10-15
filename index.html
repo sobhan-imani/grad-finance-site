@@ -763,7 +763,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   <form method="dialog" novalidate onsubmit="return false">
     <div class="dlg-head"><h2>خروجی اکسل</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
     <div class="dlg-body">
-      <p class="hint" style="color:var(--muted);font-size:13px;margin:0">چه چیزهایی توی فایل باشه؟ هر مورد یک برگه‌ی جدا می‌شه.</p>
+      <p class="hint" style="color:var(--muted);font-size:13px;margin:0">چه چیزهایی توی فایل باشه؟ هر مورد یک برگه‌ی جدا می‌شه.<span class="xl-tg" hidden> داخل تلگرام، فایل رو ربات برات می‌فرسته.</span></p>
       <div class="chips xl-quick"><button class="chip" type="button" data-act="xl-all">انتخاب همه</button><button class="chip" type="button" data-act="xl-none">هیچ‌کدوم</button></div>
       <div class="xl-list" id="xlList"></div>
     </div>
@@ -3392,11 +3392,12 @@ function openXlsx(){
   $('#xlList').innerHTML = xlChoices().map(([k, name, what, n]) => { const empty = n === 0;
     return `<label class="check xl-item${empty ? ' off' : ''}"><input type="checkbox" data-xl="${k}"${saved.has(k) && !empty ? ' checked' : ''}${empty ? ' disabled' : ''}>
       <span><b>${name}</b>${n !== null ? `<small>${empty ? 'خالی' : fmt(n) + ' مورد'}</small>` : ''}<span class="sub">${what}</span></span></label>`; }).join('');
+  xlDlg.querySelector('.xl-tg').hidden = !tgWA;
   xlSync();
   if (!xlDlg.open) xlDlg.showModal();
 }
 const xlPicked = () => [...xlDlg.querySelectorAll('input[data-xl]:checked')].map(i => i.dataset.xl);
-function xlSync(){ const n = xlPicked().length, b = xlDlg.querySelector('[data-act="xl-build"]'); b.disabled = !n; b.textContent = n ? `ساخت فایل اکسل (${fmt(n)} برگه)` : 'یک مورد رو انتخاب کن'; }
+function xlSync(){ const n = xlPicked().length, b = xlDlg.querySelector('[data-act="xl-build"]'); b.disabled = !n; b.textContent = n ? `${tgWA ? 'فرستادن در ربات' : 'ساخت فایل اکسل'} (${fmt(n)} برگه)` : 'یک مورد رو انتخاب کن'; }
 xlDlg.addEventListener('change', xlSync);
 xlDlg.addEventListener('click', e => { if (e.target === xlDlg) xlDlg.close(); });
 function xlBuild(){
@@ -3504,8 +3505,22 @@ function exportXlsx(want){
 
   const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
   const ds = ['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-');
-  XLSX.writeFile(wb, `${(st.title||'جشن').replace(/[\\/:*?"<>|]/g,' ').trim()} - ${ds}.xlsx`);
-  if (tgWA) toast('اگه داخل تلگرام دانلود نشد، سایت رو در مرورگر باز کن و از اونجا خروجی بگیر');
+  const name = `${(st.title||'جشن').replace(/[\\/:*?"<>|]/g,' ').trim()} - ${ds}.xlsx`;
+  // inside Telegram a download goes nowhere, so the bot sends the file to the person instead
+  if (tgWA) return xlToBot(wb, name, [...want].map(k => (xlChoices().find(c => c[0] === k) || [])[1]).filter(Boolean));
+  XLSX.writeFile(wb, name);
+}
+const XL_BOT_ERR = {no_telegram:'حسابت به تلگرام وصل نیست؛ سایت رو در مرورگر باز کن و از اونجا خروجی بگیر.', start_bot_first:'اول ربات رو توی تلگرام Start کن، بعد دوباره امتحان کن.',
+  not_staff:'فقط تیم مالی می‌تونه خروجی بگیره.', bad_file:'فایل خیلی بزرگه؛ موارد کمتری انتخاب کن.'};
+async function xlToBot(wb, name, sheets){
+  toast('در حال فرستادن فایل در ربات…');
+  const data = XLSX.write(wb, {bookType:'xlsx', type:'base64'});
+  const caption = `📊 خروجی اکسل · ${new Intl.DateTimeFormat('fa-IR', {dateStyle:'medium', timeStyle:'short'}).format(new Date())}` + (sheets.length ? `\n${sheets.join('، ')}` : '');
+  const { error } = await sb.functions.invoke('telegram-auth', {body:{send_file:{name, data, caption}}});
+  if (!error){ toast('فایل اکسل توی ربات برات فرستاده شد'); return; }
+  let b = {}; try { b = await error.context.json(); } catch(e){}
+  console.error('send_file', b);
+  toast(XL_BOT_ERR[b.error] || 'فرستادن فایل در ربات نشد؛ مطمئن شو تابع telegram-auth به‌روز شده، یا سایت رو در مرورگر باز کن.');
 }
 $('#exportBtn').addEventListener('click', openXlsx);
 

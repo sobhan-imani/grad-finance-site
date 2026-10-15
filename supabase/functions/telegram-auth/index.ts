@@ -357,12 +357,13 @@ function codesText(rows: CodeRow[]): string {
 }
 
 // فقط مدیر. نقش رو مثل خود سایت (با نشست خود کاربر) می‌خونیم؛ دسترسی service role به جدول members لازم نیست.
-async function requireAdmin(req: Request) {
+async function requireAdmin(req: Request) { return requireRole(req, ["admin"], "not_admin"); }
+async function requireRole(req: Request, roles: string[], refusal: string) {
   const who = await caller(req);
   if (!who.user) return { res: json({ error: "not_logged_in" }, 401) };
   const { data: me, error } = await asUser(who).from("members").select("role, telegram_id").eq("user_id", who.user.id).maybeSingle();
   if (error) return { res: json({ error: "role_check_failed", detail: error.message }, 500) };
-  if (me?.role !== "admin") return { res: json({ error: "not_admin", role: me?.role ?? null }, 403) };
+  if (!roles.includes(me?.role)) return { res: json({ error: refusal, role: me?.role ?? null }, 403) };
   return { who, me };
 }
 function httpsSite(raw: unknown): string | null {
@@ -554,19 +555,47 @@ async function sendCodes(req: Request, b: SendCodes): Promise<Response> {
   });
 }
 
+// خروجی اکسل از داخل تلگرام: دانلود فایل داخل تلگرام کار نمی‌کنه، پس سایت فایل رو (base64) می‌فرسته و ربات به‌عنوان
+// سند برای خود همون عضو تیم مالی می‌فرستتش. فقط برای کسایی که اکسل گرفتن براشون مجازه (مدیر، ویرایشگر، بیننده).
+type SendFile = { name?: unknown; data?: unknown; caption?: unknown };
+const MAX_FILE = 10 * 1024 * 1024;
+async function sendFile(req: Request, b: SendFile): Promise<Response> {
+  const auth = await requireRole(req, ["admin", "editor", "viewer"], "not_staff");
+  if ("res" in auth) return auth.res!;
+  const own = ownTelegramId(auth);
+  if (!own) return json({ error: "no_telegram" }, 400);
+  const name = String(b.name ?? "").replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ").trim().slice(0, 120);
+  if (!/\.xlsx$/i.test(name)) return json({ error: "bad_file" }, 400);
+  let bytes: Uint8Array;
+  try { bytes = Uint8Array.from(atob(String(b.data ?? "")), (c) => c.charCodeAt(0)); } catch { return json({ error: "bad_file" }, 400); }
+  if (!bytes.length || bytes.length > MAX_FILE) return json({ error: "bad_file" }, 400);
+  const form = new FormData();
+  form.append("chat_id", String(own));
+  form.append("document", new Blob([bytes.buffer as ArrayBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), name);
+  const caption = String(b.caption ?? "").slice(0, 900);
+  if (caption) form.append("caption", caption);
+  let r: TgResult;
+  try { r = await (await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, { method: "POST", body: form })).json() as TgResult; }
+  catch { return json({ error: "telegram_failed" }, 502); }
+  if (r.ok) return json({ ok: true });
+  if (r.error_code === 403) return json({ error: "start_bot_first" }, 400);
+  return json({ error: "telegram_failed", detail: r.description }, 502);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!BOT_TOKEN) return json({ error: "bot_token_missing" }, 500);
   if (req.headers.has("x-telegram-bot-api-secret-token")) return onTelegramUpdate(req);
 
-  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string; setup_bot?: boolean; site?: string; broadcast?: Broadcast; notify?: Notify; send_codes?: SendCodes };
+  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string; setup_bot?: boolean; site?: string; broadcast?: Broadcast; notify?: Notify; send_codes?: SendCodes; send_file?: SendFile };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
   if (typeof body.contact === "string") return linkByPhone(req, body.contact);
   if (body.setup_bot) return setupBot(req, String(body.site ?? ""));
   if (body.broadcast && typeof body.broadcast === "object") return broadcast(req, body.broadcast);
   if (body.notify && typeof body.notify === "object") return notify(req, body.notify);
   if (body.send_codes && typeof body.send_codes === "object") return sendCodes(req, body.send_codes);
+  if (body.send_file && typeof body.send_file === "object") return sendFile(req, body.send_file);
 
   const tg = body.initData ? await verifyInitData(body.initData)
            : body.widget ? await verifyWidget(body.widget) : null;
