@@ -3511,7 +3511,7 @@ function exportXlsx(want){
 
   const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
   const ds = ['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-');
-  const name = `${(st.title||'جشن').replace(/[\\/:*?"<>|]/g,' ').trim()} - ${ds}.xlsx`;
+  const name = `grad-finance-${ds}.xlsx`; // a plain Latin name: Persian ones get mangled by some apps
   // inside Telegram a download goes nowhere, so the bot sends the file to the person instead
   if (tgWA) return xlToBot(wb, name, [...want].map(k => (xlChoices().find(c => c[0] === k) || [])[1]).filter(Boolean));
   XLSX.writeFile(wb, name);
@@ -3603,7 +3603,7 @@ async function fullBackup(btn){
       {name:'README.txt', data:enc.encode(`پشتیبان کامل «${S.settings.title || 'جشن'}» — ${stamp.toLocaleString('fa-IR')}\n\ndata.json: همه‌ی جدول‌ها (هر جدول یک فهرست از ردیف‌ها).\nreceipts/ و invoices/: عکس فیش‌ها و فاکتورها با همون مسیری که در Storage سوپابیس دارن.\nبرای برگرداندن: schema.sql رو در پروژه‌ی تازه اجرا کن، بعد ردیف‌ها رو از data.json وارد کن و پوشه‌ها رو در سطل‌های receipts و invoices آپلود کن.\n`)}];
     const files = [...head, ...r1.out, ...r2.out];
     const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(stamp);
-    const base = `پشتیبان ${(S.settings.title || 'جشن').replace(/[\\/:*?"<>|]/g, ' ').trim()} - ${['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-')}`;
+    const base = `grad-finance-backup-${['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-')}`;
     const problems = Object.keys(errors).length + r1.missing.length + r2.missing.length;
     const tail = `${fmt(Object.values(tables).reduce((a, r) => a + r.length, 0))} ردیف، ${fmt(r1.out.length + r2.out.length)} عکس` + (problems ? ` (${fmt(problems)} مورد خوانده نشد؛ فهرستش در data.json هست)` : '');
     if (!tgWA){
@@ -3617,7 +3617,7 @@ async function fullBackup(btn){
     for (let i = 0; i < groups.length; i++){
       say(`در حال فرستادن در ربات: بخش ${fmt(i + 1)} از ${fmt(groups.length)}…`);
       const zip = new Uint8Array(await makeZip(groups[i]).arrayBuffer());
-      const name = groups.length > 1 ? `${base} (${i + 1} از ${groups.length}).zip` : base + '.zip';
+      const name = groups.length > 1 ? `${base}-part${i + 1}of${groups.length}.zip` : base + '.zip';
       const { error } = await sb.functions.invoke('telegram-auth', {body:{send_file:{name, data:u8ToB64(zip), caption:`🗄 پشتیبان کامل${groups.length > 1 ? ` · بخش ${i + 1} از ${groups.length}` : ''}\n${tail}`}}});
       if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} say(XL_BOT_ERR[b.error] || 'فرستادن در ربات نشد؛ مطمئن شو تابع telegram-auth به‌روز شده، یا سایت رو در مرورگر باز کن.', 'bad'); return; }
     }
