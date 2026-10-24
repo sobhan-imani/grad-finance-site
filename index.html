@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
+<script src="config.js"></script>
+<script src="i18n.js"></script>
 <title>حساب و کتاب جشن فارغ‌التحصیلی</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
 <style>
@@ -269,6 +271,9 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
 [hidden]{display:none!important}
 .claim-box{display:grid;gap:12px}
 .pay-app-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.gate-card{position:relative}
+.gate-card > .lang-btn{position:absolute;top:12px;inset-inline-end:12px}
+.lang-btn{font-family:"Vazirmatn",system-ui,sans-serif}
 .pay-app-head h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,6vw,36px);margin:0;line-height:1.2}
 .pay-wrap{display:grid;gap:12px;max-width:560px}
 .pay-hello h2{margin:0;font-size:20px}
@@ -380,6 +385,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 <body>
 <div class="gate" id="gate">
   <div class="gate-card">
+    <button class="btn small lang-btn" type="button" data-act="lang" translate="no">English</button>
     <h1>حساب و کتاب جشن</h1>
     <p id="gateMsg">برای ورود، با تلگرام وارد شو.</p>
     <div id="tgBox" class="tg-box"></div>
@@ -414,7 +420,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
       <h1 id="title">جشن فارغ‌التحصیلی</h1>
       <p class="sub"><span class="dot" id="syncDot"></span><span id="syncText">در حال اتصال…</span></p>
     </div>
-    <div class="who"><span class="me" id="me"></span><span class="tag role-tag" id="roleTag"></span><button class="btn small" type="button" id="logoutBtn">خروج</button><button class="btn primary" id="exportBtn" type="button">خروجی اکسل</button></div>
+    <div class="who"><span class="me" id="me"></span><span class="tag role-tag" id="roleTag"></span><button class="btn small lang-btn" type="button" data-act="lang" translate="no">English</button><button class="btn small" type="button" id="logoutBtn">خروج</button><button class="btn primary" id="exportBtn" type="button">خروجی اکسل</button></div>
   </header>
 
   <section class="ledger" aria-label="برآورد کل">
@@ -513,7 +519,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
         <input class="field" id="setBudget" inputmode="numeric" placeholder="مثلاً ۵۰٬۰۰۰٬۰۰۰"></label>
       <label class="lbl">تعداد نفرات سهیم <span class="hint">برای محاسبه سهم هر نفر</span>
         <input class="field" id="setHead" inputmode="numeric" placeholder="مثلاً ۲۵"></label>
-      <label class="lbl">واحد پول<select class="field" id="setCur"><option>تومان</option><option>ریال</option></select></label>
+      <label class="lbl">واحد پول<select class="field" id="setCur"><option value="تومان">تومان</option><option value="ریال">ریال</option></select></label>
       <p class="hint" id="setMeta" style="color:var(--muted);font-size:13px;margin:0"></p>
       <div class="lbl need-admin">ربات تلگرام
         <span class="hint">یک بار بزن: بعدش هر کس ربات رو Start کنه، پیام خوش‌آمد با دکمه‌ی «ورود به سایت» می‌گیره و دکمه‌ی منوی ربات هم همین سایت رو باز می‌کنه. این کار رو از آدرس اصلی سایت انجام بده؛ اگه آدرس سایت عوض شد، دوباره بزن.</span>
@@ -547,7 +553,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 </div>
 
 <div class="wrap" id="payApp" hidden>
-  <header class="pay-app-head"><h1>پرداخت سهم جشن</h1><button class="btn small" type="button" data-act="logout">خروج</button></header>
+  <header class="pay-app-head"><h1>پرداخت سهم جشن</h1><span class="row-btns"><button class="btn small lang-btn" type="button" data-act="lang" translate="no">English</button><button class="btn small" type="button" data-act="logout">خروج</button></span></header>
   <div id="myPayFull"></div>
 </div>
 
@@ -815,7 +821,6 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 
 <div class="toast" id="toast" aria-live="polite"><div></div></div>
 
-<script src="config.js"></script>
 <script src="vendor/supabase.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
 <script>
@@ -837,6 +842,8 @@ const AUDIT = ['created_at','created_by','updated_at','updated_by'];
 
 const $ = s => document.querySelector(s);
 const cfg = window.APP_CONFIG || {};
+// the language button offers the other language
+document.querySelectorAll('[data-act="lang"]').forEach(b => { const fa = I18N.lang !== 'fa'; b.textContent = fa ? 'فارسی' : 'English'; b.lang = fa ? 'fa' : 'en'; b.title = fa ? 'نمایش به فارسی' : 'Show in English'; });
 let sb = null, me = null, channel = null, ready = false;
 const emptyState = () => ({settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[], participants:{}, payments:{}, payInfo:{}});
 let S = emptyState();
@@ -845,9 +852,11 @@ const urlCache = new Map(); // file_path -> {url, exp}
 const urlPending = new Set();
 
 /* ---------- helpers ---------- */
-const nf = new Intl.NumberFormat('fa-IR');
+const nf = new Intl.NumberFormat(I18N.numLocale);
 const fmt = n => nf.format(Math.round(n || 0));
-const money = n => fmt(n) + ' ' + S.settings.currency;
+// the currency as shown (stored as typed; Toman and Rial have English names)
+const curName = () => tr(S.settings.currency || 'تومان');
+const money = n => fmt(n) + ' ' + curName();
 const toLatin = s => String(s ?? '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 const parseNum = s => { const v = toLatin(s).replace(/[^\d]/g, ''); return v ? Number(v) : 0; };
 const normNo = s => toLatin(s).replace(/[\s\-_/.]/g, '').toUpperCase(); // student number, as stored
@@ -902,9 +911,9 @@ const fundsOnly = () => Object.values(S.funds).filter(f => f.kind !== 'contrib')
 const invOf = itemId => Object.values(S.invoices).filter(v => v.item_id === itemId);
 const invSum = itemId => invOf(itemId).reduce((a,v) => a + (Number(v.total)||0), 0);
 const ts = v => v ? new Date(v).getTime() : 0;
-const faDate = v => v ? new Intl.DateTimeFormat('fa-IR', {month:'short', day:'numeric'}).format(new Date(v)) : '';
+const faDate = v => v ? new Intl.DateTimeFormat(I18N.dateLocale, {month:'short', day:'numeric'}).format(new Date(v)) : '';
 const who = e => e ? String(e) : '';
-const metaLine = r => r && r.updated_by ? `آخرین تغییر: ${who(r.updated_by)}، ${new Intl.DateTimeFormat('fa-IR', {month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'}).format(new Date(r.updated_at))}` + (r.created_by && r.created_by !== r.updated_by ? ` · ثبت اولیه: ${who(r.created_by)}` : '') : '';
+const metaLine = r => r && r.updated_by ? `آخرین تغییر: ${who(r.updated_by)}، ${new Intl.DateTimeFormat(I18N.dateLocale, {month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'}).format(new Date(r.updated_at))}` + (r.created_by && r.created_by !== r.updated_by ? ` · ثبت اولیه: ${who(r.created_by)}` : '') : '';
 
 function toast(msg){
   const t = $('#toast'); t.firstElementChild.textContent = msg; t.classList.add('show');
@@ -1403,20 +1412,22 @@ async function loadActivity(){
   const { data, error } = await sb.from('activity').select('*').order('id', {ascending:false}).limit(200);
   if (!error) S.activity = data;
 }
+const ARROW = I18N.lang === 'fa' ? '←' : '→';
 function renderHistory(){
   const box = $('#historyList');
   if (!S.activity.length){ box.innerHTML = '<div class="empty">هنوز تغییری ثبت نشده.</div>'; return; }
   const TBL = {items:'هزینه', invoices:'فاکتور', settings:'تنظیمات', participants:'شرکت‌کننده', payments:'فیش', payment_info:'اطلاعات پرداخت', bot_settings:'ربات', bot_broadcasts:'پیام'};
   const ACT = {insert:'اضافه کرد', update:'ویرایش کرد', delete:'حذف کرد'};
   const COL = {insert:'var(--ok)', update:'var(--gold)', delete:'var(--bad)'};
-  const dt = new Intl.DateTimeFormat('fa-IR', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+  const dt = new Intl.DateTimeFormat(I18N.dateLocale, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
   box.innerHTML = S.activity.map(a => {
     const r = a.new_row || a.old_row || {}, kind = r.kind;
     const what = a.tbl === 'funds' ? (kind === 'contrib' ? 'سهم' : 'واریزی') : (TBL[a.tbl] || a.tbl);
+    const verb = a.tbl === 'bot_broadcasts' && a.action === 'insert' ? 'فرستاد' : ACT[a.action] || a.action;
     let chg = '';
     if (a.action === 'update' && a.old_row && a.new_row){
       chg = Object.keys(FIELD_LABELS).filter(k => k in a.new_row && JSON.stringify(a.old_row[k]) !== JSON.stringify(a.new_row[k]))
-        .map(k => `${FIELD_LABELS[k]}: ${esc(valText(k, a.old_row[k], a.tbl, kind))} ← ${esc(valText(k, a.new_row[k], a.tbl, kind))}`).join('، ');
+        .map(k => `${tr(FIELD_LABELS[k])}: ${esc(tr(valText(k, a.old_row[k], a.tbl, kind)))} ${ARROW} ${esc(tr(valText(k, a.new_row[k], a.tbl, kind)))}`).join(tr('، '));
     } else if (a.tbl === 'bot_broadcasts'){
       chg = `برای ${fmt(r.sent || 0)} نفر` + (r.failed ? `، ${fmt(r.failed)} نفر نرسید` : '');
     } else if (a.action !== 'update'){
@@ -1424,7 +1435,7 @@ function renderHistory(){
       chg = amt ? `مبلغ: ${fmt(amt)}` : '';
     }
     return `<div class="hist" style="--c:${COL[a.action] || 'var(--line)'}"><span class="who2">${esc(a.actor_name || '—')}</span><span class="when">${dt.format(new Date(a.at))}</span>
-      <span class="what">${esc(what)} ${a.title ? `«${esc(a.title)}» ` : ''}رو ${esc(a.tbl === 'bot_broadcasts' && a.action === 'insert' ? 'فرستاد' : ACT[a.action] || a.action)}${chg ? `<span class="chg">${chg}</span>` : ''}</span></div>`;
+      <span class="what">${a.title ? tr('{0} «{1}» رو {2}', esc(tr(what)), esc(a.title), esc(tr(verb))) : tr('{0} رو {1}', esc(tr(what)), esc(tr(verb)))}${chg ? `<span class="chg">${chg}</span>` : ''}</span></div>`;
   }).join('');
 }
 
@@ -1454,10 +1465,10 @@ function render(){
   const t = totals(), st = S.settings, head = Number(st.headcount)||0;
   const budget = Number(st.budget) || t.expected, budgetName = Number(st.budget) ? 'سقف بودجه' : 'کل بودجه';
   $('#title').textContent = st.title || DEFAULT_SETTINGS.title;
-  document.title = 'حساب و کتاب ' + (st.title || DEFAULT_SETTINGS.title);
+  document.title = tr('حساب و کتاب {0}', tr(st.title || DEFAULT_SETTINGS.title));
 
   $('#sMin').textContent = fmt(t.min); $('#sMid').textContent = fmt(t.mid); $('#sMax').textContent = fmt(t.max);
-  const pp = v => head ? `هر نفر ${fmt(Math.ceil(v/head))} ${st.currency}` : st.currency;
+  const pp = v => head ? `هر نفر ${fmt(Math.ceil(v/head))} ${curName()}` : curName();
   $('#pMin').textContent = pp(t.min); $('#pMid').textContent = pp(t.mid); $('#pMax').textContent = pp(t.max);
 
   // every bar uses the same scale, so their lengths compare directly with each other and with the budget tick
@@ -1524,7 +1535,7 @@ function renderItems(t){
     const invTag = n ? `<span class="tag ok">${fmt(n)} فاکتور</span>` : (it.paid ? '<span class="tag warn">بدون فاکتور</span>' : '');
     return `<button class="row" type="button" data-item="${esc(it.id)}" style="--c:${ty.c}">
       <span class="stripe"></span>
-      <span><span class="t">${esc(it.title)}</span>${it.reason ? `<span class="r">${esc(it.reason)}</span>` : ''}
+      <span><span class="t">${esc(it.title)}</span>${it.reason ? `<span class="r" translate="no">${esc(it.reason)}</span>` : ''}
         <span class="meta"><span class="tag type">${ty.l}</span><span class="tag">${esc(it.category||'سایر')}</span>${invTag}${it.paid && !isFund(it.payer) ? `<span class="tag">از جیب ${esc(it.payer)}</span>` : ''}${it.updated_by ? `<span class="tag">${esc(who(it.updated_by))}</span>` : ''}</span></span>
       <span class="status ${it.paid ? 'paid' : ''}">${it.paid ? 'پرداخت شد' : 'پرداخت‌نشده'}</span>
       <span class="amt"><b>${fmt(cost(it))}</b>${sub ? `<small>${sub}</small>` : ''}</span>
@@ -1666,7 +1677,7 @@ async function openInvoice(id){
   const f = invForm.elements;
   $('#invItemSel').innerHTML = itemOptions(v.item_id);
   f.total.value = v.total ? fmt(v.total) : ''; f.vendor.value = v.vendor || ''; f.invoice_date.value = v.invoice_date || ''; f.note.value = v.note || '';
-  $('#invCurHint').textContent = S.settings.currency; lockForm(invForm);
+  $('#invCurHint').textContent = curName(); lockForm(invForm);
   $('#invMeta').textContent = [v.file_name, metaLine(v)].filter(Boolean).join(' · ');
   const pv = $('#invPreview'); pv.innerHTML = '<span style="padding:24px;color:var(--muted)">در حال بارگذاری فایل…</span>';
   if (!invDlg.open) invDlg.showModal();
@@ -1703,7 +1714,7 @@ function moneyRows(arr, kind){
   const yes = kind === 'fund' ? 'دریافت شد' : 'واریز کرده', no = kind === 'fund' ? 'در راه' : 'هنوز نداده';
   return arr.map(c => `<button class="row" type="button" data-entry="${esc(c.id)}" style="--c:${c.paid ? 'var(--ok)' : 'var(--line)'}">
       <span class="stripe"></span>
-      <span><span class="t">${esc(c.name)}</span>${c.note ? `<span class="r">${esc(c.note)}</span>` : ''}${c.updated_by ? `<span class="meta"><span class="tag">${esc(who(c.updated_by))}</span></span>` : ''}</span>
+      <span><span class="t">${esc(c.name)}</span>${c.note ? `<span class="r" translate="no">${esc(c.note)}</span>` : ''}${c.updated_by ? `<span class="meta"><span class="tag">${esc(who(c.updated_by))}</span></span>` : ''}</span>
       <span class="status ${c.paid ? 'paid' : ''}">${c.paid ? yes : no}</span>
       <span class="amt"><b>${fmt(c.amount)}</b><small>${faDate(c.created_at)}</small></span>
     </button>`).join('');
@@ -1868,7 +1879,7 @@ function shareWithGuests(p, n){
 }
 function updateGuestPreview(){
   const out = $('#gaPreview'), p = payee(); if (!out || !p) return;
-  const n = guestCount(), cur = S.settings.currency || 'تومان', g = guestsOf(p);
+  const n = guestCount(), cur = curName(), g = guestsOf(p);
   out.className = 'sub';
   if (!n){ out.textContent = 'تعداد رو بنویس.'; return; }
   if (n > 10 || g + n > MAX_GUESTS){ out.classList.add('bad'); out.textContent = `هر بار حداکثر ۱۰ نفر، و در کل حداکثر ${fmt(MAX_GUESTS)} مهمان. برای بیشتر با مسئول‌های مالی هماهنگ کن.`; return; }
@@ -1878,7 +1889,7 @@ function updateGuestPreview(){
 async function addGuests(btn){
   const p = payee(), n = guestCount(); if (!p) return;
   if (!n || n > 10 || guestsOf(p) + n > MAX_GUESTS){ updateGuestPreview(); return; }
-  const cur = S.settings.currency || 'تومان', after = shareWithGuests(p, n);
+  const cur = curName(), after = shareWithGuests(p, n);
   if (!confirm(`${fmt(n)} مهمان به ${p.id === myParticipant()?.id ? 'سهمت' : `سهم «${p.full_name || ''}»`} اضافه بشه؟ مبلغ می‌شه ${fmt(after)} ${cur}. کم کردنش بعداً فقط از طریق مسئول‌های مالی ممکنه.`)) return;
   btn.disabled = true;
   const { data, error } = await sb.rpc('add_guests', {p_id:p.id, p_count:n});
@@ -1899,7 +1910,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id
 // Everyone registered on the logged-in person's number (see baseNo); the payment page shows one of them at a time.
 // Others on the number are only visible once the database allows it; until then this is just the person themself.
 // banking apps take rials: a toman amount is copied with one more zero
-const toRial = n => (S.settings.currency || 'تومان') === 'تومان' ? Number(n) * 10 : Number(n);
+const isToman = () => (S.settings.currency || 'تومان') === 'تومان';
+const toRial = n => isToman() ? Number(n) * 10 : Number(n);
 const myGroup = () => { const me0 = myParticipant(); return me0 ? Object.values(S.participants).filter(x => sameNumber(x.student_no, me0.student_no)).sort((a,b) => shareNo(a.student_no) - shareNo(b.student_no)) : []; };
 let payForId = null;
 const payee = () => myGroup().find(x => x.id === payForId) || myParticipant();
@@ -1911,7 +1923,7 @@ function renderMyPay(el){
     const g = el.querySelector('#gaCount'); if (g && keepG !== undefined){ g.value = keepG; updateGuestPreview(); }
   });
   if (!p){ el.innerHTML = ''; return; }
-  const info = S.payInfo, st = payState(p), ps = paysOf(p.id), cur = S.settings.currency || 'تومان', group = myGroup();
+  const info = S.payInfo, st = payState(p), ps = paysOf(p.id), cur = curName(), group = myGroup();
   const own = p.id === me0.id, whose = own ? 'سهمت' : `سهم ${esc(p.full_name || '')}`;
   const m = n => fmt(n) + ' ' + cur;
   const statusLine = st.key === 'settled' ? `<div class="pay-status ok">${whose} کامل پرداخت و تأیید شده. ممنون!</div>`
@@ -1942,7 +1954,7 @@ function renderMyPay(el){
     ${switcher}
     ${codeCard(p, own)}
     ${statusLine}
-    <div class="pay-amount"><span class="k">${own ? 'مبلغ سهم' : `مبلغ سهم ${esc(p.full_name || '')}`}</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${toRial(st.remaining || st.due)}" data-copy-label="مبلغ به ریال">کپی مبلغ (ریال)</button>` : ''}
+    <div class="pay-amount"><span class="k">${own ? 'مبلغ سهم' : `مبلغ سهم ${esc(p.full_name || '')}`}</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${toRial(st.remaining || st.due)}" data-copy-label="${isToman() ? 'مبلغ به ریال' : 'مبلغ'}">${isToman() ? 'کپی مبلغ (ریال)' : 'کپی مبلغ'}</button>` : ''}
       ${guestLine(p, m, own)}
       ${st.approved || st.pending ? `<span class="sub">تأییدشده ${m(st.approved)}${st.pending ? ` · در انتظار بررسی ${m(st.pending)}` : ''}</span>` : ''}
       ${st.extra ? `<span class="sub pos">${m(st.extra)} بیشتر از سهم پرداخت شده. ممنون!</span>` : ''}</div>
@@ -1950,7 +1962,7 @@ function renderMyPay(el){
     ${getsCard(p, own)}
     ${cardRow}${shebaRow}
     ${info.deadline ? `<p class="sub">مهلت پرداخت: <b>${esc(info.deadline)}</b></p>` : ''}
-    ${info.note ? `<p class="pay-note">${esc(info.note)}</p>` : ''}
+    ${info.note ? `<p class="pay-note" translate="no">${esc(info.note)}</p>` : ''}
     <div class="pay-upload">${upload}</div>
     ${ps.length ? `<h3 class="pay-h">${own ? 'فیش‌های من' : `فیش‌های ${esc(p.full_name || '')}`}</h3><div class="list">${ps.map(x => `<div class="rcpt" style="--c:${PAY_COLOR[x.status]}">
         ${receiptThumb(x)}<div><b>${m(x.amount)}</b><span class="sub">${faDate(x.created_at)}${x.tracking_code ? ' · پیگیری ' + esc(x.tracking_code) : ''}</span>
@@ -2009,7 +2021,7 @@ function renderPeople(){
   const showKinds = hasExtraCols || extras.length > 0;
   if (!showKinds) peopleKind = 'main';
   const xv = peopleKind === 'extra', all = xv ? extras : mains;
-  const cur = S.settings.currency || 'تومان', money = n => n ? fmt(n) + ' ' + cur : '—';
+  const cur = curName(), money = n => n ? fmt(n) + ' ' + cur : '—';
   $('#payInfoCard').innerHTML = `<div class="payinfo ${info.card_number ? '' : 'warn'}${hasExtraCols ? ' wide' : ''}">
     <div><span class="k">کارت مقصد</span><b dir="ltr" class="num">${info.card_number ? esc(cardFmt(info.card_number)) : '—'}</b>${info.card_holder ? `<span class="sub">${esc(info.card_holder)}</span>` : ''}</div>
     <div><span class="k">مبلغ پیش‌فرض سهم</span><b>${info.default_amount ? fmt(info.default_amount) + ' ' + cur : '—'}</b>${hasGuestCols ? `<span class="sub">هر مهمان ${info.guest_amount ? fmt(info.guest_amount) + ' ' + cur : 'رایگان'}</span>` : ''}</div>
@@ -2634,7 +2646,7 @@ async function readSheet(file){
       const taken = new Set(ex.map(p => p.student_no));
       names.forEach(nn => { if (!keys.has(nn)){ const k = freeKey(base, taken); taken.add(k); keys.set(nn, k); } });
       list.forEach(x => keyOf.set(x, keys.get(x.nn)));
-      if (names.length > 1) shared.push(`${base}: ${[...new Set(list.map(x => x.row.full_name || '—'))].join(' و ')}`);
+      if (names.length > 1) shared.push(`${base}: ${[...new Set(list.map(x => x.row.full_name || '—'))].join(tr(' و '))}`);
     });
   }
   const seen = new Map(), dups = [], known = new Set(Object.values(S.participants).map(p => p.student_no));
@@ -2714,11 +2726,12 @@ tabs.forEach(b => {
   });
 });
 tabs.forEach(b => { const p = $('#panel-' + b.dataset.tab); p.setAttribute('role', 'tabpanel'); p.setAttribute('aria-labelledby', b.id); });
-// arrow keys move between tabs (the page is RTL, so ArrowLeft goes to the next tab)
+// arrow keys move between tabs (in RTL, ArrowLeft goes to the next tab)
 $('.tabs').addEventListener('keydown', e => {
   const shown = tabs.filter(t => !t.hidden && t.offsetParent), i = shown.indexOf(document.activeElement);
   if (i < 0) return;
-  const next = {ArrowLeft:i + 1, ArrowRight:i - 1, Home:0, End:shown.length - 1}[e.key];
+  const fwd = document.documentElement.dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight', back = fwd === 'ArrowLeft' ? 'ArrowRight' : 'ArrowLeft';
+  const next = {[fwd]:i + 1, [back]:i - 1, Home:0, End:shown.length - 1}[e.key];
   if (next === undefined) return;
   e.preventDefault();
   const t = shown[(next + shown.length) % shown.length]; t.focus(); t.click();
@@ -2739,7 +2752,7 @@ document.addEventListener('focusin', e => { if (e.target.matches && e.target.mat
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('div.row[data-person]')){ e.preventDefault(); openPerson(e.target.dataset.person); } });
 
 /* ---------- item dialog ---------- */
-$('#catSelect').innerHTML = CATS.map(c => `<option>${c}</option>`).join('');
+$('#catSelect').innerHTML = CATS.map(c => `<option value="${c}">${c}</option>`).join('');
 const itemDlg = $('#itemDlg'), itemForm = $('#itemForm'); let editingItem = null;
 function numField(el, v){ el.value = v ? fmt(v) : ''; }
 function liveFormat(e){
@@ -2763,7 +2776,7 @@ function openItem(id, preset){
   if (!ready || (!id && !canEdit)) return;
   editingItem = id ? S.items[id] : null;
   const it = editingItem ? {...editingItem} : {title:'', reason:'', type:'must', category:CATS[0], vendor:'', unit:0, qty:1, paid:false, actual:0, payer:''};
-  if (preset){ it.title = preset[0]; it.category = preset[1]; it.type = preset[2]; }
+  if (preset){ it.title = tr(preset[0]); it.category = preset[1]; it.type = preset[2]; }
   const f = itemForm.elements;
   f.title.value = it.title || ''; f.reason.value = it.reason || ''; f.vendor.value = it.vendor || '';
   f.category.value = CATS.includes(it.category) ? it.category : 'سایر';
@@ -2844,6 +2857,7 @@ fileInput.addEventListener('change', () => { const files = [...fileInput.files];
 document.addEventListener('click', e => {
   const g = sel => e.target.closest(sel); let el;
   if ((el = g('[data-act]'))){ const a = el.dataset.act;
+    if (a === 'lang') return I18N.set(I18N.lang === 'fa' ? 'en' : 'fa');
     if (a === 'add-item') return openItem(); if (a === 'add-fund') return openEntry('fund'); if (a === 'add-contrib') return openEntry('contrib');
     if (a === 'upload'){ uploadTarget = null; return fileInput.click(); }
     if (a === 'export') return openXlsx();
@@ -3062,13 +3076,13 @@ function ntPeople(){
 const ntAudience = () => { const f = (NT_AUD.find(a => a[0] === NT.aud) || NT_AUD[0])[2]; return ntPeople().filter(f); };
 const ntChosen = () => ntAudience().filter(r => r.route !== 'none' && !NT.off.has(r.p.id));
 function ntFill(text, r){
-  const cur = S.settings.currency || 'تومان', money2 = n => fmt(n) + ' ' + cur;
+  const cur = curName(), money2 = n => fmt(n) + ' ' + cur;
   return text.replace(/\{name\}/g, r.p.full_name || 'دوست عزیز').replace(/\{amount\}/g, money2(r.s.due))
     .replace(/\{paid\}/g, money2(r.s.approved)).replace(/\{remaining\}/g, money2(r.s.remaining)).replace(/\{link\}/g, payLinkOf(r.p) || '');
 }
 const ntBot = () => botConfigured ? cfg.telegramBot.replace(/^@/, '') : '';
 // the bot attaches an "open the site" button; a message from the personal account gets the bot's link instead
-const ntPhoneText = (text, r) => ntFill(text, r) + ($('#ntButton').checked && ntBot() ? `\n\nورود به سایت: https://t.me/${ntBot()}` : '');
+const ntPhoneText = (text, r) => ntFill(text, r) + ($('#ntButton').checked && ntBot() ? '\n\n' + tr('ورود به سایت: https://t.me/{0}', ntBot()) : '');
 function openNotify(){
   if (!canAdmin) return;
   if (!NT.running){ NT.off.clear(); NT.report = null; }
@@ -3081,7 +3095,8 @@ function renderNotify(){
   $('#ntAud').innerHTML = NT_AUD.filter(([k, , f]) => k !== 'extra' || k === NT.aud || people.some(f)).map(([k, label, f]) => `<button class="chip${k === NT.aud ? ' on' : ''}" type="button" data-nt-aud="${k}" aria-pressed="${k === NT.aud}">${label}<small>${fmt(people.filter(f).length)}</small></button>`).join('');
   $('#ntTpl').innerHTML = '<span class="sub">متن آماده:</span>' + ntTemplates().map(([l], i) => `<button class="chip" type="button" data-nt-tpl="${i}">${l}</button>`).join('');
   const n = k => chosen.filter(r => r.route === k).length, none = list.filter(r => r.route === 'none').length;
-  $('#ntSummary').textContent = `گیرنده‌ها: ${fmt(chosen.length)} نفر — ${fmt(n('bot'))} از ربات، ${fmt(n('phone'))} از حساب شخصیت` + (none ? `؛ ${fmt(none)} نفر شماره ندارن` : '') + ' (برای دیدن و برداشتن تیک بزن)';
+  $('#ntSummary').textContent = tr('گیرنده‌ها: {0} نفر — {1} از ربات، {2} از حساب شخصیت', fmt(chosen.length), fmt(n('bot')), fmt(n('phone')))
+    + (none ? tr('؛ {0} نفر شماره ندارن', fmt(none)) : '') + ' ' + tr('(برای دیدن و برداشتن تیک بزن)');
   $('#ntList').innerHTML = list.length ? list.map(r => {
     const dead = r.route === 'none', on = !dead && !NT.off.has(r.p.id);
     const route = r.route === 'phone' && !acct ? '<span class="tag warn">حساب شخصی وصل نیست</span>' : `<span class="tag${r.route === 'none' ? ' warn' : ''}">${NT_ROUTE[r.route]}</span>`;
@@ -3089,7 +3104,7 @@ function renderNotify(){
       <b>${esc(r.p.full_name || shownNo(r.p.student_no) || '—')}</b><span class="tag">${STATE_LABEL[r.s.key]}</span>${route}</label>`;
   }).join('') : '<p class="sub">کسی توی این گروه نیست.</p>';
   const first = chosen[0], text = $('#ntText').value.trim();
-  $('#ntPreview').innerHTML = first && text ? `<b>پیش‌نمایش برای ${esc(first.p.full_name || '')}:</b><br>${esc(ntFill(text, first)).replace(/\n/g, '<br>')}` : '';
+  $('#ntPreview').innerHTML = first && text ? `<b>پیش‌نمایش برای ${esc(first.p.full_name || '')}:</b><br><span translate="no">${esc(ntFill(text, first)).replace(/\n/g, '<br>')}</span>` : '';
   const phoneNoAcct = n('phone') && !acct;
   const pr = $('#ntProgress');
   if (NT.running) pr.innerHTML = `<p class="sub">${esc(NT.status || '')}</p>`;
@@ -3176,7 +3191,7 @@ async function ntSend(){
 notifyDlg.addEventListener('click', e => {
   if (e.target === notifyDlg && !NT.running) return notifyDlg.close();
   const a = e.target.closest('[data-nt-aud]'); if (a && !NT.running){ NT.aud = a.dataset.ntAud; NT.off.clear(); NT.report = null; return renderNotify(); }
-  const t = e.target.closest('[data-nt-tpl]'); if (t){ $('#ntText').value = ntTemplates()[+t.dataset.ntTpl][1]; return renderNotify(); }
+  const t = e.target.closest('[data-nt-tpl]'); if (t){ $('#ntText').value = tr(ntTemplates()[+t.dataset.ntTpl][1]); return renderNotify(); }
   const act = e.target.closest('[data-act]') && e.target.closest('[data-act]').dataset.act;
   if (act === 'nt-send') return ntSend();
   if (act === 'nt-test') return ntTest();
@@ -3383,12 +3398,15 @@ document.addEventListener('keydown', e => {
 function tgReset(){ TG.step = null; TG.err = ''; TG.note = ''; tgDrop(); TG.state = 'off'; $('#tgAcctBody').innerHTML = ''; delete $('#tgAcctBody').dataset.key; }
 
 /* ---------- excel ---------- */
-const faDay = v => v ? new Date(v).toLocaleDateString('fa-IR') : '';
+// file names carry the date in Latin digits (the Persian calendar in Persian)
+const FILE_DATE = I18N.lang === 'fa' ? 'fa-IR-u-nu-latn' : 'en-GB';
+const faDay = v => v ? new Date(v).toLocaleDateString(I18N.dateLocale) : '';
 /* ---------- Excel export ----------
    «خروجی اکسل» opens a checklist and the file holds only the ticked sheets. Plain sheets (SheetJS): the header in the
    first row, column widths, thousands separators, right to left. The choice is remembered in this browser. */
+const addSheet = (wb, ws, name) => XLSX.utils.book_append_sheet(wb, ws, tr(name));
 function sheetFrom(aoa, widths, numCols){
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const ws = XLSX.utils.aoa_to_sheet(aoa.map(r => r.map(c => typeof c === 'string' ? tr(c) : c)));
   ws['!cols'] = widths.map(w => ({wch:w}));
   const range = XLSX.utils.decode_range(ws['!ref']);
   for (let R = 1; R <= range.e.r; R++) numCols.forEach(C => { const cell = ws[XLSX.utils.encode_cell({r:R, c:C})]; if (cell && cell.t === 'n') cell.z = '#,##0'; });
@@ -3434,7 +3452,7 @@ function xlBuild(){
   try { exportXlsx(new Set(picked)); } catch(e){ console.error('export', e); toast('ساخت فایل اکسل انجام نشد'); }
 }
 function exportXlsx(want){
-  const t = totals(), st = S.settings, cur = st.currency || 'تومان', head = Number(st.headcount)||0;
+  const t = totals(), st = S.settings, cur = curName(), head = Number(st.headcount)||0;
   const items = Object.values(S.items).sort((a,b) => (TYPES[a.type]?.order??0) - (TYPES[b.type]?.order??0) || cost(b) - cost(a));
   const wb = XLSX.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
   const everyone = Object.values(S.participants).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||'','fa'));
@@ -3473,20 +3491,20 @@ function exportXlsx(want){
     if (withCodes){ const s = VC.status; a.push([], ['کدهای رأی', 'تعداد'], ['کدهای فعال', s.total], ['تخصیص‌داده', s.assigned], ['آزاد', s.free], ['شرکت‌کننده‌های اصلی بدون کد', parts.filter(p => !codeOf(p.id)).length]); }
     const byCat = {}; items.forEach(it => { const k = it.category||'سایر'; byCat[k] = (byCat[k]||0) + cost(it); });
     if (items.length){ a.push([], ['دسته', 'جمع']); Object.entries(byCat).sort((x,y) => y[1]-x[1]).forEach(([k,v]) => a.push([k, v])); }
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [30,18,16], [1,2]), 'خلاصه');
+    addSheet(wb, sheetFrom(a, [30,18,16], [1,2]), 'خلاصه');
   }
   if (want.has('items')){
     const a = [['ردیف','عنوان','دلیل / توضیح','نوع','دسته','فروشنده / تماس','قیمت واحد','تعداد','برآورد','وضعیت','مبلغ واقعی','مبلغ نهایی','پرداخت از','تعداد فاکتور','جمع فاکتورها','ثبت‌کننده','آخرین تغییر']];
     items.forEach((it,i) => a.push([i+1, it.title, it.reason||'', (TYPES[it.type]||TYPES.must).l, it.category||'', it.vendor||'', Number(it.unit)||0, Number(it.qty)||1, estimate(it), it.paid ? 'پرداخت شد' : 'پرداخت‌نشده', it.paid && it.actual ? Number(it.actual) : '', cost(it), it.paid ? (it.payer||FUND) : '', invOf(it.id).length, invSum(it.id) || '', who(it.created_by), who(it.updated_by)]));
     a.push([], ['','جمع کل','','','','','','', sum(items, estimate),'','', t.max]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,26,40,10,16,20,14,7,14,13,14,14,14,10,14,14,14], [6,7,8,10,11,14]), 'هزینه‌ها');
+    addSheet(wb, sheetFrom(a, [6,26,40,10,16,20,14,7,14,13,14,14,14,10,14,14,14], [6,7,8,10,11,14]), 'هزینه‌ها');
   }
   if (want.has('invoices')){
     const invs = Object.values(S.invoices).sort((a,b) => ts(a.created_at) - ts(b.created_at));
     const a = [['ردیف','فروشنده','تاریخ فاکتور','مبلغ','مربوط به خرج','نوع خرج','یادداشت','نام فایل','تاریخ آپلود','آپلودکننده']];
     invs.forEach((v,i) => { const it = S.items[v.item_id]; a.push([i+1, v.vendor||'', v.invoice_date||'', Number(v.total)||0, it ? it.title : 'وصل‌نشده', it ? (TYPES[it.type]||TYPES.must).l : '', v.note||'', v.file_name||'', faDay(v.created_at), who(v.created_by)]); });
     a.push([], ['','جمع','', sum(invs, v => v.total)]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,22,14,14,24,10,34,24,12,14], [3]), 'فاکتورها');
+    addSheet(wb, sheetFrom(a, [6,22,14,14,24,10,34,24,12,14], [3]), 'فاکتورها');
   }
   if (want.has('funds')){
     const a = [['ردیف','نوع','منبع / نام','مبلغ','وضعیت','یادداشت','تاریخ ثبت','ثبت‌کننده']];
@@ -3494,7 +3512,7 @@ function exportXlsx(want){
     fundsOnly().forEach(f => a.push([++r, 'واریزی / منبع', f.name, Number(f.amount)||0, f.paid ? 'دریافت شد' : 'در راه', f.note||'', faDay(f.created_at), who(f.created_by)]));
     contribs().forEach(c => a.push([++r, 'سهم نفر', c.name, Number(c.amount)||0, c.paid ? 'واریز کرده' : 'هنوز نداده', c.note||'', faDay(c.created_at), who(c.created_by)]));
     a.push([], ['','','دریافت‌شده', t.income], ['','','در راه', t.incoming]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,14,24,16,14,34,12,14], [3]), 'بودجه و سهم‌ها');
+    addSheet(wb, sheetFrom(a, [6,14,24,16,14,34,12,14], [3]), 'بودجه و سهم‌ها');
   }
   if (want.has('main') && parts.length){
     const ss = parts.map(payState);
@@ -3502,7 +3520,7 @@ function exportXlsx(want){
     parts.forEach((p,i) => { const s = ss[i]; a.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', guestsOf(p), s.due, s.approved, s.pending, left(s), STATE_LABEL[s.key], p.user_id ? 'بله' : 'خیر', s.count, p.note||'', ...(withCodes ? [codeText(p)] : [])]); });
     a.push([], ['','','جمع','', guests, sum(ss, s => s.due), sum(ss, s => s.approved), sum(ss, s => s.pending), sum(ss, left)]);
     a.push(['','','کل حضور (نفرات + مهمان‌ها)','', parts.length + guests]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,16,24,18,10,14,14,14,14,18,10,10,30,10], [4,5,6,7,8]), 'شرکت‌کننده‌ها');
+    addSheet(wb, sheetFrom(a, [6,16,24,18,10,14,14,14,14,18,10,10,30,10], [4,5,6,7,8]), 'شرکت‌کننده‌ها');
   }
   if (want.has('extra') && extras.length){
     const ss = extras.map(payState), yn = v => v ? 'بله' : '—', n = f => extras.filter(f).length;
@@ -3514,7 +3532,7 @@ function exportXlsx(want){
     a.push([], ['','','جمع','', ...items.map(ad => n(p => has(p, ad))), yes, sum(ss, s => s.due), sum(ss, s => s.approved), sum(ss, s => s.pending), sum(ss, left)]);
     a.push(['','','پذیرایی','', ...pad, `بله ${yes} · خیر ${no} · تصمیم‌نشده ${extras.length - yes - no}`]);
     a.push(['','','کل پذیرایی (اصلی‌ها + مهمان‌ها + جدیدهای با پذیرایی)','', ...pad, parts.length + guests + yes]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,16,24,18, ...items.map(() => 10),12,14,14,14,14,18,10,10,30,10], [money, money + 1, money + 2, money + 3]), 'شرکت‌کننده‌های جدید');
+    addSheet(wb, sheetFrom(a, [6,16,24,18, ...items.map(() => 10),12,14,14,14,14,18,10,10,30,10], [money, money + 1, money + 2, money + 3]), 'شرکت‌کننده‌های جدید');
   }
   if (want.has('payments')){
     const pays = Object.values(S.payments).sort((a,b) => ts(a.created_at) - ts(b.created_at));
@@ -3522,16 +3540,16 @@ function exportXlsx(want){
     const a = [['ردیف','نام','موبایل / شماره','لیست','مبلغ','وضعیت','کد پیگیری','تاریخ','از طریق','بررسی‌کننده','یادداشت بررسی']];
     pays.forEach((x,i) => { const p = S.participants[x.participant_id] || {}; a.push([i+1, p.full_name||'', shownNo(p.student_no)||'', isExtra(p) ? 'جدید' : 'اصلی', Number(x.amount)||0, PAY_STATUS[x.status] || x.status, x.tracking_code||'', faDay(x.created_at), via(x), x.reviewed_by||'', x.review_note||'']); });
     a.push([], ['','تأییدشده','','', sum(pays.filter(x => x.status === 'approved'), x => x.amount)], ['','در انتظار بررسی','','', sum(pays.filter(x => x.status === 'submitted'), x => x.amount)]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,24,16,8,14,14,16,12,12,14,28], [4]), 'فیش‌ها');
+    addSheet(wb, sheetFrom(a, [6,24,16,8,14,14,16,12,12,14,28], [4]), 'فیش‌ها');
   }
   if (want.has('codes') && withCodes){
     const a = [['ردیف','نام','موبایل / شماره','لیست','کد رأی']];
     everyone.filter(p => myCodes.get(p.id)).forEach((p,i) => a.push([i+1, p.full_name||'', shownNo(p.student_no)||'', isExtra(p) ? 'جدید' : 'اصلی', myCodes.get(p.id)]));
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,26,16,8,12], []), 'کدهای رأی');
+    addSheet(wb, sheetFrom(a, [6,26,16,8,12], []), 'کدهای رأی');
   }
   if (!wb.SheetNames.length){ toast('برای موارد انتخاب‌شده چیزی ثبت نشده'); return; }
 
-  const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
+  const d = new Intl.DateTimeFormat(FILE_DATE, {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
   const ds = ['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-');
   const name = `grad-finance-${ds}.xlsx`; // a plain Latin name: Persian ones get mangled by some apps
   // inside Telegram a download goes nowhere, so the bot sends the file to the person instead
@@ -3543,7 +3561,7 @@ const XL_BOT_ERR = {no_telegram:'حسابت به تلگرام وصل نیست؛ 
 async function xlToBot(wb, name, sheets){
   toast('در حال فرستادن فایل در ربات…');
   const data = XLSX.write(wb, {bookType:'xlsx', type:'base64'});
-  const caption = `📊 خروجی اکسل · ${new Intl.DateTimeFormat('fa-IR', {dateStyle:'medium', timeStyle:'short'}).format(new Date())}` + (sheets.length ? `\n${sheets.join('، ')}` : '');
+  const caption = tr('📊 خروجی اکسل · {0}', new Intl.DateTimeFormat(I18N.dateLocale, {dateStyle:'medium', timeStyle:'short'}).format(new Date())) + (sheets.length ? `\n${sheets.map(x => tr(x)).join(tr('، '))}` : '');
   const { error } = await sb.functions.invoke('telegram-auth', {body:{send_file:{name, data, caption}}});
   if (!error){ toast('فایل اکسل توی ربات برات فرستاده شد'); return; }
   let b = {}; try { b = await error.context.json(); } catch(e){}
@@ -3622,16 +3640,18 @@ async function fullBackup(btn){
       files:{receipts:receipts.length - r1.missing.length, invoices:invoices.length - r2.missing.length}, missing_files:{receipts:r1.missing, invoices:r2.missing}};
     const enc = new TextEncoder();
     const head = [{name:'data.json', data:enc.encode(JSON.stringify(data, null, 1))},
-      {name:'README.txt', data:enc.encode(`پشتیبان کامل «${S.settings.title || 'جشن'}» — ${stamp.toLocaleString('fa-IR')}\n\ndata.json: همه‌ی جدول‌ها (هر جدول یک فهرست از ردیف‌ها).\nreceipts/ و invoices/: عکس فیش‌ها و فاکتورها با همون مسیری که در Storage سوپابیس دارن.\nبرای برگرداندن: schema.sql رو در پروژه‌ی تازه اجرا کن، بعد ردیف‌ها رو از data.json وارد کن و پوشه‌ها رو در سطل‌های receipts و invoices آپلود کن.\n`)}];
+      {name:'README.txt', data:enc.encode([tr('پشتیبان کامل «{0}» — {1}', tr(S.settings.title || 'جشن'), stamp.toLocaleString(I18N.dateLocale)), '',
+        tr('data.json: همه‌ی جدول‌ها (هر جدول یک فهرست از ردیف‌ها).'), tr('receipts/ و invoices/: عکس فیش‌ها و فاکتورها با همون مسیری که در Storage سوپابیس دارن.'),
+        tr('برای برگرداندن: schema.sql رو در پروژه‌ی تازه اجرا کن، بعد ردیف‌ها رو از data.json وارد کن و پوشه‌ها رو در سطل‌های receipts و invoices آپلود کن.'), ''].join('\n'))}];
     const files = [...head, ...r1.out, ...r2.out];
-    const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(stamp);
+    const d = new Intl.DateTimeFormat(FILE_DATE, {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(stamp);
     const base = `grad-finance-backup-${['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-')}`;
     const problems = Object.keys(errors).length + r1.missing.length + r2.missing.length;
-    const tail = `${fmt(Object.values(tables).reduce((a, r) => a + r.length, 0))} ردیف، ${fmt(r1.out.length + r2.out.length)} عکس` + (problems ? ` (${fmt(problems)} مورد خوانده نشد؛ فهرستش در data.json هست)` : '');
+    const tail = tr('{0} ردیف، {1} عکس', fmt(Object.values(tables).reduce((a, r) => a + r.length, 0)), fmt(r1.out.length + r2.out.length)) + (problems ? ' ' + tr('({0} مورد خوانده نشد؛ فهرستش در data.json هست)', fmt(problems)) : '');
     if (!tgWA){
       const a = document.createElement('a'); a.href = URL.createObjectURL(makeZip(files)); a.download = base + '.zip';
       document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
-      say('پشتیبان دانلود شد: ' + tail, problems ? 'bad' : 'pos'); return;
+      say(tr('پشتیبان دانلود شد:') + ' ' + tail, problems ? 'bad' : 'pos'); return;
     }
     // inside Telegram: the bot sends it, in parts small enough to upload
     const groups = [[]]; let size = 0;
@@ -3640,10 +3660,10 @@ async function fullBackup(btn){
       say(`در حال فرستادن در ربات: بخش ${fmt(i + 1)} از ${fmt(groups.length)}…`);
       const zip = new Uint8Array(await makeZip(groups[i]).arrayBuffer());
       const name = groups.length > 1 ? `${base}-part${i + 1}of${groups.length}.zip` : base + '.zip';
-      const { error } = await sb.functions.invoke('telegram-auth', {body:{send_file:{name, data:u8ToB64(zip), caption:`🗄 پشتیبان کامل${groups.length > 1 ? ` · بخش ${i + 1} از ${groups.length}` : ''}\n${tail}`}}});
+      const { error } = await sb.functions.invoke('telegram-auth', {body:{send_file:{name, data:u8ToB64(zip), caption:tr('🗄 پشتیبان کامل{0} {1}', groups.length > 1 ? tr('· بخش {0} از {1}', fmt(i + 1), fmt(groups.length)) : '', '\n' + tail)}}});
       if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} say(XL_BOT_ERR[b.error] || 'فرستادن در ربات نشد؛ مطمئن شو تابع telegram-auth به‌روز شده، یا سایت رو در مرورگر باز کن.', 'bad'); return; }
     }
-    say(`پشتیبان در ربات برات فرستاده شد${groups.length > 1 ? ` (${fmt(groups.length)} بخش)` : ''}: ` + tail, problems ? 'bad' : 'pos');
+    say(tr('پشتیبان در ربات برات فرستاده شد{0}:', groups.length > 1 ? ' ' + tr('({0} بخش)', fmt(groups.length)) : '') + ' ' + tail, problems ? 'bad' : 'pos');
   } catch(e){ console.error('backup', e); say('ساخت پشتیبان انجام نشد؛ دوباره امتحان کن.', 'bad'); }
   finally { bkBusy = false; btn.disabled = false; }
 }
