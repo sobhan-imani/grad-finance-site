@@ -148,8 +148,8 @@ async function tg(method: string, params: unknown): Promise<TgResult> {
 const fillName = (text: string, name: string) =>
   text.replace(/( ?)\{name\}/g, (_m, sp: string) => (name ? sp + name : ""));
 const siteButton = (site: string) => ({ inline_keyboard: [[{ text: OPEN_SITE, web_app: { url: site } }]] });
-// زیر کد رأی: دکمه‌ی سایت رأی‌گیری (در مرورگر باز می‌شه). با secret اختیاری VOTE_URL عوض می‌شه؛ مقدار "off" یعنی بدون دکمه.
-const VOTE_URL = Deno.env.get("VOTE_URL") ?? "https://armo.fun/";
+// زیر کد رأی: دکمه‌ی سایت رأی‌گیری (در مرورگر باز می‌شه)، اگه secret اختیاری VOTE_URL (با https://) تنظیم شده باشه.
+const VOTE_URL = Deno.env.get("VOTE_URL") ?? "";
 const voteRow = () => /^https:\/\//.test(VOTE_URL) ? [{ text: "🗳 ورود به رأی‌گیری", url: VOTE_URL }] : null;
 const voteButton = () => { const r = voteRow(); return r ? { inline_keyboard: [r] } : undefined; };
 

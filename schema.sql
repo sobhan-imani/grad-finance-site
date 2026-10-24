@@ -242,19 +242,32 @@ create table if not exists public.payment_info (
 );
 alter table public.payment_info
   add column if not exists guest_amount bigint not null default 0 check (guest_amount >= 0);
--- شرکت‌کننده‌های جدید (تکمیلی): نوع، لوح، تندیس، پذیرایی؛ و قیمت این‌ها
+-- شرکت‌کننده‌های جدید (تکمیلی): کسایی که سهم کامل نمی‌دن و فقط چند «قلم» می‌خوان؛ پذیرایی‌شون جدا تصمیم گرفته می‌شه.
+-- فهرست اقلام (اسم، قیمت، اینکه جزو سهم شرکت‌کننده‌های اصلی هست یا نه) رو مدیر از سایت تعریف می‌کنه:
+-- payment_info.addons = [{"id":"…","name":"…","price":0,"main":true}, …]؛ participants.addons = شناسه‌ی اقلامی که هر نفر خواسته.
 alter table public.participants
-  add column if not exists kind         text    not null default 'main' check (kind in ('main','extra')),
-  add column if not exists wants_plaque boolean not null default false,
-  add column if not exists wants_statue boolean not null default false,
-  add column if not exists wants_album  boolean not null default false,   -- آلبوم عکس (Yearbook)
-  add column if not exists catering     text    not null default 'undecided' check (catering in ('undecided','yes','no'));
+  add column if not exists kind     text   not null default 'main' check (kind in ('main','extra')),
+  add column if not exists addons   text[] not null default '{}',
+  add column if not exists catering text   not null default 'undecided' check (catering in ('undecided','yes','no'));
 alter table public.payment_info
-  add column if not exists plaque_amount   bigint not null default 0 check (plaque_amount >= 0),
-  add column if not exists statue_amount   bigint not null default 0 check (statue_amount >= 0),
-  add column if not exists album_amount    bigint not null default 0 check (album_amount >= 0),
+  add column if not exists addons          jsonb  not null default '[]'::jsonb check (jsonb_typeof(addons) = 'array'),
   add column if not exists catering_amount bigint not null default 0 check (catering_amount >= 0);
 insert into public.payment_info (id) values (1) on conflict do nothing;
+-- یک‌بار: تبدیل اقلام ثابت نسخه‌های قبلی (لوح، تندیس، آلبوم عکس) به فهرست بالا، اگه این دیتابیس اون ستون‌ها رو داره.
+-- ستون‌های قدیمی دست نمی‌خورن. اجرای دوباره ضرری نداره (فقط وقتی فهرست هنوز خالیه کاری می‌کنه).
+do $$
+declare items jsonb := '[]'; legacy record;
+begin
+  if (select addons from public.payment_info where id = 1) <> '[]'::jsonb then return; end if;
+  for legacy in select * from (values ('plaque', 'لوح', false), ('statue', 'تندیس', true), ('album', 'آلبوم عکس (Yearbook)', true)) v(id, name, main) loop
+    if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'participants' and column_name = 'wants_' || legacy.id) then
+      execute format('select $1 || jsonb_build_array(jsonb_build_object(''id'', $2, ''name'', $3, ''price'', %I, ''main'', $4)) from public.payment_info where id = 1', legacy.id || '_amount')
+        into items using items, legacy.id, legacy.name, legacy.main;
+      execute format('update public.participants set addons = array_append(addons, $1) where %I and not ($1 = any(addons))', 'wants_' || legacy.id) using legacy.id;
+    end if;
+  end loop;
+  if items <> '[]'::jsonb then update public.payment_info set addons = items where id = 1; end if;
+end $$;
 
 -- ۱۰) فیش‌ها (پرداخت‌ها)
 -- فقط با «در انتظار بررسی» ثبت می‌شن؛ تأیید/رد فقط با تابع review_payment.
@@ -826,9 +839,7 @@ create or replace function public.participant_due(p public.participants)
 returns bigint language sql stable security definer set search_path = public as $$
   select case
     when p.amount is not null then p.amount
-    when p.kind = 'extra' then (case when p.wants_plaque then i.plaque_amount else 0 end)
-                             + (case when p.wants_statue then i.statue_amount else 0 end)
-                             + (case when p.wants_album then i.album_amount else 0 end)
+    when p.kind = 'extra' then coalesce((select sum((a ->> 'price')::bigint) from jsonb_array_elements(i.addons) a where a ->> 'id' = any(p.addons)), 0)
                              + (case when p.catering = 'yes' then i.catering_amount else 0 end)
     else i.default_amount + p.guests * i.guest_amount
   end
