@@ -131,9 +131,106 @@ async function linkByPhone(req: Request, raw: string): Promise<Response> {
 }
 
 // ---------- ربات ----------
-const OPEN_SITE = "ورود به سایت";
-// اگه مدیر متنی ننوشته باشه. {name} جای اسم کوچیک طرف قرار می‌گیره.
-const DEFAULT_WELCOME = `سلام {name}! 👋\nبرای دیدن مبلغ سهمت از جشن و فرستادن فیش واریز، دکمه‌ی «${OPEN_SITE}» رو بزن.`;
+// Each person gets the bot in Persian or English: their own choice (the language button under the welcome), else the
+// optional BOT_LANG secret ("fa" or "en"), else their Telegram app's language (Persian → Persian), else English.
+type Lang = "fa" | "en";
+const pickLang = (v: unknown): Lang | "" => (v === "fa" || v === "en" ? v : "");
+const langFor = (choice: unknown, telegram: unknown): Lang =>
+  pickLang(choice) || pickLang(Deno.env.get("BOT_LANG")) || (/^fa\b/i.test(String(telegram ?? "")) ? "fa" : "en");
+const RECEIPT_ACTION = "receipt", LANG_ACTION = "lang:", RECEIPT_WAIT_MIN = 30;
+const T = {
+  fa: {
+    openSite: "ورود به سایت",
+    // اگه مدیر متنی ننوشته باشه. {name} جای اسم کوچیک طرف قرار می‌گیره.
+    welcome: "سلام {name}! 👋\nبرای دیدن مبلغ سهمت از جشن و فرستادن فیش واریز، دکمه‌ی «ورود به سایت» رو بزن.",
+    otherLang: "🌐 English",
+    vote: "🗳 ورود به رأی‌گیری",
+    receiptButton: "🧾 ثبت پرداخت",
+    notAPhoto: "❌ رسید ثبت نشد، چون عکس رسید نفرستادی. برای ثبت، دوباره دکمه‌ی «🧾 ثبت پرداخت» رو بزن و بعدش عکس رو بفرست.",
+    pressFirst: "برای ثبت رسید، اول دکمه‌ی «🧾 ثبت پرداخت» رو زیر پیام پرداخت بزن (یا لینک پرداختی که مسئول‌های مالی فرستادن رو دوباره باز کن)، بعد عکس رو بفرست.",
+    linkBusy: "الان جواب نمی‌دم؛ چند دقیقه‌ی دیگه دوباره لینک رو باز کن.",
+    linkBad: "این لینک معتبر نیست (شاید لینک جدید براتون ساخته شده). از مسئول‌های مالی لینک درست رو بگیر.",
+    hello: (name: string) => (name ? `سلام ${name}! 👋` : "سلام! 👋"),
+    noDue: "مبلغ سهمت هنوز تعیین نشده.",
+    due: (m: string) => `مبلغ سهمت از جشن: ${m}`,
+    approved: (m: string) => `تأییدشده: ${m}`,
+    pending: (m: string) => ` · در انتظار بررسی: ${m}`,
+    left: (m: string) => `مونده: ${m}`,
+    paid: "سهمت کامل پرداخت شده. ممنون! 🌸",
+    inReview: "رسیدت در انتظار بررسیه.",
+    holder: (n: string) => `به نام ${n}`,
+    // \u200E (علامت چپ‌به‌راست): بدون اون، تلگرام چهارتایی‌های شماره کارت رو وسط متن فارسی جابه‌جا نشون می‌ده
+    card: (c: string) => `شماره کارت: \u200E${c}`,
+    noCard: "شماره کارت هنوز ثبت نشده.",
+    deadline: (d: string) => `مهلت پرداخت: ${d}`,
+    afterPaying: "بعد از واریز، دکمه‌ی «🧾 ثبت پرداخت» رو بزن و عکس رسید (اسکرین‌شات) رو بفرست.",
+    copyRial: "کپی مبلغ (ریال)", copyAmount: "کپی مبلغ", copyCard: "کپی شماره کارت",
+    linkExpired: "این لینک پرداخت دیگه معتبر نیست؛ از مسئول‌های مالی لینک جدید بگیر.",
+    tryLater: "الان نشد؛ چند دقیقه‌ی دیگه دوباره دکمه رو بزن.",
+    sendNow: (name: string) => `حالا عکس رسید (اسکرین‌شات) رو بفرست${name ? ` (برای ${name})` : ""}.`,
+    ifDiffers: (m: string) => ` اگه مبلغی که واریز کردی با ${m} فرق داره، عددش رو زیر عکس (کپشن) بنویس.`,
+    writeAmount: " مبلغی که واریز کردی رو زیر عکس (کپشن) بنویس.",
+    otherCancels: "\nاگه پیام دیگه‌ای بفرستی، ثبت رسید لغو می‌شه.",
+    receiptBusy: "الان نشد رسید رو بگیرم؛ چند دقیقه‌ی دیگه دوباره بفرست.",
+    openLinkFirst: "برای فرستادن رسید، اول لینکی رو که مسئول‌های مالی برات فرستادن باز کن (یا از سایت وارد شو و رسید رو همون‌جا بفرست).",
+    photoOnly: "فقط عکس رسید قبول می‌شه (نه PDF یا فایل دیگه)؛ یه اسکرین‌شات بگیر و همون رو بفرست.",
+    tooBig: "این عکس خیلی بزرگه؛ یه اسکرین‌شات بگیر و همون رو بفرست.",
+    noAmount: "مبلغی که واریز کردی رو زیر عکس (کپشن) بنویس و دوباره بفرست.",
+    notSaved: "رسید ذخیره نشد؛ چند دقیقه‌ی دیگه دوباره بفرست.",
+    received: (name: string, m: string) => `رسید${name ? ` ${name}` : ""} با مبلغ ${m} رسید ✅\nبعد از بررسی مسئول‌های مالی تأیید می‌شه.`,
+    tellIfDiffers: " اگه مبلغی که واریز کردی فرق داره، به مسئول‌های مالی بگو.",
+    code: (c: string) => `🗳 کد ورود رأی‌گیری: ${c}\nاین کد مخصوص خودته؛ به کس دیگه‌ای نده.`,
+    codes: "🗳 کدهای ورود رأی‌گیری:", codesNote: "\nکد هر نفر مخصوص خودشه؛ به کس دیگه‌ای ندید.",
+    sample: "(نمونه؛ کد واقعی نیست)\n",
+    currency: (c: string) => c,
+    numbers: "fa-IR",
+  },
+  en: {
+    openSite: "Open the site",
+    welcome: "Hi {name}! 👋\nTo see your share of the party and send your payment receipt, tap “Open the site”.",
+    otherLang: "🌐 فارسی",
+    vote: "🗳 Go to the vote",
+    receiptButton: "🧾 Record payment",
+    notAPhoto: "❌ Receipt not recorded, because you didn't send a picture of it. To record one, tap “🧾 Record payment” again and then send the picture.",
+    pressFirst: "To send a receipt, first tap “🧾 Record payment” under the payment message (or open the payment link from the finance team again), then send the picture.",
+    linkBusy: "I can't answer right now; open the link again in a few minutes.",
+    linkBad: "This link isn't valid (a new one may have been made for you). Ask the finance team for the right link.",
+    hello: (name: string) => (name ? `Hi ${name}! 👋` : "Hi! 👋"),
+    noDue: "Your share hasn't been set yet.",
+    due: (m: string) => `Your party share: ${m}`,
+    approved: (m: string) => `Approved: ${m}`,
+    pending: (m: string) => ` · awaiting review: ${m}`,
+    left: (m: string) => `Left to pay: ${m}`,
+    paid: "Your share is fully paid. Thank you! 🌸",
+    inReview: "Your receipt is awaiting review.",
+    holder: (n: string) => `Account holder: ${n}`,
+    card: (c: string) => `Card number: ${c}`,
+    noCard: "No card number yet.",
+    deadline: (d: string) => `Payment deadline: ${d}`,
+    afterPaying: "After paying, tap “🧾 Record payment” and send a picture (screenshot) of the receipt.",
+    copyRial: "Copy amount (rial)", copyAmount: "Copy amount", copyCard: "Copy card number",
+    linkExpired: "This payment link isn't valid any more; ask the finance team for a new one.",
+    tryLater: "That didn't work; tap the button again in a few minutes.",
+    sendNow: (name: string) => `Now send the receipt picture (screenshot)${name ? ` for ${name}` : ""}.`,
+    ifDiffers: (m: string) => ` If the amount you paid isn't ${m}, write it under the picture (as the caption).`,
+    writeAmount: " Write the amount you paid under the picture (as the caption).",
+    otherCancels: "\nIf you send anything else, recording the receipt is cancelled.",
+    receiptBusy: "Couldn't take the receipt right now; send it again in a few minutes.",
+    openLinkFirst: "To send a receipt, first open the link the finance team sent you (or sign in to the site and send the receipt there).",
+    photoOnly: "Only a picture of the receipt is accepted (not a PDF or other file); take a screenshot and send that.",
+    tooBig: "This picture is too large; take a screenshot and send that.",
+    noAmount: "Write the amount you paid under the picture (as the caption) and send it again.",
+    notSaved: "The receipt wasn't saved; send it again in a few minutes.",
+    received: (name: string, m: string) => `Receipt${name ? ` for ${name}` : ""} of ${m} received ✅\nIt'll be approved once the finance team has checked it.`,
+    tellIfDiffers: " If you paid a different amount, tell the finance team.",
+    code: (c: string) => `🗳 Voting sign-in code: ${c}\nThis code is yours alone; don't share it with anyone.`,
+    codes: "🗳 Voting sign-in codes:", codesNote: "\nEach code is for that person only; don't share them with anyone.",
+    sample: "(Sample; not a real code)\n",
+    currency: (c: string) => ({ "تومان": "Toman", "ریال": "Rial" } as Record<string, string>)[c] ?? c,
+    numbers: "en-US",
+  },
+};
+const num = (lang: Lang, n: number) => new Intl.NumberFormat(T[lang].numbers).format(n);
 // رمز webhook از خود توکن ربات ساخته می‌شه، پس secret جدایی لازم نیست
 const webhookSecret = async () => hex(await hmac(enc.encode(BOT_TOKEN), "telegram-webhook"));
 
@@ -147,28 +244,62 @@ async function tg(method: string, params: unknown): Promise<TgResult> {
 // {name} → اسم کوچیک؛ بدون اسم، فاصله‌ی قبلش هم برداشته می‌شه («سلام {name}!» → «سلام!»)
 const fillName = (text: string, name: string) =>
   text.replace(/( ?)\{name\}/g, (_m, sp: string) => (name ? sp + name : ""));
-const siteButton = (site: string) => ({ inline_keyboard: [[{ text: OPEN_SITE, web_app: { url: site } }]] });
+const siteButton = (site: string, lang: Lang) => ({ inline_keyboard: [[{ text: T[lang].openSite, web_app: { url: site } }]] });
 // زیر کد رأی: دکمه‌ی سایت رأی‌گیری (در مرورگر باز می‌شه)، اگه secret اختیاری VOTE_URL (با https://) تنظیم شده باشه.
 const VOTE_URL = Deno.env.get("VOTE_URL") ?? "";
-const voteRow = () => /^https:\/\//.test(VOTE_URL) ? [{ text: "🗳 ورود به رأی‌گیری", url: VOTE_URL }] : null;
-const voteButton = () => { const r = voteRow(); return r ? { inline_keyboard: [r] } : undefined; };
+const voteRow = (lang: Lang) => /^https:\/\//.test(VOTE_URL) ? [{ text: T[lang].vote, url: VOTE_URL }] : null;
+const voteButton = (lang: Lang) => { const r = voteRow(lang); return r ? { inline_keyboard: [r] } : undefined; };
 
 // هر کس به ربات پیام بده، برای پیام‌های همگانی نگه داشته می‌شه (اگه قبلاً ربات رو بلاک کرده بود، دوباره فعال حساب می‌شه).
 // جدول‌های ربات رو دستور SQL «ربات» می‌سازه؛ تا اجرا نشده، ربات مثل قبل فقط جواب می‌ده.
 async function rememberBotUser(from: Record<string, any> | undefined) {
   if (!from?.id || from.is_bot) return;
+  const row = { telegram_id: from.id, first_name: from.first_name ?? "", username: from.username ?? null, last_seen_at: new Date().toISOString(), blocked: false };
   try {
-    await admin.from("bot_users").upsert({
-      telegram_id: from.id, first_name: from.first_name ?? "", username: from.username ?? null,
-      last_seen_at: new Date().toISOString(), blocked: false,
-    }, { onConflict: "telegram_id" });
+    const { error } = await admin.from("bot_users").upsert({ ...row, language_code: from.language_code ?? null }, { onConflict: "telegram_id" });
+    // the language column comes with a later SQL; without it, the rest is still kept
+    if (error) await admin.from("bot_users").upsert(row, { onConflict: "telegram_id" });
   } catch { /* table missing or unreachable: the reply still goes out */ }
 }
-async function welcomeText(): Promise<string> {
+// this person's language: their choice with the language button (bot_users.lang), else as langFor
+async function langOf(from: Record<string, any> | undefined): Promise<Lang> {
+  let choice = "";
+  const id = Number(from?.id);
+  if (Number.isSafeInteger(id) && id > 0) {
+    try { const { data, error } = await admin.from("bot_users").select("lang").eq("telegram_id", id).maybeSingle(); if (!error) choice = data?.lang ?? ""; }
+    catch { /* column missing: no choice yet */ }
+  }
+  return langFor(choice, from?.language_code);
+}
+// languages of people the bot writes to first (codes, group messages): stored choice, else their Telegram language;
+// someone the bot doesn't know yet gets BOT_LANG, else the language of the admin who sent it
+async function langsOf(ids: number[], fallback: Lang): Promise<(id: number) => Lang> {
+  const known = new Map<number, Lang>();
+  if (ids.length) {
+    try {
+      const { data, error } = await admin.from("bot_users").select("telegram_id, lang, language_code").in("telegram_id", ids);
+      if (!error) for (const r of data ?? []) known.set(Number(r.telegram_id), langFor(r.lang, r.language_code));
+    } catch { /* columns missing */ }
+  }
+  return (id) => known.get(id) ?? (pickLang(Deno.env.get("BOT_LANG")) || fallback);
+}
+async function welcomeText(lang: Lang): Promise<string> {
   try {
     const { data } = await admin.from("bot_settings").select("welcome_text").eq("id", 1).maybeSingle();
-    return String(data?.welcome_text ?? "").trim() || DEFAULT_WELCOME;
-  } catch { return DEFAULT_WELCOME; }
+    return String(data?.welcome_text ?? "").trim() || T[lang].welcome;
+  } catch { return T[lang].welcome; }
+}
+// the welcome (with the person's voting codes, if any) and its buttons: open the site, the vote, the other language
+async function welcomeMessage(from: Record<string, any>, site: string, lang: Lang) {
+  const [text, codes] = await Promise.all([welcomeText(lang), votingCodes(Number(from?.id))]);
+  const welcome = fillName(text, String(from?.first_name ?? ""));
+  const vote = codes.length ? voteRow(lang) : null;
+  return {
+    // with a code the reply is HTML, so the code is tap-to-copy; the welcome text is escaped for that
+    ...(codes.length ? { text: escHtml(welcome) + "\n\n" + codesText(codes, lang), parse_mode: "HTML" } : { text: welcome }),
+    reply_markup: { inline_keyboard: [...siteButton(site, lang).inline_keyboard, ...(vote ? [vote] : []),
+      [{ text: T[lang].otherLang, callback_data: LANG_ACTION + (lang === "fa" ? "en" : "fa") }]] },
+  };
 }
 
 // پیامی که تلگرام برای ربات می‌فرسته. جواب مستقیم در خود پاسخ webhook برمی‌گرده و تلگرام اجراش می‌کنه.
@@ -177,44 +308,36 @@ async function onTelegramUpdate(req: Request): Promise<Response> {
   const site = new URL(req.url).searchParams.get("site") ?? "";
   let update: { message?: Record<string, any>; callback_query?: Record<string, any> };
   try { update = await req.json(); } catch { return new Response("ok"); }
-  if (update.callback_query) return onButton(update.callback_query);
+  if (update.callback_query) return onButton(update.callback_query, site);
   const msg = update.message;
   if (!msg || msg.chat?.type !== "private") return new Response("ok");
-  const tgId = Number(msg.from?.id);
+  const tgId = Number(msg.from?.id), lang = await langOf(msg.from), t = T[lang];
   const reply = (text: string) => json({ method: "sendMessage", chat_id: msg.chat.id, text });
   // لینک پرداخت: t.me/<ربات>?start=<pay_token> (اگه وسط ثبت رسید بود، اون رو کنار می‌ذاره)
   const start = /^\/start(?:@\w+)?\s+([\w-]{1,64})\s*$/.exec(String(msg.text ?? ""));
   if (start) {
     const [, pay] = await Promise.all([rememberBotUser(msg.from), payInfo(tgId, start[1]), setReceiptWait(tgId, false)]);
-    return json({ method: "sendMessage", chat_id: msg.chat.id, ...payMessage(pay) });
+    return json({ method: "sendMessage", chat_id: msg.chat.id, ...payMessage(pay, lang) });
   }
   // بعد از زدن «ثبت پرداخت»، پیام بعدی باید عکس رسید باشه؛ هر چیز دیگه‌ای خطا می‌ده و ثبت رسید تموم می‌شه
   if (!msg.contact) {
     const waiting = await receiptWait(tgId);
     if (waiting) {
       await Promise.all([rememberBotUser(msg.from), setReceiptWait(tgId, false)]);
-      if (msg.photo || msg.document) return reply(await onReceipt(msg));
-      return reply(`❌ رسید ثبت نشد، چون عکس رسید نفرستادی. برای ثبت، دوباره دکمه‌ی «${RECEIPT_BUTTON}» رو بزن و بعدش عکس رو بفرست.`);
+      if (msg.photo || msg.document) return reply(await onReceipt(msg, lang));
+      return reply(t.notAPhoto);
     }
     if (msg.photo || msg.document) {
       await rememberBotUser(msg.from);
-      return reply(`برای ثبت رسید، اول دکمه‌ی «${RECEIPT_BUTTON}» رو زیر پیام پرداخت بزن (یا لینک پرداختی که مسئول‌های مالی فرستادن رو دوباره باز کن)، بعد عکس رو بفرست.`);
+      return reply(t.pressFirst);
     }
   }
   // پیام «شماره» که دکمه‌ی تأیید شماره‌ی سایت می‌فرسته جواب نمی‌گیره، ولی فرستنده‌ش هم ربات رو Start کرده
   // جزئیات پرداخت فقط با باز کردن خود لینک نشون داده می‌شه؛ بقیه‌ی پیام‌ها (حتی /start) همون جواب همیشگی رو می‌گیرن
-  const [, text, codes] = await Promise.all([rememberBotUser(msg.from), msg.contact ? "" : welcomeText(),
-    msg.contact ? [] : votingCodes(tgId)]);
+  await rememberBotUser(msg.from);
   if (msg.contact) return new Response("ok");
   if (!site.startsWith("https://")) return new Response("ok");
-  const welcome = fillName(text, String(msg.from?.first_name ?? ""));
-  return json({
-    method: "sendMessage",
-    chat_id: msg.chat.id,
-    // with a code the reply is HTML, so the code is tap-to-copy; the welcome text is escaped for that
-    ...(codes.length ? { text: escHtml(welcome) + "\n\n" + codesText(codes), parse_mode: "HTML" } : { text: welcome }),
-    reply_markup: codes.length && voteRow() ? { inline_keyboard: [...siteButton(site).inline_keyboard, voteRow()] } : siteButton(site),
-  });
+  return json({ method: "sendMessage", chat_id: msg.chat.id, ...(await welcomeMessage(msg.from, site, lang)) });
 }
 
 // کد رأی‌گیری صاحب این حساب تلگرام (و هم‌شماره‌هاش). فقط خود همین آدم این جواب رو می‌بینه. تا دستور SQL کدها اجرا نشده، خالیه.
@@ -241,32 +364,32 @@ async function payInfo(tgId: number, token?: string): Promise<PayInfo | null> {
     return error || !data ? null : data as PayInfo;
   } catch { return null; }
 }
-const faNum = (n: number) => new Intl.NumberFormat("fa-IR").format(n);
 const remainingOf = (p: PayInfo) => Math.max(0, Number(p.due ?? 0) - Number(p.approved ?? 0) - Number(p.pending ?? 0));
-function payMessage(p: PayInfo | null): { text: string; reply_markup?: unknown } {
-  if (!p) return { text: "الان جواب نمی‌دم؛ چند دقیقه‌ی دیگه دوباره لینک رو باز کن." };
-  if (!p.ok) return { text: "این لینک معتبر نیست (شاید لینک جدید براتون ساخته شده). از مسئول‌های مالی لینک درست رو بگیر." };
-  const cur = p.currency || "تومان", m = (n: number) => `${faNum(n)} ${cur}`;
+const money = (lang: Lang, n: number, currency?: string) => `${num(lang, n)} ${T[lang].currency(currency || "تومان")}`;
+function payMessage(p: PayInfo | null, lang: Lang): { text: string; reply_markup?: unknown } {
+  const t = T[lang];
+  if (!p) return { text: t.linkBusy };
+  if (!p.ok) return { text: t.linkBad };
+  const m = (n: number) => money(lang, n, p.currency);
   const due = Number(p.due ?? 0), approved = Number(p.approved ?? 0), pending = Number(p.pending ?? 0), left = remainingOf(p);
   const card = String(p.card_number ?? "").replace(/\D/g, "");
-  const lines = [`سلام ${p.full_name || ""}! 👋`.replace(" !", "!")];
-  if (!due) lines.push("مبلغ سهمت هنوز تعیین نشده.");
+  const lines = [t.hello(p.full_name || "")];
+  if (!due) lines.push(t.noDue);
   else {
-    lines.push(`مبلغ سهمت از جشن: ${m(due)}`);
-    if (approved || pending) lines.push(`تأییدشده: ${m(approved)}${pending ? ` · در انتظار بررسی: ${m(pending)}` : ""}`);
-    lines.push(left ? `مونده: ${m(left)}` : approved >= due ? "سهمت کامل پرداخت شده. ممنون! 🌸" : "رسیدت در انتظار بررسیه.");
+    lines.push(t.due(m(due)));
+    if (approved || pending) lines.push(t.approved(m(approved)) + (pending ? t.pending(m(pending)) : ""));
+    lines.push(left ? t.left(m(left)) : approved >= due ? t.paid : t.inReview);
   }
-  const holder = [p.card_holder && `به نام ${p.card_holder}`, p.bank].filter(Boolean).join(" · ");
-  // \u200E (علامت چپ‌به‌راست): بدون اون، تلگرام چهارتایی‌های شماره کارت رو وسط متن فارسی جابه‌جا نشون می‌ده
-  lines.push("", card ? `شماره کارت: \u200E${card.match(/.{1,4}/g)!.join(" ")}` : "شماره کارت هنوز ثبت نشده.");
+  const holder = [p.card_holder && t.holder(p.card_holder), p.bank].filter(Boolean).join(" · ");
+  lines.push("", card ? t.card(card.match(/.{1,4}/g)!.join(" ")) : t.noCard);
   if (card && holder) lines.push(holder);
-  if (p.deadline) lines.push(`مهلت پرداخت: ${p.deadline}`);
-  lines.push("", `بعد از واریز، دکمه‌ی «${RECEIPT_BUTTON}» رو بزن و عکس رسید (اسکرین‌شات) رو بفرست.`);
-  // بانک‌ها مبلغ رو به ریال می‌خوان: مبلغ تومانی با یک صفر بیشتر کپی می‌شه
-  const rial = (n: number) => cur === "تومان" ? n * 10 : n;
-  const copy = [left || due ? { text: "کپی مبلغ (ریال)", copy_text: { text: String(rial(left || due)) } } : null,
-    card ? { text: "کپی شماره کارت", copy_text: { text: card } } : null].filter(Boolean);
-  const rows = [...(copy.length ? [copy] : []), [{ text: RECEIPT_BUTTON, callback_data: RECEIPT_ACTION }]];
+  if (p.deadline) lines.push(t.deadline(p.deadline));
+  lines.push("", t.afterPaying);
+  // بانک‌های ایران مبلغ رو به ریال می‌خوان: مبلغ تومانی با یک صفر بیشتر کپی می‌شه
+  const toman = (p.currency || "تومان") === "تومان", rial = (n: number) => toman ? n * 10 : n;
+  const copy = [left || due ? { text: toman ? t.copyRial : t.copyAmount, copy_text: { text: String(rial(left || due)) } } : null,
+    card ? { text: t.copyCard, copy_text: { text: card } } : null].filter(Boolean);
+  const rows = [...(copy.length ? [copy] : []), [{ text: t.receiptButton, callback_data: RECEIPT_ACTION }]];
   return { text: lines.join("\n"), reply_markup: { inline_keyboard: rows } };
 }
 // مبلغ از کپشن عکس: «۱٬۵۰۰٬۰۰۰»، «1,500,000» یا «1500000 تومان»
@@ -279,7 +402,6 @@ function captionAmount(caption: unknown): number {
   return 0;
 }
 // «ثبت پرداخت»: بعد از زدنش، ربات تا RECEIPT_WAIT_MIN دقیقه منتظر یک عکس رسیده (در bot_users.receipt_wait_at)
-const RECEIPT_BUTTON = "🧾 ثبت پرداخت", RECEIPT_ACTION = "receipt", RECEIPT_WAIT_MIN = 30;
 async function receiptWait(tgId: number): Promise<boolean> {
   if (!Number.isSafeInteger(tgId) || tgId <= 0) return false;
   try {
@@ -293,27 +415,33 @@ async function setReceiptWait(tgId: number, on: boolean) {
   try { await admin.from("bot_users").update({ receipt_wait_at: on ? new Date().toISOString() : null }).eq("telegram_id", tgId); }
   catch { /* column missing (SQL not run): the button just says to send the photo */ }
 }
-async function onButton(cq: Record<string, any>): Promise<Response> {
+async function onButton(cq: Record<string, any>, site: string): Promise<Response> {
   const tgId = Number(cq.from?.id), chat = cq.message?.chat;
-  if (cq.data !== RECEIPT_ACTION || !chat || chat.type !== "private") {
-    return json({ method: "answerCallbackQuery", callback_query_id: cq.id });
+  if (!chat || chat.type !== "private") return json({ method: "answerCallbackQuery", callback_query_id: cq.id });
+  // the language button under the welcome: remember the choice and show the same message in that language
+  const chosen = String(cq.data ?? "").startsWith(LANG_ACTION) ? pickLang(String(cq.data).slice(LANG_ACTION.length)) : "";
+  if (chosen) {
+    await rememberBotUser(cq.from);
+    try { await admin.from("bot_users").update({ lang: chosen }).eq("telegram_id", tgId); } catch { /* column missing: this message only */ }
+    await tg("answerCallbackQuery", { callback_query_id: cq.id }).catch(() => null);
+    if (!site.startsWith("https://")) return new Response("ok");
+    return json({ method: "editMessageText", chat_id: chat.id, message_id: cq.message?.message_id, ...(await welcomeMessage(cq.from, site, chosen)) });
   }
-  const pay = await payInfo(tgId);
+  if (cq.data !== RECEIPT_ACTION) return json({ method: "answerCallbackQuery", callback_query_id: cq.id });
+  const [pay, lang] = await Promise.all([payInfo(tgId), langOf(cq.from)]), t = T[lang];
   await tg("answerCallbackQuery", { callback_query_id: cq.id }).catch(() => null);
-  if (!pay?.ok) return json({ method: "sendMessage", chat_id: chat.id,
-    text: pay ? "این لینک پرداخت دیگه معتبر نیست؛ از مسئول‌های مالی لینک جدید بگیر." : "الان نشد؛ چند دقیقه‌ی دیگه دوباره دکمه رو بزن." });
+  if (!pay?.ok) return json({ method: "sendMessage", chat_id: chat.id, text: pay ? t.linkExpired : t.tryLater });
   await Promise.all([rememberBotUser(cq.from), setReceiptWait(tgId, true)]);
-  const left = remainingOf(pay), cur = pay.currency || "تومان";
-  return json({ method: "sendMessage", chat_id: chat.id, text: `حالا عکس رسید (اسکرین‌شات) رو بفرست${pay.full_name ? ` (برای ${pay.full_name})` : ""}.`
-    + (left ? ` اگه مبلغی که واریز کردی با ${faNum(left)} ${cur} فرق داره، عددش رو زیر عکس (کپشن) بنویس.` : " مبلغی که واریز کردی رو زیر عکس (کپشن) بنویس.")
-    + "\nاگه پیام دیگه‌ای بفرستی، ثبت رسید لغو می‌شه." });
+  const left = remainingOf(pay);
+  return json({ method: "sendMessage", chat_id: chat.id,
+    text: t.sendNow(pay.full_name || "") + (left ? t.ifDiffers(money(lang, left, pay.currency)) : t.writeAmount) + t.otherCancels });
 }
 const MAX_RECEIPT = 2 * 1024 * 1024; // حد سطل receipts
 const RECEIPT_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
-async function onReceipt(msg: Record<string, any>): Promise<string> {
-  const pay = await payInfo(Number(msg.from?.id));
-  if (!pay) return "الان نشد رسید رو بگیرم؛ چند دقیقه‌ی دیگه دوباره بفرست.";
-  if (!pay.ok) return "برای فرستادن رسید، اول لینکی رو که مسئول‌های مالی برات فرستادن باز کن (یا از سایت وارد شو و رسید رو همون‌جا بفرست).";
+async function onReceipt(msg: Record<string, any>, lang: Lang): Promise<string> {
+  const t = T[lang], pay = await payInfo(Number(msg.from?.id));
+  if (!pay) return t.receiptBusy;
+  if (!pay.ok) return t.openLinkFirst;
   let fileId = "", type = "image/jpeg";
   if (Array.isArray(msg.photo) && msg.photo.length) {
     // بزرگ‌ترین اندازه‌ای که از حد مجاز کوچیک‌تره
@@ -321,13 +449,13 @@ async function onReceipt(msg: Record<string, any>): Promise<string> {
     fileId = (sizes.filter((s) => (s.file_size ?? 0) <= MAX_RECEIPT).at(-1) ?? sizes[0]).file_id;
   } else {
     type = String(msg.document?.mime_type ?? "");
-    if (!RECEIPT_TYPES[type]) return "فقط عکس رسید قبول می‌شه (نه PDF یا فایل دیگه)؛ یه اسکرین‌شات بگیر و همون رو بفرست.";
-    if (Number(msg.document?.file_size ?? 0) > MAX_RECEIPT) return "این عکس خیلی بزرگه؛ یه اسکرین‌شات بگیر و همون رو بفرست.";
+    if (!RECEIPT_TYPES[type]) return t.photoOnly;
+    if (Number(msg.document?.file_size ?? 0) > MAX_RECEIPT) return t.tooBig;
     fileId = String(msg.document?.file_id ?? "");
   }
   const amount = captionAmount(msg.caption) || remainingOf(pay);
-  if (!amount) return "مبلغی که واریز کردی رو زیر عکس (کپشن) بنویس و دوباره بفرست.";
-  const failed = "رسید ذخیره نشد؛ چند دقیقه‌ی دیگه دوباره بفرست.";
+  if (!amount) return t.noAmount;
+  const failed = t.notSaved;
   const f = await tg("getFile", { file_id: fileId }).catch(() => null);
   if (!f?.ok || !f.result?.file_path) return failed;
   let bytes: Uint8Array;
@@ -336,7 +464,7 @@ async function onReceipt(msg: Record<string, any>): Promise<string> {
     if (!r.ok) return failed;
     bytes = new Uint8Array(await r.arrayBuffer());
   } catch { return failed; }
-  if (bytes.length > MAX_RECEIPT) return "این عکس خیلی بزرگه؛ یه اسکرین‌شات بگیر و همون رو بفرست.";
+  if (bytes.length > MAX_RECEIPT) return t.tooBig;
   const path = `bot/${pay.id}/${crypto.randomUUID()}.${RECEIPT_TYPES[type]}`;
   const up = await admin.storage.from("receipts").upload(path, bytes, { contentType: type, upsert: false });
   if (up.error) return failed;
@@ -345,15 +473,12 @@ async function onReceipt(msg: Record<string, any>): Promise<string> {
     await admin.storage.from("receipts").remove([path]).catch(() => {}); // عکس بی‌صاحب نمونه
     return failed;
   }
-  const cur = pay.currency || "تومان";
-  return `رسید${pay.full_name ? ` ${pay.full_name}` : ""} با مبلغ ${faNum(amount)} ${cur} رسید ✅\nبعد از بررسی مسئول‌های مالی تأیید می‌شه.`
-    + (captionAmount(msg.caption) ? "" : " اگه مبلغی که واریز کردی فرق داره، به مسئول‌های مالی بگو.");
+  return t.received(pay.full_name || "", money(lang, amount, pay.currency)) + (captionAmount(msg.caption) ? "" : t.tellIfDiffers);
 }
-function codesText(rows: CodeRow[]): string {
-  const code = (c: string) => `<code>${escHtml(c)}</code>`;
-  if (rows.length === 1) return `🗳 کد ورود رأی‌گیری: ${code(rows[0].code)}\nاین کد مخصوص خودته؛ به کس دیگه‌ای نده.`;
-  return "🗳 کدهای ورود رأی‌گیری:\n" + rows.map((r) => `${escHtml(r.full_name || "—")}: ${code(r.code)}`).join("\n")
-    + "\nکد هر نفر مخصوص خودشه؛ به کس دیگه‌ای ندید.";
+function codesText(rows: CodeRow[], lang: Lang): string {
+  const t = T[lang], code = (c: string) => `<code>${escHtml(c)}</code>`;
+  if (rows.length === 1) return t.code(code(rows[0].code));
+  return t.codes + "\n" + rows.map((r) => `${escHtml(r.full_name || "—")}: ${code(r.code)}`).join("\n") + t.codesNote;
 }
 
 // فقط مدیر. نقش رو مثل خود سایت (با نشست خود کاربر) می‌خونیم؛ دسترسی service role به جدول members لازم نیست.
@@ -377,7 +502,7 @@ function httpsSite(raw: unknown): string | null {
 
 // راه‌اندازی یک‌باره توسط مدیر: تلگرام پیام‌های ربات رو به این تابع بفرسته، و دکمه‌ی منوی ربات همین سایت رو باز کنه.
 // آدرس سایت از مرورگر مدیر میاد و داخل آدرس webhook نگه داشته می‌شه.
-async function setupBot(req: Request, siteRaw: string): Promise<Response> {
+async function setupBot(req: Request, siteRaw: string, langRaw?: unknown): Promise<Response> {
   const auth = await requireAdmin(req);
   if ("res" in auth) return auth.res!;
   const href = httpsSite(siteRaw);
@@ -388,27 +513,29 @@ async function setupBot(req: Request, siteRaw: string): Promise<Response> {
     secret_token: await webhookSecret(), allowed_updates: ["message", "callback_query"], drop_pending_updates: true,
   });
   if (!hook.ok) return json({ error: "telegram_failed", detail: hook.description }, 502);
-  const menu = await tg("setChatMenuButton", { menu_button: { type: "web_app", text: OPEN_SITE, web_app: { url: site.href } } });
+  // one menu button for everyone: in BOT_LANG, else in the admin's language
+  const lang = pickLang(Deno.env.get("BOT_LANG")) || pickLang(langRaw) || "en";
+  const menu = await tg("setChatMenuButton", { menu_button: { type: "web_app", text: T[lang].openSite, web_app: { url: site.href } } });
   return json({ ok: true, site: site.href, menu: menu.ok, detail: menu.ok ? undefined : menu.description });
 }
 
 // پیام همگانی از طرف ربات (فقط مدیر). گیرنده‌ها: هر کسی که ربات رو Start کرده و بلاکش نکرده، به‌اضافه‌ی هر کسی که با تلگرام
 // وارد سایت شده (کسی که هیچ‌وقت ربات رو Start نکرده رو تلگرام قبول نمی‌کنه و «نرسید» حساب می‌شه).
 // count_only: فقط تعداد گیرنده‌ها. test: فقط برای خود مدیر، تا قبل از فرستادن برای همه ببینه چطور دیده می‌شه.
-type Broadcast = { text?: unknown; test?: boolean; count_only?: boolean; with_button?: boolean; site?: unknown };
+type Broadcast = { text?: unknown; test?: boolean; count_only?: boolean; with_button?: boolean; site?: unknown; lang?: unknown };
 const MAX_TEXT = 4000;
 const PER_SECOND = 20; // تلگرام حدود ۳۰ پیام در ثانیه رو قبول می‌کنه
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Sends each {to, text} through the bot, at most PER_SECOND a second; one result per job, in the same order.
 // "unreachable": Telegram answered 403 (the person blocked the bot or never started it).
-type Job = { to: number; text: string };
+type Job = { to: number; text: string; markup?: unknown };
 type Outcome = "sent" | "unreachable" | "failed";
 async function sendPaced(jobs: Job[], markup: unknown, parseMode?: "HTML"): Promise<Outcome[]> {
   const out: Outcome[] = new Array(jobs.length);
-  const sendOne = async ({ to, text }: Job, i: number) => {
+  const sendOne = async ({ to, text, markup: own }: Job, i: number) => {
     for (let attempt = 0; attempt < 2; attempt++) {
       let r: TgResult;
-      try { r = await tg("sendMessage", { chat_id: to, text, reply_markup: markup, link_preview_options: { is_disabled: true }, ...(parseMode ? { parse_mode: parseMode } : {}) }); }
+      try { r = await tg("sendMessage", { chat_id: to, text, reply_markup: own ?? markup, link_preview_options: { is_disabled: true }, ...(parseMode ? { parse_mode: parseMode } : {}) }); }
       catch { out[i] = "failed"; return; }
       if (r.ok) { out[i] = "sent"; return; }
       if (r.error_code === 429 && attempt === 0) { await sleep(Math.min(30, r.parameters?.retry_after ?? 1) * 1000); continue; }
@@ -427,10 +554,13 @@ const ownTelegramId = (auth: { who: { user: { email?: string } | null }; me: { t
   const id = Number(auth.me?.telegram_id ?? /^tg(\d+)@telegram\.local$/.exec(auth.who.user?.email ?? "")?.[1] ?? 0);
   return Number.isSafeInteger(id) && id > 0 ? id : 0;
 };
-function buttonFor(b: { with_button?: boolean; site?: unknown }): { markup?: unknown; error?: Response } {
+// the "open the site" button, labelled in each recipient's language
+async function buttonFor(b: { with_button?: boolean; site?: unknown; lang?: unknown }, ids: number[]): Promise<{ markup?: (id: number) => unknown; error?: Response }> {
   if (!b.with_button) return {};
   const site = httpsSite(b.site);
-  return site ? { markup: siteButton(site) } : { error: json({ error: "bad_site" }, 400) };
+  if (!site) return { error: json({ error: "bad_site" }, 400) };
+  const lang = await langsOf(ids, pickLang(b.lang) || "en");
+  return { markup: (id) => siteButton(site, lang(id)) };
 }
 async function markBlocked(ids: number[]) {
   if (!ids.length) return;
@@ -462,9 +592,9 @@ async function broadcast(req: Request, b: Broadcast): Promise<Response> {
   const text = String(b.text ?? "").trim();
   if (!text) return json({ error: "empty" }, 400);
   if (text.length > MAX_TEXT) return json({ error: "too_long" }, 400);
-  const btn = buttonFor(b);
+  const btn = await buttonFor(b, ids);
   if (btn.error) return btn.error;
-  const res = await sendPaced(ids.map((to) => ({ to, text })), btn.markup);
+  const res = await sendPaced(ids.map((to) => ({ to, text, markup: btn.markup?.(to) })), undefined);
   const sent = res.filter((r) => r === "sent").length;
   const unreachable = ids.filter((_, i) => res[i] === "unreachable"), failed = res.filter((r) => r === "failed").length;
   if (b.test) {
@@ -482,7 +612,7 @@ async function broadcast(req: Request, b: Broadcast): Promise<Response> {
 // آماده می‌کنه ({name}، {remaining}…)؛ اینجا فقط به حساب‌های تلگرامی فرستاده می‌شه که سایت می‌شناسه (اعضای سایت و کسایی
 // که ربات رو Start کردن). نتیجه‌ی هر پیام به همون ترتیب برمی‌گرده تا سایت بقیه رو از حساب شخصی مدیر بفرسته.
 // test: فقط اولین پیام، برای خود مدیر.
-type Notify = { messages?: unknown; with_button?: boolean; site?: unknown; test?: boolean };
+type Notify = { messages?: unknown; with_button?: boolean; site?: unknown; test?: boolean; lang?: unknown };
 const MAX_MESSAGES = 500;
 async function notify(req: Request, b: Notify): Promise<Response> {
   const auth = await requireAdmin(req);
@@ -494,12 +624,12 @@ async function notify(req: Request, b: Notify): Promise<Response> {
   const jobs: Job[] = list.map((m) => ({ to: Number(m?.to), text: String(m?.text ?? "").trim() }));
   if (jobs.some((j) => !j.text)) return json({ error: "empty" }, 400);
   if (jobs.some((j) => j.text.length > MAX_TEXT)) return json({ error: "too_long" }, 400);
-  const btn = buttonFor(b);
+  const own = b.test ? ownTelegramId(auth) : 0;
+  const btn = await buttonFor(b, b.test ? [own] : jobs.map((j) => j.to));
   if (btn.error) return btn.error;
   if (b.test) {
-    const own = ownTelegramId(auth);
     if (!own) return json({ error: "no_telegram" }, 400);
-    const [r] = await sendPaced([{ to: own, text: jobs[0].text }], btn.markup);
+    const [r] = await sendPaced([{ to: own, text: jobs[0].text, markup: btn.markup?.(own) }], undefined);
     if (r === "unreachable") return json({ error: "start_bot_first" }, 400);
     if (r !== "sent") return json({ error: "telegram_failed" }, 502);
     return json({ ok: true, test: true });
@@ -512,7 +642,7 @@ async function notify(req: Request, b: Notify): Promise<Response> {
   // bot_users may not exist yet (bot SQL not run): then only people who signed in to the site
   const known = new Set([...(bot.error ? [] : bot.data ?? []), ...(members.data ?? [])].map((r) => Number(r.telegram_id)));
   if (jobs.some((j) => !Number.isSafeInteger(j.to) || !known.has(j.to))) return json({ error: "unknown_recipient" }, 400);
-  const results = await sendPaced(jobs, btn.markup);
+  const results = await sendPaced(jobs.map((j) => ({ ...j, markup: btn.markup?.(j.to) })), undefined);
   const sent = results.filter((r) => r === "sent").length;
   await markBlocked([...new Set(jobs.filter((_, i) => results[i] === "unreachable").map((j) => j.to))]);
   // the site records the whole send (bot and personal account together) in the history, so nothing is logged here
@@ -522,15 +652,17 @@ async function notify(req: Request, b: Notify): Promise<Response> {
 // کد رأی هر شرکت‌کننده، از ربات برای خودش (فقط مدیر)، بدون دکمه‌ی «ورود به سایت».
 // گیرنده: حساب تلگرامی که خود اون نفر (یا صاحب شماره‌ش) باهاش وارد سایت شده؛ چند نفرِ یک شماره در یک پیام.
 // test: یک پیام نمونه با کد ساختگی برای خود مدیر.
-type SendCodes = { test?: boolean };
+type SendCodes = { test?: boolean; lang?: unknown };
 async function sendCodes(req: Request, b: SendCodes): Promise<Response> {
   const auth = await requireAdmin(req);
   if ("res" in auth) return auth.res!;
-  const btn = { markup: voteButton() }; // only the voting-site button, no "open the site"
+  const fallback = pickLang(b.lang) || "en";
+  // only the voting-site button, no "open the site"; each person in their own language
   if (b.test) {
     const own = ownTelegramId(auth);
     if (!own) return json({ error: "no_telegram" }, 400);
-    const [r] = await sendPaced([{ to: own, text: "(نمونه؛ کد واقعی نیست)\n" + codesText([{ full_name: null, code: "AB12CD" }]) }], btn.markup, "HTML");
+    const lang = (await langsOf([own], fallback))(own);
+    const [r] = await sendPaced([{ to: own, text: T[lang].sample + codesText([{ full_name: null, code: "AB12CD" }], lang), markup: voteButton(lang) }], undefined, "HTML");
     if (r === "unreachable") return json({ error: "start_bot_first" }, 400);
     if (r !== "sent") return json({ error: "telegram_failed" }, 502);
     return json({ ok: true, test: true });
@@ -544,8 +676,8 @@ async function sendCodes(req: Request, b: SendCodes): Promise<Response> {
     if (!byTg.has(id)) byTg.set(id, []);
     byTg.get(id)!.push({ full_name: r.full_name, code: r.code });
   }
-  const ids = [...byTg.keys()];
-  const res = await sendPaced(ids.map((to) => ({ to, text: codesText(byTg.get(to)!) })), btn.markup, "HTML");
+  const ids = [...byTg.keys()], langOfId = await langsOf(ids, fallback);
+  const res = await sendPaced(ids.map((to) => ({ to, text: codesText(byTg.get(to)!, langOfId(to)), markup: voteButton(langOfId(to)) })), undefined, "HTML");
   const unreachable = ids.filter((_, i) => res[i] === "unreachable");
   await markBlocked(unreachable);
   return json({
@@ -589,10 +721,10 @@ Deno.serve(async (req) => {
   if (!BOT_TOKEN) return json({ error: "bot_token_missing" }, 500);
   if (req.headers.has("x-telegram-bot-api-secret-token")) return onTelegramUpdate(req);
 
-  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string; setup_bot?: boolean; site?: string; broadcast?: Broadcast; notify?: Notify; send_codes?: SendCodes; send_file?: SendFile };
+  let body: { widget?: Record<string, unknown>; initData?: string; contact?: string; setup_bot?: boolean; site?: string; lang?: string; broadcast?: Broadcast; notify?: Notify; send_codes?: SendCodes; send_file?: SendFile };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
   if (typeof body.contact === "string") return linkByPhone(req, body.contact);
-  if (body.setup_bot) return setupBot(req, String(body.site ?? ""));
+  if (body.setup_bot) return setupBot(req, String(body.site ?? ""), body.lang);
   if (body.broadcast && typeof body.broadcast === "object") return broadcast(req, body.broadcast);
   if (body.notify && typeof body.notify === "object") return notify(req, body.notify);
   if (body.send_codes && typeof body.send_codes === "object") return sendCodes(req, body.send_codes);

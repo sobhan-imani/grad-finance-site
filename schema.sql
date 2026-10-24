@@ -254,10 +254,12 @@ alter table public.payment_info
   add column if not exists catering_amount bigint not null default 0 check (catering_amount >= 0);
 insert into public.payment_info (id) values (1) on conflict do nothing;
 -- یک‌بار: تبدیل اقلام ثابت نسخه‌های قبلی (لوح، تندیس، آلبوم عکس) به فهرست بالا، اگه این دیتابیس اون ستون‌ها رو داره.
--- ستون‌های قدیمی دست نمی‌خورن. اجرای دوباره ضرری نداره (فقط وقتی فهرست هنوز خالیه کاری می‌کنه).
+-- ستون‌های قدیمی دست نمی‌خورن. فقط یک بار انجام می‌شه (توضیح ستون addons نشون می‌ده انجام شده)، پس اجرای دوباره ضرری نداره.
 do $$
 declare items jsonb := '[]'; legacy record;
 begin
+  if col_description('public.payment_info'::regclass, (select attnum from pg_attribute where attrelid = 'public.payment_info'::regclass and attname = 'addons')) = 'items: converted' then return; end if;
+  comment on column public.payment_info.addons is 'items: converted';
   if (select addons from public.payment_info where id = 1) <> '[]'::jsonb then return; end if;
   for legacy in select * from (values ('plaque', 'لوح', false), ('statue', 'تندیس', true), ('album', 'آلبوم عکس (Yearbook)', true)) v(id, name, main) loop
     if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'participants' and column_name = 'wants_' || legacy.id) then
@@ -833,6 +835,9 @@ create unique index if not exists participants_pay_token_key on public.participa
 alter table public.bot_users add column if not exists pay_token uuid;
 -- بعد از زدن «ثبت پرداخت» در ربات: از کی منتظر عکس رسیده (پیام بعدی اگه عکس نباشه، ثبت رسید لغو می‌شه)
 alter table public.bot_users add column if not exists receipt_wait_at timestamptz;
+-- زبان ربات برای هر نفر: lang = انتخاب خودش با دکمه‌ی زبان زیر پیام خوش‌آمد (fa / en)، language_code = زبان اپ تلگرامش
+alter table public.bot_users add column if not exists lang text check (lang in ('fa', 'en'));
+alter table public.bot_users add column if not exists language_code text;
 
 -- مبلغ هر نفر، با همون حسابی که سایت می‌کنه
 create or replace function public.participant_due(p public.participants)

@@ -2250,7 +2250,7 @@ async function sendCodes(test){
   const s = VC.status; if (!s) return;
   if (!test && !confirm(`ربات کد رأی هر شرکت‌کننده رو برای خودش بفرسته؟ (به ${fmt(s.assigned)} نفری که کد دارن، هر کدوم که با تلگرام وارد سایت شده)`)) return;
   await codesBusy(async () => {
-    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{send_codes:{test:!!test}}});
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{send_codes:{test:!!test, lang:I18N.lang}}});
     if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} console.error('send_codes', b); codesOut(esc(VC_SEND_ERR[b.error] || 'تابع telegram-auth جواب درست نداد؛ مطمئن شو نسخه‌ی جدیدش Deploy شده.'), true); return; }
     if (test){ toast('نمونه برات فرستاده شد؛ توی تلگرام ببینش'); return; }
     const d = data || {};
@@ -2946,7 +2946,7 @@ async function setupBot(btn){
   if (location.protocol !== 'https:'){ out.classList.add('bad'); out.textContent = 'این کار رو از آدرس اصلی سایت (https://…) انجام بده، نه از نسخه‌ی محلی.'; return; }
   btn.disabled = true; out.textContent = 'در حال راه‌اندازی…';
   try {
-    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{setup_bot:true, site}});
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{setup_bot:true, site, lang:I18N.lang}});
     if (error){
       let b = {}; try { b = await error.context.json(); } catch(e){}
       throw new Error(b.error === 'not_admin' ? 'فقط مدیر می‌تونه ربات رو راه‌اندازی کنه.'
@@ -3005,7 +3005,7 @@ async function botBroadcast(test){
   if (!text){ out.classList.add('bad'); out.textContent = BOT_ERRORS.empty; $('#bcText').focus(); return; }
   if (withButton && location.protocol !== 'https:'){ out.classList.add('bad'); out.textContent = BOT_ERRORS.bad_site; return; }
   const call = async body => {
-    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{broadcast:body}});
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{broadcast:{...body, lang:I18N.lang}}});
     if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} throw b; }
     return data || {};
   };
@@ -3124,7 +3124,7 @@ const ntErr = b => ({unknown_recipient:'یکی از گیرنده‌ها رو ت�
   start_bot_first:'اول خودت ربات رو توی تلگرام Start کن، بعد دوباره امتحان کن.', bad_site:BOT_ERRORS.bad_site, telegram_failed:'تلگرام پیام رو قبول نکرد.'}[b && b.error]
   || 'تابع telegram-auth جواب درست نداد؛ مطمئن شو نسخه‌ی جدیدش Deploy شده.');
 async function ntCall(body){
-  const { data, error } = await sb.functions.invoke('telegram-auth', {body:{notify:body}});
+  const { data, error } = await sb.functions.invoke('telegram-auth', {body:{notify:{...body, lang:I18N.lang}}});
   if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} throw b; }
   return data || {};
 }
