@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
+<script src="config.js"></script>
+<script src="i18n.js"></script>
 <title>حساب و کتاب جشن فارغ‌التحصیلی</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
 <style>
@@ -269,6 +271,9 @@ dialog form{display:flex;flex-direction:column;max-height:inherit}
 [hidden]{display:none!important}
 .claim-box{display:grid;gap:12px}
 .pay-app-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.gate-card{position:relative}
+.gate-card > .lang-btn{position:absolute;top:12px;inset-inline-end:12px}
+.lang-btn{font-family:"Vazirmatn",system-ui,sans-serif}
 .pay-app-head h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,6vw,36px);margin:0;line-height:1.2}
 .pay-wrap{display:grid;gap:12px;max-width:560px}
 .pay-hello h2{margin:0;font-size:20px}
@@ -351,6 +356,9 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 .seg.kind-seg{grid-template-columns:repeat(2,1fr)}
 .items-box{display:grid;gap:10px;border:1px dashed var(--line);border-radius:var(--radius);padding:10px 12px}
 .items-box .checks{display:flex;gap:18px;flex-wrap:wrap}
+.addon-rows{display:grid;gap:8px}
+.addon-row{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.addon-row .check{white-space:nowrap}
 .cater-pick{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
 .cater-pick .chip{padding:1px 10px;font-size:12px}
 .cater-pick .chip.on.yes{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent);color:var(--ok)}
@@ -377,6 +385,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 <body>
 <div class="gate" id="gate">
   <div class="gate-card">
+    <button class="btn small lang-btn" type="button" data-act="lang" translate="no">English</button>
     <h1>حساب و کتاب جشن</h1>
     <p id="gateMsg">برای ورود، با تلگرام وارد شو.</p>
     <div id="tgBox" class="tg-box"></div>
@@ -411,7 +420,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
       <h1 id="title">جشن فارغ‌التحصیلی</h1>
       <p class="sub"><span class="dot" id="syncDot"></span><span id="syncText">در حال اتصال…</span></p>
     </div>
-    <div class="who"><span class="me" id="me"></span><span class="tag role-tag" id="roleTag"></span><button class="btn small" type="button" id="logoutBtn">خروج</button><button class="btn primary" id="exportBtn" type="button">خروجی اکسل</button></div>
+    <div class="who"><span class="me" id="me"></span><span class="tag role-tag" id="roleTag"></span><button class="btn small lang-btn" type="button" data-act="lang" translate="no">English</button><button class="btn small" type="button" id="logoutBtn">خروج</button><button class="btn primary" id="exportBtn" type="button">خروجی اکسل</button></div>
   </header>
 
   <section class="ledger" aria-label="برآورد کل">
@@ -484,7 +493,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
       <input type="search" id="pq" placeholder="جستجو در نام، شماره یا گرایش…">
       <select id="pMajor" aria-label="گرایش" hidden><option value="">همه گرایش‌ها</option></select>
       <select id="pFilter" aria-label="وضعیت"><option value="">همه</option><option value="review">فیش در انتظار بررسی</option><option value="unpaid">پرداخت نکرده</option><option value="partial">بخشی پرداخت شده</option><option value="settled">تسویه</option><option value="unclaimed">هنوز وارد نشده</option></select>
-      <select id="pItems" aria-label="لوح، تندیس، آلبوم عکس و پذیرایی" hidden><option value="">لوح، تندیس، آلبوم، پذیرایی</option><option value="plaque">لوح می‌خوان</option><option value="statue">تندیس می‌خوان</option><option value="album">آلبوم عکس می‌خوان</option><option value="cat-undecided">پذیرایی: تصمیم نشده</option><option value="cat-yes">با پذیرایی</option><option value="cat-no">بدون پذیرایی</option></select>
+      <select id="pItems" aria-label="اقلام و پذیرایی" hidden></select>
       <button class="btn desk need-edit push" type="button" data-act="import-people">ورود از شیت</button>
       <button class="btn primary desk need-edit" type="button" data-act="add-person">+ شرکت‌کننده</button>
       <button class="btn desk need-admin" type="button" data-act="notify">پیام به شرکت‌کننده‌ها</button>
@@ -510,7 +519,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
         <input class="field" id="setBudget" inputmode="numeric" placeholder="مثلاً ۵۰٬۰۰۰٬۰۰۰"></label>
       <label class="lbl">تعداد نفرات سهیم <span class="hint">برای محاسبه سهم هر نفر</span>
         <input class="field" id="setHead" inputmode="numeric" placeholder="مثلاً ۲۵"></label>
-      <label class="lbl">واحد پول<select class="field" id="setCur"><option>تومان</option><option>ریال</option></select></label>
+      <label class="lbl">واحد پول<select class="field" id="setCur"><option value="تومان">تومان</option><option value="ریال">ریال</option></select></label>
       <p class="hint" id="setMeta" style="color:var(--muted);font-size:13px;margin:0"></p>
       <div class="lbl need-admin">ربات تلگرام
         <span class="hint">یک بار بزن: بعدش هر کس ربات رو Start کنه، پیام خوش‌آمد با دکمه‌ی «ورود به سایت» می‌گیره و دکمه‌ی منوی ربات هم همین سایت رو باز می‌کنه. این کار رو از آدرس اصلی سایت انجام بده؛ اگه آدرس سایت عوض شد، دوباره بزن.</span>
@@ -544,7 +553,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 </div>
 
 <div class="wrap" id="payApp" hidden>
-  <header class="pay-app-head"><h1>پرداخت سهم جشن</h1><button class="btn small" type="button" data-act="logout">خروج</button></header>
+  <header class="pay-app-head"><h1>پرداخت سهم جشن</h1><span class="row-btns"><button class="btn small lang-btn" type="button" data-act="lang" translate="no">English</button><button class="btn small" type="button" data-act="logout">خروج</button></span></header>
   <div id="myPayFull"></div>
 </div>
 
@@ -643,15 +652,11 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
         <label class="lbl">نام و نام خانوادگی<input class="field" name="full_name" maxlength="80"></label>
       </div>
       <div class="seg kind-seg" id="personKind" role="radiogroup" aria-label="نوع شرکت‌کننده" hidden>
-        <input type="radio" name="kind" id="pk-main" value="main"><label for="pk-main" style="--c:var(--ok)"><b>اصلی</b><small>سهم کامل، مهمان، کد رأی</small></label>
-        <input type="radio" name="kind" id="pk-extra" value="extra"><label for="pk-extra" style="--c:var(--gold)"><b>جدید</b><small>فقط لوح / تندیس؛ پذیرایی جدا تصمیم گرفته می‌شه</small></label>
+        <input type="radio" name="kind" id="pk-main" value="main"><label for="pk-main" style="--c:var(--ok)"><b>اصلی</b><small id="pkMainHint">سهم کامل و مهمان</small></label>
+        <input type="radio" name="kind" id="pk-extra" value="extra"><label for="pk-extra" style="--c:var(--gold)"><b>جدید</b><small>فقط اقلامی که می‌خواد؛ پذیرایی جدا تصمیم گرفته می‌شه</small></label>
       </div>
       <div class="items-box" id="personItems" hidden>
-        <div class="checks">
-          <label class="check"><input type="checkbox" name="wants_plaque"> لوح</label>
-          <label class="check"><input type="checkbox" name="wants_statue"> تندیس</label>
-          <label class="check" id="albumWrap"><input type="checkbox" name="wants_album"> آلبوم عکس <span class="hint">(Yearbook)</span></label>
-        </div>
+        <div class="checks" id="personAddons"></div>
         <label class="lbl">پذیرایی<select class="field" name="catering"><option value="undecided">هنوز تصمیم نگرفتیم</option><option value="yes">بله، پذیرایی بهش می‌رسه</option><option value="no">نه، بدون پذیرایی</option></select></label>
       </div>
       <div class="two" id="personExtra">
@@ -749,13 +754,11 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
         <label class="lbl" id="guestAmtWrap">مبلغ هر مهمان <span class="hint">خالی = مهمان رایگان</span><input class="field" name="guest_amount" inputmode="numeric"></label>
       </div>
       <fieldset class="items-box" id="extraAmtWrap" hidden>
-        <legend class="hint">شرکت‌کننده‌های جدید (به‌جای سهم، هر چیزی که خواستن)</legend>
-        <div class="three">
-          <label class="lbl">مبلغ لوح<input class="field" name="plaque_amount" inputmode="numeric"></label>
-          <label class="lbl">مبلغ تندیس<input class="field" name="statue_amount" inputmode="numeric"></label>
-          <label class="lbl" id="albumAmtWrap">مبلغ آلبوم عکس<input class="field" name="album_amount" inputmode="numeric"></label>
-          <label class="lbl">مبلغ پذیرایی <span class="hint">هر نفر</span><input class="field" name="catering_amount" inputmode="numeric"></label>
-        </div>
+        <legend class="hint">اقلام (مثلاً لوح، تندیس، آلبوم عکس)</legend>
+        <span class="hint">شرکت‌کننده‌های جدید به‌جای سهم، قیمت اقلامی رو که خواستن می‌دن. تیک «جزو سهم» یعنی شرکت‌کننده‌های اصلی هم این قلم رو می‌گیرن (توی کارت «چیزهایی که دریافت خواهید کرد»‌شون می‌آد).</span>
+        <div class="addon-rows" id="addonRows"></div>
+        <div class="row-btns"><button class="btn small need-edit" type="button" data-act="addon-add">+ قلم جدید</button></div>
+        <label class="lbl">مبلغ پذیرایی <span class="hint">هر نفر، برای شرکت‌کننده‌های جدیدی که پذیرایی بهشون می‌رسه</span><input class="field" name="catering_amount" inputmode="numeric"></label>
       </fieldset>
       <label class="lbl">مهلت پرداخت<input class="field" name="deadline" maxlength="40" placeholder="مثلاً ۱۵ آبان"></label>
       <label class="lbl">توضیح برای شرکت‌کننده‌ها<textarea class="field" name="note" maxlength="400"></textarea></label>
@@ -780,7 +783,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   <form method="dialog" novalidate onsubmit="return false">
     <div class="dlg-head"><h2>کدهای ورود رأی‌گیری</h2><button class="icon-btn" type="button" data-close aria-label="بستن">×</button></div>
     <div class="dlg-body">
-      <p class="hint" style="color:var(--muted);font-size:13px;margin:0">هر شرکت‌کننده‌ی اصلی یک کد یکتا می‌گیره که فقط خودش (و کسایی که با همون شماره ثبت‌نام کردن) توی صفحه‌ی پرداخت و ربات می‌بینه. مدیرها کد هر نفر رو توی فهرست و پنجره‌ی همون نفر می‌بینن، تا به کسی که از ربات و سایت استفاده نمی‌کنه بدن. شرکت‌کننده‌های جدید (لوح و تندیس) خودکار کد نمی‌گیرن؛ برای اون‌هایی که می‌خوای، از پنجره‌ی همون نفر «یه کد بهش بده» رو بزن.</p>
+      <p class="hint" style="color:var(--muted);font-size:13px;margin:0">هر شرکت‌کننده‌ی اصلی یک کد یکتا می‌گیره که فقط خودش (و کسایی که با همون شماره ثبت‌نام کردن) توی صفحه‌ی پرداخت و ربات می‌بینه. مدیرها کد هر نفر رو توی فهرست و پنجره‌ی همون نفر می‌بینن، تا به کسی که از ربات و سایت استفاده نمی‌کنه بدن. شرکت‌کننده‌های جدید (فقط اقلام) خودکار کد نمی‌گیرن؛ برای اون‌هایی که می‌خوای، از پنجره‌ی همون نفر «یه کد بهش بده» رو بزن.</p>
       <div class="people-sum" id="vcStats"></div>
       <div class="vc-step">
         <b>۱. اضافه کردن کدها</b>
@@ -818,7 +821,6 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 
 <div class="toast" id="toast" aria-live="polite"><div></div></div>
 
-<script src="config.js"></script>
 <script src="vendor/supabase.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
 <script>
@@ -840,6 +842,8 @@ const AUDIT = ['created_at','created_by','updated_at','updated_by'];
 
 const $ = s => document.querySelector(s);
 const cfg = window.APP_CONFIG || {};
+// the language button offers the other language
+document.querySelectorAll('[data-act="lang"]').forEach(b => { const fa = I18N.lang !== 'fa'; b.textContent = fa ? 'فارسی' : 'English'; b.lang = fa ? 'fa' : 'en'; b.title = fa ? 'نمایش به فارسی' : 'Show in English'; });
 let sb = null, me = null, channel = null, ready = false;
 const emptyState = () => ({settings:{...DEFAULT_SETTINGS}, items:{}, funds:{}, invoices:{}, members:{}, activity:[], participants:{}, payments:{}, payInfo:{}});
 let S = emptyState();
@@ -848,9 +852,11 @@ const urlCache = new Map(); // file_path -> {url, exp}
 const urlPending = new Set();
 
 /* ---------- helpers ---------- */
-const nf = new Intl.NumberFormat('fa-IR');
+const nf = new Intl.NumberFormat(I18N.numLocale);
 const fmt = n => nf.format(Math.round(n || 0));
-const money = n => fmt(n) + ' ' + S.settings.currency;
+// the currency as shown (stored as typed; Toman and Rial have English names)
+const curName = () => tr(S.settings.currency || 'تومان');
+const money = n => fmt(n) + ' ' + curName();
 const toLatin = s => String(s ?? '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 const parseNum = s => { const v = toLatin(s).replace(/[^\d]/g, ''); return v ? Number(v) : 0; };
 const normNo = s => toLatin(s).replace(/[\s\-_/.]/g, '').toUpperCase(); // student number, as stored
@@ -905,9 +911,9 @@ const fundsOnly = () => Object.values(S.funds).filter(f => f.kind !== 'contrib')
 const invOf = itemId => Object.values(S.invoices).filter(v => v.item_id === itemId);
 const invSum = itemId => invOf(itemId).reduce((a,v) => a + (Number(v.total)||0), 0);
 const ts = v => v ? new Date(v).getTime() : 0;
-const faDate = v => v ? new Intl.DateTimeFormat('fa-IR', {month:'short', day:'numeric'}).format(new Date(v)) : '';
+const faDate = v => v ? new Intl.DateTimeFormat(I18N.dateLocale, {month:'short', day:'numeric'}).format(new Date(v)) : '';
 const who = e => e ? String(e) : '';
-const metaLine = r => r && r.updated_by ? `آخرین تغییر: ${who(r.updated_by)}، ${new Intl.DateTimeFormat('fa-IR', {month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'}).format(new Date(r.updated_at))}` + (r.created_by && r.created_by !== r.updated_by ? ` · ثبت اولیه: ${who(r.created_by)}` : '') : '';
+const metaLine = r => r && r.updated_by ? `آخرین تغییر: ${who(r.updated_by)}، ${new Intl.DateTimeFormat(I18N.dateLocale, {month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'}).format(new Date(r.updated_at))}` + (r.created_by && r.created_by !== r.updated_by ? ` · ثبت اولیه: ${who(r.created_by)}` : '') : '';
 
 function toast(msg){
   const t = $('#toast'); t.firstElementChild.textContent = msg; t.classList.add('show');
@@ -978,16 +984,12 @@ async function probeGuestCols(){
   const [a, b] = await Promise.all([sb.from('participants').select('guests,major').limit(1), sb.from('payment_info').select('guest_amount').limit(1)]);
   hasGuestCols = !a.error && !b.error;
 }
-// same for the "new participants" columns (kind, plaque / statue / catering and their prices)
+// same for the "new participants" columns (kind, chosen items, catering; the item list and catering price)
 let hasExtraCols = false;
 async function probeExtraCols(){
-  const [a, b] = await Promise.all([sb.from('participants').select('kind,wants_plaque,wants_statue,catering').limit(1), sb.from('payment_info').select('plaque_amount,statue_amount,catering_amount').limit(1)]);
+  const [a, b] = await Promise.all([sb.from('participants').select('kind,addons,catering').limit(1), sb.from('payment_info').select('addons,catering_amount').limit(1)]);
   hasExtraCols = !a.error && !b.error;
-  // the photo album (yearbook) came later, with its own SQL
-  const [c, d] = await Promise.all([sb.from('participants').select('wants_album').limit(1), sb.from('payment_info').select('album_amount').limit(1)]);
-  hasAlbumCols = hasExtraCols && !c.error && !d.error;
 }
-let hasAlbumCols = false;
 async function loadParticipantData(){
   // settings is only needed for the currency label; participants may not be allowed to read it
   await Promise.all([reload('participants'), reload('payments'), loadPayInfo(), loadSettings().catch(() => {}), loadMyCodes()]);
@@ -1392,12 +1394,12 @@ const role_rank = r => ({admin:3, editor:2, viewer:1}[r] || 0);
 /* ---------- history ---------- */
 const FIELD_LABELS = {welcome_text:'متن پیام خوش‌آمد', student_no:'شماره', full_name:'نام', major:'گرایش', guests:'تعداد مهمان', guest_amount:'مبلغ هر مهمان', status:'وضعیت فیش', review_note:'یادداشت بررسی', tracking_code:'کد پیگیری', card_number:'شماره کارت', card_holder:'به نام', default_amount:'مبلغ پیش‌فرض', deadline:'مهلت', user_id:'حساب متصل', verify_code:'کد تأیید', title:'عنوان', reason:'دلیل', type:'نوع', category:'دسته', vendor:'فروشنده', unit:'قیمت واحد', qty:'تعداد', paid:'وضعیت', actual:'مبلغ واقعی', payer:'پرداخت از',
   name:'نام', amount:'مبلغ', note:'یادداشت', item_id:'خرج مربوط', total:'مبلغ فاکتور', invoice_date:'تاریخ فاکتور', budget:'سقف بودجه', headcount:'تعداد نفرات', currency:'واحد پول',
-  kind:'دسته', wants_plaque:'لوح', wants_statue:'تندیس', wants_album:'آلبوم عکس', catering:'پذیرایی', plaque_amount:'مبلغ لوح', statue_amount:'مبلغ تندیس', album_amount:'مبلغ آلبوم عکس', catering_amount:'مبلغ پذیرایی'};
+  kind:'دسته', addons:'اقلام', catering:'پذیرایی', catering_amount:'مبلغ پذیرایی'};
 function valText(k, v, tbl, kind){
   if (v === null || v === undefined || v === '') return '—';
-  if (['unit','actual','amount','total','budget','headcount','qty','default_amount','guest_amount','guests','plaque_amount','statue_amount','album_amount','catering_amount'].includes(k)) return fmt(v);
-  if (k === 'kind') return v === 'extra' ? 'جدید (لوح و تندیس)' : 'اصلی';
-  if (k === 'wants_plaque' || k === 'wants_statue' || k === 'wants_album') return v ? 'می‌خواد' : 'نمی‌خواد';
+  if (['unit','actual','amount','total','budget','headcount','qty','default_amount','guest_amount','guests','catering_amount'].includes(k)) return fmt(v);
+  if (k === 'kind') return v === 'extra' ? 'جدید (فقط اقلام)' : 'اصلی';
+  if (k === 'addons' && Array.isArray(v)) return v.map(x => typeof x === 'object' ? `${x.name} ${fmt(x.price || 0)}` : (ADDONS().find(a => a.id === x)?.name || x)).join('، ') || '—';
   if (k === 'catering') return {yes:'بله', no:'خیر', undecided:'تصمیم نشده'}[v] || v;
   if (k === 'status') return PAY_STATUS[v] || v;
   if (k === 'user_id') return 'متصل';
@@ -1410,20 +1412,22 @@ async function loadActivity(){
   const { data, error } = await sb.from('activity').select('*').order('id', {ascending:false}).limit(200);
   if (!error) S.activity = data;
 }
+const ARROW = I18N.lang === 'fa' ? '←' : '→';
 function renderHistory(){
   const box = $('#historyList');
   if (!S.activity.length){ box.innerHTML = '<div class="empty">هنوز تغییری ثبت نشده.</div>'; return; }
   const TBL = {items:'هزینه', invoices:'فاکتور', settings:'تنظیمات', participants:'شرکت‌کننده', payments:'فیش', payment_info:'اطلاعات پرداخت', bot_settings:'ربات', bot_broadcasts:'پیام'};
   const ACT = {insert:'اضافه کرد', update:'ویرایش کرد', delete:'حذف کرد'};
   const COL = {insert:'var(--ok)', update:'var(--gold)', delete:'var(--bad)'};
-  const dt = new Intl.DateTimeFormat('fa-IR', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+  const dt = new Intl.DateTimeFormat(I18N.dateLocale, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
   box.innerHTML = S.activity.map(a => {
     const r = a.new_row || a.old_row || {}, kind = r.kind;
     const what = a.tbl === 'funds' ? (kind === 'contrib' ? 'سهم' : 'واریزی') : (TBL[a.tbl] || a.tbl);
+    const verb = a.tbl === 'bot_broadcasts' && a.action === 'insert' ? 'فرستاد' : ACT[a.action] || a.action;
     let chg = '';
     if (a.action === 'update' && a.old_row && a.new_row){
       chg = Object.keys(FIELD_LABELS).filter(k => k in a.new_row && JSON.stringify(a.old_row[k]) !== JSON.stringify(a.new_row[k]))
-        .map(k => `${FIELD_LABELS[k]}: ${esc(valText(k, a.old_row[k], a.tbl, kind))} ← ${esc(valText(k, a.new_row[k], a.tbl, kind))}`).join('، ');
+        .map(k => `${tr(FIELD_LABELS[k])}: ${esc(tr(valText(k, a.old_row[k], a.tbl, kind)))} ${ARROW} ${esc(tr(valText(k, a.new_row[k], a.tbl, kind)))}`).join(tr('، '));
     } else if (a.tbl === 'bot_broadcasts'){
       chg = `برای ${fmt(r.sent || 0)} نفر` + (r.failed ? `، ${fmt(r.failed)} نفر نرسید` : '');
     } else if (a.action !== 'update'){
@@ -1431,7 +1435,7 @@ function renderHistory(){
       chg = amt ? `مبلغ: ${fmt(amt)}` : '';
     }
     return `<div class="hist" style="--c:${COL[a.action] || 'var(--line)'}"><span class="who2">${esc(a.actor_name || '—')}</span><span class="when">${dt.format(new Date(a.at))}</span>
-      <span class="what">${esc(what)} ${a.title ? `«${esc(a.title)}» ` : ''}رو ${esc(a.tbl === 'bot_broadcasts' && a.action === 'insert' ? 'فرستاد' : ACT[a.action] || a.action)}${chg ? `<span class="chg">${chg}</span>` : ''}</span></div>`;
+      <span class="what">${a.title ? tr('{0} «{1}» رو {2}', esc(tr(what)), esc(a.title), esc(tr(verb))) : tr('{0} رو {1}', esc(tr(what)), esc(tr(verb)))}${chg ? `<span class="chg">${chg}</span>` : ''}</span></div>`;
   }).join('');
 }
 
@@ -1461,10 +1465,10 @@ function render(){
   const t = totals(), st = S.settings, head = Number(st.headcount)||0;
   const budget = Number(st.budget) || t.expected, budgetName = Number(st.budget) ? 'سقف بودجه' : 'کل بودجه';
   $('#title').textContent = st.title || DEFAULT_SETTINGS.title;
-  document.title = 'حساب و کتاب ' + (st.title || DEFAULT_SETTINGS.title);
+  document.title = tr('حساب و کتاب {0}', tr(st.title || DEFAULT_SETTINGS.title));
 
   $('#sMin').textContent = fmt(t.min); $('#sMid').textContent = fmt(t.mid); $('#sMax').textContent = fmt(t.max);
-  const pp = v => head ? `هر نفر ${fmt(Math.ceil(v/head))} ${st.currency}` : st.currency;
+  const pp = v => head ? `هر نفر ${fmt(Math.ceil(v/head))} ${curName()}` : curName();
   $('#pMin').textContent = pp(t.min); $('#pMid').textContent = pp(t.mid); $('#pMax').textContent = pp(t.max);
 
   // every bar uses the same scale, so their lengths compare directly with each other and with the budget tick
@@ -1531,7 +1535,7 @@ function renderItems(t){
     const invTag = n ? `<span class="tag ok">${fmt(n)} فاکتور</span>` : (it.paid ? '<span class="tag warn">بدون فاکتور</span>' : '');
     return `<button class="row" type="button" data-item="${esc(it.id)}" style="--c:${ty.c}">
       <span class="stripe"></span>
-      <span><span class="t">${esc(it.title)}</span>${it.reason ? `<span class="r">${esc(it.reason)}</span>` : ''}
+      <span><span class="t">${esc(it.title)}</span>${it.reason ? `<span class="r" translate="no">${esc(it.reason)}</span>` : ''}
         <span class="meta"><span class="tag type">${ty.l}</span><span class="tag">${esc(it.category||'سایر')}</span>${invTag}${it.paid && !isFund(it.payer) ? `<span class="tag">از جیب ${esc(it.payer)}</span>` : ''}${it.updated_by ? `<span class="tag">${esc(who(it.updated_by))}</span>` : ''}</span></span>
       <span class="status ${it.paid ? 'paid' : ''}">${it.paid ? 'پرداخت شد' : 'پرداخت‌نشده'}</span>
       <span class="amt"><b>${fmt(cost(it))}</b>${sub ? `<small>${sub}</small>` : ''}</span>
@@ -1673,7 +1677,7 @@ async function openInvoice(id){
   const f = invForm.elements;
   $('#invItemSel').innerHTML = itemOptions(v.item_id);
   f.total.value = v.total ? fmt(v.total) : ''; f.vendor.value = v.vendor || ''; f.invoice_date.value = v.invoice_date || ''; f.note.value = v.note || '';
-  $('#invCurHint').textContent = S.settings.currency; lockForm(invForm);
+  $('#invCurHint').textContent = curName(); lockForm(invForm);
   $('#invMeta').textContent = [v.file_name, metaLine(v)].filter(Boolean).join(' · ');
   const pv = $('#invPreview'); pv.innerHTML = '<span style="padding:24px;color:var(--muted)">در حال بارگذاری فایل…</span>';
   if (!invDlg.open) invDlg.showModal();
@@ -1710,7 +1714,7 @@ function moneyRows(arr, kind){
   const yes = kind === 'fund' ? 'دریافت شد' : 'واریز کرده', no = kind === 'fund' ? 'در راه' : 'هنوز نداده';
   return arr.map(c => `<button class="row" type="button" data-entry="${esc(c.id)}" style="--c:${c.paid ? 'var(--ok)' : 'var(--line)'}">
       <span class="stripe"></span>
-      <span><span class="t">${esc(c.name)}</span>${c.note ? `<span class="r">${esc(c.note)}</span>` : ''}${c.updated_by ? `<span class="meta"><span class="tag">${esc(who(c.updated_by))}</span></span>` : ''}</span>
+      <span><span class="t">${esc(c.name)}</span>${c.note ? `<span class="r" translate="no">${esc(c.note)}</span>` : ''}${c.updated_by ? `<span class="meta"><span class="tag">${esc(who(c.updated_by))}</span></span>` : ''}</span>
       <span class="status ${c.paid ? 'paid' : ''}">${c.paid ? yes : no}</span>
       <span class="amt"><b>${fmt(c.amount)}</b><small>${faDate(c.created_at)}</small></span>
     </button>`).join('');
@@ -1759,18 +1763,22 @@ function fillSettings(){
 /* ---------- participants & receipts ---------- */
 const PAY_STATUS = {submitted:'در انتظار بررسی', approved:'تأیید شد', rejected:'رد شد'};
 const PAY_COLOR = {submitted:'var(--warn)', approved:'var(--ok)', rejected:'var(--bad)'};
-const DEFAULT_PAYINFO = {card_number:'', card_holder:'', bank:'', sheba:'', default_amount:0, guest_amount:0, plaque_amount:0, statue_amount:0, album_amount:0, catering_amount:0, deadline:'', note:''};
+const DEFAULT_PAYINFO = {card_number:'', card_holder:'', bank:'', sheba:'', default_amount:0, guest_amount:0, addons:[], catering_amount:0, deadline:'', note:''};
 const cardFmt = n => (toLatin(n).replace(/\D/g, '').match(/.{1,4}/g) || []).join(' ');
-// "New participants" (kind 'extra') joined after the main list was final: they don't pay a share, only for what they
-// asked for (a plaque, a statue) plus catering once the team decides they get it. They bring no guests.
+// Items (payment_info.addons): things such as a plaque, a statue or a yearbook, each with a price. "main" items are part
+// of every main participant's share. "New participants" (kind 'extra') joined after the main list was final: they
+// don't pay a share, only for the items they asked for (participants.addons) plus catering once the team decides they
+// get it. They bring no guests.
 const isExtra = p => p.kind === 'extra';
 const CATERING = {undecided:'پذیرایی: تصمیم نشده', yes:'با پذیرایی', no:'بدون پذیرایی'};
-const extraItems = p => [p.wants_plaque && 'لوح', p.wants_statue && 'تندیس', p.wants_album && 'آلبوم عکس'].filter(Boolean);
+const ADDONS = () => Array.isArray(S.payInfo.addons) ? S.payInfo.addons.filter(a => a && a.id && a.name) : [];
+const addonsOf = p => { const mine = Array.isArray(p.addons) ? p.addons : []; return ADDONS().filter(a => mine.includes(a.id)); };
+const extraItems = p => addonsOf(p).map(a => a.name);
 const guestsOf = p => isExtra(p) ? 0 : Math.max(0, Math.floor(Number(p.guests) || 0));
 // what someone owes: their own share plus the guest price for each guest (for a new participant: the price of each
 // thing they asked for), unless a total was set by hand for them
 const autoDue = p => isExtra(p)
-  ? (p.wants_plaque ? Number(S.payInfo.plaque_amount || 0) : 0) + (p.wants_statue ? Number(S.payInfo.statue_amount || 0) : 0) + (p.wants_album ? Number(S.payInfo.album_amount || 0) : 0) + (p.catering === 'yes' ? Number(S.payInfo.catering_amount || 0) : 0)
+  ? addonsOf(p).reduce((t, a) => t + (Number(a.price) || 0), 0) + (p.catering === 'yes' ? Number(S.payInfo.catering_amount || 0) : 0)
   : Number(S.payInfo.default_amount || 0) + guestsOf(p) * Number(S.payInfo.guest_amount || 0);
 const dueOf = p => (p.amount !== null && p.amount !== undefined) ? Number(p.amount) : autoDue(p);
 const paysOf = pid => Object.values(S.payments).filter(x => x.participant_id === pid).sort((a,b) => ts(b.created_at) - ts(a.created_at));
@@ -1828,12 +1836,10 @@ function guestLine(p, m, own = true){
   if (p.amount !== null && p.amount !== undefined) return `<span class="sub">با ${fmt(g)} مهمان</span>`;
   return `<span class="sub">${price ? `${own ? 'سهم خودت' : 'سهم خودش'} ${m(S.payInfo.default_amount || 0)} + ${fmt(g)} مهمان × ${m(price)}` : `با ${fmt(g)} مهمان`}</span>`;
 }
-// what the person receives at the party: the yearbook, the statue and catering (for them and their guests). A main
-// participant's share covers all three; a new participant gets what they asked for (catering once it's decided).
+// what the person receives at the party: the items that are part of the share, and catering (for them and their
+// guests). A new participant gets the share items they asked for (and catering once it's decided).
 function getsCard(p, own){
-  const extra = isExtra(p), g = guestsOf(p), list = [];
-  if (extra ? p.wants_album : true) list.push(['📘', 'آلبوم عکس (Yearbook)']);
-  if (extra ? p.wants_statue : true) list.push(['🏆', 'تندیس']);
+  const extra = isExtra(p), g = guestsOf(p), list = (extra ? addonsOf(p) : ADDONS()).filter(a => a.main).map(a => ['🎁', esc(a.name)]);
   if (!extra) list.push(['🍽', g ? `پذیرایی برای ${own ? 'خودتان' : 'خودش'} و ${fmt(g)} مهمان` : 'پذیرایی']);
   else if (p.catering === 'yes') list.push(['🍽', 'پذیرایی']);
   else if ((p.catering || 'undecided') === 'undecided') list.push(['🍽', 'پذیرایی: هنوز مشخص نشده', true]);
@@ -1841,10 +1847,10 @@ function getsCard(p, own){
   return `<div class="pay-card gets-card"><span class="k">${own ? 'چیزهایی که دریافت خواهید کرد' : `چیزهایی که ${esc(p.full_name || '')} دریافت خواهد کرد`}</span>
     <ul class="gets">${list.map(([icon, text, maybe]) => `<li${maybe ? ' class="maybe"' : ''}><span aria-hidden="true">${icon}</span>${text}</li>`).join('')}</ul></div>`;
 }
-// a new participant pays for what they asked for: "plaque 300,000 + statue 500,000"
+// a new participant pays for the items they asked for: "plaque 300,000 + statue 500,000"
 function extraLine(p, m){
   const i = S.payInfo, custom = p.amount !== null && p.amount !== undefined;
-  const parts = [p.wants_plaque && `لوح${custom ? '' : ' ' + m(i.plaque_amount || 0)}`, p.wants_statue && `تندیس${custom ? '' : ' ' + m(i.statue_amount || 0)}`, p.wants_album && `آلبوم عکس${custom ? '' : ' ' + m(i.album_amount || 0)}`,
+  const parts = [...addonsOf(p).map(a => esc(a.name) + (custom ? '' : ' ' + m(Number(a.price) || 0))),
     p.catering === 'yes' && `پذیرایی${custom ? '' : ' ' + m(i.catering_amount || 0)}`].filter(Boolean);
   return (parts.length ? `<span class="sub">${parts.join(custom ? ' و ' : ' + ')}</span>` : '')
     + ((p.catering || 'undecided') === 'undecided' ? '<span class="sub">پذیرایی هنوز مشخص نشده؛ اگه اضافه بشه، مبلغ هم بیشتر می‌شه.</span>' : '');
@@ -1873,7 +1879,7 @@ function shareWithGuests(p, n){
 }
 function updateGuestPreview(){
   const out = $('#gaPreview'), p = payee(); if (!out || !p) return;
-  const n = guestCount(), cur = S.settings.currency || 'تومان', g = guestsOf(p);
+  const n = guestCount(), cur = curName(), g = guestsOf(p);
   out.className = 'sub';
   if (!n){ out.textContent = 'تعداد رو بنویس.'; return; }
   if (n > 10 || g + n > MAX_GUESTS){ out.classList.add('bad'); out.textContent = `هر بار حداکثر ۱۰ نفر، و در کل حداکثر ${fmt(MAX_GUESTS)} مهمان. برای بیشتر با مسئول‌های مالی هماهنگ کن.`; return; }
@@ -1883,7 +1889,7 @@ function updateGuestPreview(){
 async function addGuests(btn){
   const p = payee(), n = guestCount(); if (!p) return;
   if (!n || n > 10 || guestsOf(p) + n > MAX_GUESTS){ updateGuestPreview(); return; }
-  const cur = S.settings.currency || 'تومان', after = shareWithGuests(p, n);
+  const cur = curName(), after = shareWithGuests(p, n);
   if (!confirm(`${fmt(n)} مهمان به ${p.id === myParticipant()?.id ? 'سهمت' : `سهم «${p.full_name || ''}»`} اضافه بشه؟ مبلغ می‌شه ${fmt(after)} ${cur}. کم کردنش بعداً فقط از طریق مسئول‌های مالی ممکنه.`)) return;
   btn.disabled = true;
   const { data, error } = await sb.rpc('add_guests', {p_id:p.id, p_count:n});
@@ -1904,7 +1910,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id
 // Everyone registered on the logged-in person's number (see baseNo); the payment page shows one of them at a time.
 // Others on the number are only visible once the database allows it; until then this is just the person themself.
 // banking apps take rials: a toman amount is copied with one more zero
-const toRial = n => (S.settings.currency || 'تومان') === 'تومان' ? Number(n) * 10 : Number(n);
+const isToman = () => (S.settings.currency || 'تومان') === 'تومان';
+const toRial = n => isToman() ? Number(n) * 10 : Number(n);
 const myGroup = () => { const me0 = myParticipant(); return me0 ? Object.values(S.participants).filter(x => sameNumber(x.student_no, me0.student_no)).sort((a,b) => shareNo(a.student_no) - shareNo(b.student_no)) : []; };
 let payForId = null;
 const payee = () => myGroup().find(x => x.id === payForId) || myParticipant();
@@ -1916,7 +1923,7 @@ function renderMyPay(el){
     const g = el.querySelector('#gaCount'); if (g && keepG !== undefined){ g.value = keepG; updateGuestPreview(); }
   });
   if (!p){ el.innerHTML = ''; return; }
-  const info = S.payInfo, st = payState(p), ps = paysOf(p.id), cur = S.settings.currency || 'تومان', group = myGroup();
+  const info = S.payInfo, st = payState(p), ps = paysOf(p.id), cur = curName(), group = myGroup();
   const own = p.id === me0.id, whose = own ? 'سهمت' : `سهم ${esc(p.full_name || '')}`;
   const m = n => fmt(n) + ' ' + cur;
   const statusLine = st.key === 'settled' ? `<div class="pay-status ok">${whose} کامل پرداخت و تأیید شده. ممنون!</div>`
@@ -1947,7 +1954,7 @@ function renderMyPay(el){
     ${switcher}
     ${codeCard(p, own)}
     ${statusLine}
-    <div class="pay-amount"><span class="k">${own ? 'مبلغ سهم' : `مبلغ سهم ${esc(p.full_name || '')}`}</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${toRial(st.remaining || st.due)}" data-copy-label="مبلغ به ریال">کپی مبلغ (ریال)</button>` : ''}
+    <div class="pay-amount"><span class="k">${own ? 'مبلغ سهم' : `مبلغ سهم ${esc(p.full_name || '')}`}</span><b class="num">${st.due ? m(st.due) : '—'}</b>${st.due ? `<button class="btn small" type="button" data-copy="${toRial(st.remaining || st.due)}" data-copy-label="${isToman() ? 'مبلغ به ریال' : 'مبلغ'}">${isToman() ? 'کپی مبلغ (ریال)' : 'کپی مبلغ'}</button>` : ''}
       ${guestLine(p, m, own)}
       ${st.approved || st.pending ? `<span class="sub">تأییدشده ${m(st.approved)}${st.pending ? ` · در انتظار بررسی ${m(st.pending)}` : ''}</span>` : ''}
       ${st.extra ? `<span class="sub pos">${m(st.extra)} بیشتر از سهم پرداخت شده. ممنون!</span>` : ''}</div>
@@ -1955,7 +1962,7 @@ function renderMyPay(el){
     ${getsCard(p, own)}
     ${cardRow}${shebaRow}
     ${info.deadline ? `<p class="sub">مهلت پرداخت: <b>${esc(info.deadline)}</b></p>` : ''}
-    ${info.note ? `<p class="pay-note">${esc(info.note)}</p>` : ''}
+    ${info.note ? `<p class="pay-note" translate="no">${esc(info.note)}</p>` : ''}
     <div class="pay-upload">${upload}</div>
     ${ps.length ? `<h3 class="pay-h">${own ? 'فیش‌های من' : `فیش‌های ${esc(p.full_name || '')}`}</h3><div class="list">${ps.map(x => `<div class="rcpt" style="--c:${PAY_COLOR[x.status]}">
         ${receiptThumb(x)}<div><b>${m(x.amount)}</b><span class="sub">${faDate(x.created_at)}${x.tracking_code ? ' · پیگیری ' + esc(x.tracking_code) : ''}</span>
@@ -2006,7 +2013,7 @@ async function sendReceipt(btn){
 }
 
 /* staff: participants panel */
-// which list the tab shows: the main participants, or the new ones who only asked for a plaque / statue
+// which list the tab shows: the main participants, or the new ones who only asked for some items
 let peopleKind = 'main';
 function renderPeople(){
   const info = S.payInfo, everyone = Object.values(S.participants);
@@ -2014,21 +2021,25 @@ function renderPeople(){
   const showKinds = hasExtraCols || extras.length > 0;
   if (!showKinds) peopleKind = 'main';
   const xv = peopleKind === 'extra', all = xv ? extras : mains;
-  const cur = S.settings.currency || 'تومان', money = n => n ? fmt(n) + ' ' + cur : '—';
+  const cur = curName(), money = n => n ? fmt(n) + ' ' + cur : '—';
   $('#payInfoCard').innerHTML = `<div class="payinfo ${info.card_number ? '' : 'warn'}${hasExtraCols ? ' wide' : ''}">
     <div><span class="k">کارت مقصد</span><b dir="ltr" class="num">${info.card_number ? esc(cardFmt(info.card_number)) : '—'}</b>${info.card_holder ? `<span class="sub">${esc(info.card_holder)}</span>` : ''}</div>
     <div><span class="k">مبلغ پیش‌فرض سهم</span><b>${info.default_amount ? fmt(info.default_amount) + ' ' + cur : '—'}</b>${hasGuestCols ? `<span class="sub">هر مهمان ${info.guest_amount ? fmt(info.guest_amount) + ' ' + cur : 'رایگان'}</span>` : ''}</div>
-    ${hasExtraCols ? `<div><span class="k">شرکت‌کننده‌های جدید</span><b>لوح ${money(info.plaque_amount)} · تندیس ${money(info.statue_amount)}${hasAlbumCols ? ` · آلبوم ${money(info.album_amount)}` : ''}</b><span class="sub">پذیرایی هر نفر ${money(info.catering_amount)}</span></div>` : ''}
+    ${hasExtraCols ? `<div><span class="k">اقلام</span><b>${ADDONS().length ? ADDONS().map(a => `${esc(a.name)} ${money(Number(a.price) || 0)}`).join(' · ') : '—'}</b><span class="sub">پذیرایی هر نفر ${money(info.catering_amount)}</span></div>` : ''}
     <div><span class="k">مهلت</span><b>${esc(info.deadline) || '—'}</b></div>
     <button class="btn small need-edit" type="button" data-act="edit-payinfo">ویرایش اطلاعات پرداخت</button>
     ${info.card_number ? '' : '<p class="sub bad" style="grid-column:1/-1;margin:0">تا شماره کارت وارد نشه، شرکت‌کننده‌ها جایی برای واریز نمی‌بینن.</p>'}
     ${hasGuestCols || !ready ? '' : '<p class="sub bad need-admin" style="grid-column:1/-1;margin:0">ستون‌های گرایش، تعداد مهمان و مبلغ هر مهمان هنوز در دیتابیس ساخته نشدن؛ دستور SQL مربوط به مهمان‌ها رو در SQL Editor سوپابیس اجرا کن و صفحه رو تازه کن.</p>'}
-    ${hasExtraCols || !hasGuestCols || !ready ? '' : '<p class="sub bad need-admin" style="grid-column:1/-1;margin:0">ستون‌های شرکت‌کننده‌های جدید (لوح، تندیس، پذیرایی) هنوز در دیتابیس ساخته نشدن؛ دستور SQL مربوط رو در SQL Editor سوپابیس اجرا کن و صفحه رو تازه کن.</p>'}
+    ${hasExtraCols || !hasGuestCols || !ready ? '' : '<p class="sub bad need-admin" style="grid-column:1/-1;margin:0">ستون‌های اقلام و شرکت‌کننده‌های جدید هنوز در دیتابیس ساخته نشدن؛ دستور SQL مربوط رو در SQL Editor سوپابیس اجرا کن و صفحه رو تازه کن.</p>'}
   </div>`;
   const kt = $('#peopleKind'); kt.hidden = !showKinds;
-  kt.innerHTML = showKinds ? [['main', 'شرکت‌کننده‌های اصلی', mains.length], ['extra', 'جدید (لوح و تندیس)', extras.length]].map(([k, l, n]) =>
+  kt.innerHTML = showKinds ? [['main', 'شرکت‌کننده‌های اصلی', mains.length], ['extra', 'جدید (فقط اقلام)', extras.length]].map(([k, l, n]) =>
     `<button class="chip${k === peopleKind ? ' on' : ''}" type="button" role="tab" aria-selected="${k === peopleKind}" data-people-kind="${k}">${l}<small>${fmt(n)}</small></button>`).join('') : '';
   $('#pItems').hidden = !xv;
+  if (xv){ // filter by item or catering; the options follow the item list
+    const sel = $('#pItems'), cur0 = sel.value, opts = [['', 'اقلام و پذیرایی'], ...ADDONS().map(a => ['a:' + a.id, `${a.name} می‌خوان`]), ['cat-undecided', 'پذیرایی: تصمیم نشده'], ['cat-yes', 'با پذیرایی'], ['cat-no', 'بدون پذیرایی']];
+    sel.innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}"${v === cur0 ? ' selected' : ''}>${esc(l)}</option>`).join('');
+  }
   $('#panel-people .toolbar [data-act="import-people"]').hidden = xv; // the sheet import fills the main list
   const states = all.map(p => [p, payState(p)]);
   // people sharing a number (across both lists): how many per number, and whose number's owner has already logged in
@@ -2044,7 +2055,7 @@ function renderPeople(){
     // catering is decided later: show how the head count comes out either way
     const n = f => extras.filter(f).length, yes = n(p => p.catering === 'yes'), no = n(p => p.catering === 'no'), und = extras.length - yes - no;
     const base = mains.length + guests;
-    $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span><span>لوح ${fmt(n(p => p.wants_plaque))}</span><span>تندیس ${fmt(n(p => p.wants_statue))}</span>${canAdmin && VC.status && n(p => codeOf(p.id)) ? `<span class="need-admin">کد رأی ${fmt(n(p => codeOf(p.id)))}</span>` : ''}${hasAlbumCols ? `<span>آلبوم عکس ${fmt(n(p => p.wants_album))}</span>` : ''}`
+    $('#peopleSummary').innerHTML = all.length ? `<span>${fmt(all.length)} نفر</span>${ADDONS().map(a => `<span>${esc(a.name)} ${fmt(n(p => (p.addons || []).includes(a.id)))}</span>`).join('')}${canAdmin && VC.status && n(p => codeOf(p.id)) ? `<span class="need-admin">کد رأی ${fmt(n(p => codeOf(p.id)))}</span>` : ''}`
       + `<span>پذیرایی: بله ${fmt(yes)} · نه ${fmt(no)} · تصمیم‌نشده ${fmt(und)}</span>`
       + `<span title="اصلی‌ها و مهمان‌هاشون، به‌علاوه‌ی جدیدهایی که پذیرایی دارن">کل پذیرایی ${fmt(base + yes)}${und ? ` (اگه تصمیم‌نشده‌ها هم بیان ${fmt(base + yes + und)})` : ''}</span>`
       + `<span>تسویه ${fmt(cnt('settled'))}</span><span>تأییدشده ${fmt(sum('approved'))}</span><span>مانده ${left()}</span>`
@@ -2067,12 +2078,12 @@ function renderPeople(){
   const rows = states.filter(([p, s]) => {
     if (f === 'unclaimed' ? isLinked(p) : f && s.key !== f) return false;
     if (mv && (p.major || '').trim() !== mv) return false;
-    if (fi && !(fi === 'plaque' ? p.wants_plaque : fi === 'statue' ? p.wants_statue : fi === 'album' ? p.wants_album : 'cat-' + (p.catering || 'undecided') === fi)) return false;
+    if (fi && !(fi.startsWith('a:') ? (p.addons || []).includes(fi.slice(2)) : 'cat-' + (p.catering || 'undecided') === fi)) return false;
     if (q && !toLatin([p.full_name, p.student_no, p.major, p.note, canAdmin ? myCodes.get(p.id) : ''].join(' ')).toLowerCase().includes(q)) return false;
     return true;
   }).sort(([a,sa],[b,sb2]) => ['review','unpaid','partial','settled'].indexOf(sa.key) - ['review','unpaid','partial','settled'].indexOf(sb2.key) || (a.full_name||'').localeCompare(b.full_name||'','fa'));
   const meta = (p, s) => `${noPhone(p.student_no) ? '<span class="tag warn">بدون شماره</span>' : `<span class="tag" dir="ltr">${esc(baseNo(p.student_no))}</span>`}${perNo.get(baseNo(p.student_no)) > 1 ? `<span class="tag warn">شماره‌ی مشترک ${fmt(perNo.get(baseNo(p.student_no)))} نفر</span>` : ''}${p.major ? `<span class="tag">${esc(p.major)}</span>` : ''}${guestsOf(p) ? `<span class="tag">${fmt(guestsOf(p))} مهمان</span>` : ''}`
-    + (xv ? (extraItems(p).length ? extraItems(p).map(x => `<span class="tag type" style="--c:var(--gold)">${x}</span>`).join('') : '<span class="tag warn">نه لوح، نه تندیس</span>') : '')
+    + (xv ? (extraItems(p).length ? extraItems(p).map(x => `<span class="tag type" style="--c:var(--gold)">${esc(x)}</span>`).join('') : '<span class="tag warn">بدون قلم</span>') : '')
     + `<span class="tag ${s.key === 'settled' ? 'ok' : s.key === 'review' ? 'warn' : ''}">${STATE_LABEL[s.key]}</span>${s.extra ? `<span class="tag ok">+${fmt(s.extra)} اضافه</span>` : ''}${isLinked(p) ? '<span class="tag">حساب وصل شده</span>' : '<span class="tag">هنوز وارد نشده</span>'}`
     + (!xv && hasCodeStatus() && !codeOf(p.id) ? '<span class="tag warn need-admin">بدون کد رأی</span>' : '')
     + (canAdmin && myCodes.get(p.id) ? `<span class="tag need-admin" dir="ltr" title="کد رأی">🗳 ${esc(myCodes.get(p.id))}</span>` : '')
@@ -2086,17 +2097,20 @@ function renderPeople(){
         <span class="amt"><b>${fmt(s.approved)}</b><small>از ${fmt(s.due)}</small></span>
       </${xv ? 'div' : 'button'}>`;
   $('#peopleList').innerHTML = !all.length
-    ? (xv ? `<div class="empty"><h3>هنوز شرکت‌کننده‌ی جدیدی ثبت نشده</h3>کسانی که بعد از قطعی شدن لیست اصلی فقط لوح یا تندیس (و شاید پذیرایی) می‌خوان، اینجا جدا ثبت می‌شن.<div class="chips need-edit"><button class="chip" type="button" data-act="add-person">افزودن شرکت‌کننده‌ی جدید</button></div></div>`
+    ? (xv ? `<div class="empty"><h3>هنوز شرکت‌کننده‌ی جدیدی ثبت نشده</h3>کسانی که بعد از قطعی شدن لیست اصلی فقط بعضی اقلام (و شاید پذیرایی) می‌خوان، اینجا جدا ثبت می‌شن.<div class="chips need-edit"><button class="chip" type="button" data-act="add-person">افزودن شرکت‌کننده‌ی جدید</button></div></div>`
       : `<div class="empty"><h3>هنوز شرکت‌کننده‌ای ثبت نشده</h3>فایل اکسل یا CSV لیست ثبت‌نام رو وارد کن؛ کافیه ستون «شماره تماس» (یا «شماره دانشجویی») و «نام» داشته باشه. «گرایش» و «تعداد مهمان» هم خونده می‌شن.<div class="chips need-edit"><button class="chip" type="button" data-act="import-people">ورود از شیت</button><button class="chip" type="button" data-act="add-person">افزودن دستی</button></div></div>`)
     : rows.map(([p, s]) => row(p, s)).join('') || '<div class="empty">موردی با این فیلتر پیدا نشد.</div>';
 }
 /* ---------- voting codes ----------
    Every main participant gets one code to sign in to the vote. Only the person (and whoever shares their number) can
    read it, on their payment page and in the bot, and admins (to hand a code to someone who doesn't use the bot).
-   Admins' loadMyCodes gets every code; the status function adds who has one even before that read. */
+   Admins' loadMyCodes gets every code; the status function adds who has one even before that read.
+   An optional module: off unless config.js sets votingCodes: true. */
+const VOTING = cfg.votingCodes === true;
+if (VOTING) $('#pkMainHint').textContent = 'سهم کامل، مهمان، کد رأی';
 const VC = {status:null, timer:0, busy:false};
 async function loadCodeStatus(){
-  if (!canAdmin){ VC.status = null; return; }
+  if (!canAdmin || !VOTING){ VC.status = null; return; }
   const { data, error } = await sb.rpc('voting_code_status');
   VC.status = error || !data ? null : {...data, has:new Set(data.has || [])};
 }
@@ -2106,14 +2120,14 @@ function loadCodeStatusSoon(){ clearTimeout(VC.timer); VC.timer = setTimeout(() 
 const hasCodeStatus = () => !!VC.status;
 const codeOf = id => !!VC.status && VC.status.has.has(id);
 function codeSummary(mains){
-  if (!canAdmin) return '';
+  if (!canAdmin || !VOTING) return '';
   const s = VC.status, n = s ? mains.filter(p => s.has.has(p.id)).length : 0;
   return `<span class="need-admin"><button class="btn small" type="button" data-act="codes">${s ? `کد رأی: ${fmt(n)} از ${fmt(mains.length)}` : 'کدهای رأی‌گیری'}</button></span>`;
 }
 // the signed-in person's own codes (theirs and their number's), by participant id; row-level security returns nothing else
 let myCodes = new Map();
 async function loadMyCodes(){
-  if (!me) return;
+  if (!me || !VOTING) return;
   const { data, error } = await sb.from('voting_codes').select('participant_id,code').eq('retired', false);
   myCodes = new Map(error || !data ? [] : data.filter(x => x.participant_id).map(x => [x.participant_id, x.code]));
 }
@@ -2236,7 +2250,7 @@ async function sendCodes(test){
   const s = VC.status; if (!s) return;
   if (!test && !confirm(`ربات کد رأی هر شرکت‌کننده رو برای خودش بفرسته؟ (به ${fmt(s.assigned)} نفری که کد دارن، هر کدوم که با تلگرام وارد سایت شده)`)) return;
   await codesBusy(async () => {
-    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{send_codes:{test:!!test}}});
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{send_codes:{test:!!test, lang:I18N.lang}}});
     if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} console.error('send_codes', b); codesOut(esc(VC_SEND_ERR[b.error] || 'تابع telegram-auth جواب درست نداد؛ مطمئن شو نسخه‌ی جدیدش Deploy شده.'), true); return; }
     if (test){ toast('نمونه برات فرستاده شد؛ توی تلگرام ببینش'); return; }
     const d = data || {};
@@ -2267,18 +2281,21 @@ const personDlg = $('#personDlg'), personForm = $('#personForm'); let editingPer
 function openPerson(id, kind){
   if (!ready || (!id && !canEdit)) return;
   editingPerson = id ? S.participants[id] : null;
-  const p = editingPerson || {student_no:'', full_name:'', amount:null, verify_code:'', note:'', major:'', guests:0, kind:kind || 'main', wants_plaque:false, wants_statue:false, wants_album:false, catering:'undecided'};
+  const p = editingPerson || {student_no:'', full_name:'', amount:null, verify_code:'', note:'', major:'', guests:0, kind:kind || 'main', addons:[], catering:'undecided'};
   const f = personForm.elements;
   f.student_no.value = shownNo(p.student_no); f.full_name.value = p.full_name || '';
   f.major.value = p.major || ''; f.guests.value = guestsOf(p) ? fmt(guestsOf(p)) : '';
   $('#personExtra').hidden = !hasGuestCols;
   $('#personKind').hidden = !hasExtraCols;
   f.kind.value = isExtra(p) ? 'extra' : 'main';
-  f.wants_plaque.checked = !!p.wants_plaque; f.wants_statue.checked = !!p.wants_statue; f.wants_album.checked = !!p.wants_album; $('#albumWrap').hidden = !hasAlbumCols; f.catering.value = p.catering || 'undecided';
+  const mine = Array.isArray(p.addons) ? p.addons : [];
+  $('#personAddons').innerHTML = ADDONS().map(a => `<label class="check"><input type="checkbox" name="addon" value="${esc(a.id)}"${mine.includes(a.id) ? ' checked' : ''}> ${esc(a.name)}</label>`).join('')
+    || '<span class="hint">هنوز قلمی تعریف نشده؛ از «ویرایش اطلاعات پرداخت» اضافه کن.</span>';
+  f.catering.value = p.catering || 'undecided';
   f.amount.value = p.amount !== null && p.amount !== undefined ? fmt(p.amount) : '';
   syncPersonKind();
   f.verify_code.value = p.verify_code || ''; f.note.value = p.note || '';
-  $('#personDlgTitle').textContent = editingPerson ? (p.full_name || 'شرکت‌کننده') : isExtra(p) ? 'افزودن شرکت‌کننده‌ی جدید (لوح و تندیس)' : 'افزودن شرکت‌کننده';
+  $('#personDlgTitle').textContent = editingPerson ? (p.full_name || 'شرکت‌کننده') : isExtra(p) ? 'افزودن شرکت‌کننده‌ی جدید (فقط اقلام)' : 'افزودن شرکت‌کننده';
   $('#personDel').hidden = !editingPerson;
   const linked = p.user_id ? (S.members[p.user_id]?.display_name || 'متصل') : '';
   const sharing = editingPerson ? Object.values(S.participants).filter(x => x.id !== p.id && sameNumber(x.student_no, p.student_no) && isPhoneId(p.student_no)) : [];
@@ -2300,7 +2317,7 @@ function openPerson(id, kind){
 }
 // the amount placeholder shows what "empty = automatic" works out to for the guests (or items) typed in
 const personDraft = () => { const f = personForm.elements; return {guests:parseNum(f.guests.value), kind:hasExtraCols && f.kind.value === 'extra' ? 'extra' : 'main',
-  wants_plaque:f.wants_plaque.checked, wants_statue:f.wants_statue.checked, wants_album:hasAlbumCols && f.wants_album.checked, catering:f.catering.value}; };
+  addons:[...personForm.querySelectorAll('input[name="addon"]:checked')].map(i => i.value), catering:f.catering.value}; };
 function updateAutoDue(){ personForm.elements.amount.placeholder = `خودکار: ${fmt(autoDue(personDraft()))}`; }
 // a new participant has items and catering instead of guests
 function syncPersonKind(){ const x = isExtra(personDraft()); $('#personItems').hidden = !x; $('#guestsWrap').hidden = x; updateAutoDue(); }
@@ -2354,7 +2371,7 @@ async function recordPayment(btn){
 // Enter inside the payment fields would otherwise submit (and close) the whole person form
 $('#manualPay').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); recordPayment($('#manualPay [data-act="manual-pay"]')); } });
 personForm.addEventListener('input', e => { liveFormat(e); if (e.target.name === 'guests') updateAutoDue(); });
-personForm.addEventListener('change', e => { const n = e.target.name; if (n === 'kind') syncPersonKind(); else if (['wants_plaque','wants_statue','wants_album','catering'].includes(n)) updateAutoDue(); });
+personForm.addEventListener('change', e => { const n = e.target.name; if (n === 'kind') syncPersonKind(); else if (n === 'addon' || n === 'catering') updateAutoDue(); });
 // most of the list is phone numbers (imported from a registration sheet)?
 const phoneList = () => { const ids = Object.values(S.participants).map(p => p.student_no); return ids.length > 0 && ids.filter(isPhoneId).length * 2 >= ids.length; };
 personForm.addEventListener('submit', async e => {
@@ -2391,11 +2408,10 @@ personForm.addEventListener('submit', async e => {
   if (hasExtraCols){
     obj.kind = f.kind.value === 'extra' ? 'extra' : 'main';
     if (obj.kind === 'extra'){
-      Object.assign(obj, {wants_plaque:f.wants_plaque.checked, wants_statue:f.wants_statue.checked, catering:f.catering.value});
-      if (hasAlbumCols) obj.wants_album = f.wants_album.checked;
+      Object.assign(obj, {addons:personDraft().addons, catering:f.catering.value});
       if (hasGuestCols) obj.guests = 0;
       // moving someone off the main list: the database also takes back their voting code
-      if (editingPerson && !isExtra(editingPerson) && !confirm(`«${obj.full_name || obj.student_no}» از لیست اصلی به شرکت‌کننده‌های جدید منتقل بشه؟${guestsOf(editingPerson) ? ' مهمان‌هاش صفر می‌شه و' : ''} کد رأی‌ش (اگه داشته) باطل می‌شه.`)) return;
+      if (editingPerson && !isExtra(editingPerson) && !confirm(`«${obj.full_name || obj.student_no}» از لیست اصلی به شرکت‌کننده‌های جدید منتقل بشه؟${[guestsOf(editingPerson) && ' مهمان‌هاش صفر می‌شه', VOTING && ' کد رأی‌ش (اگه داشته) باطل می‌شه'].filter(Boolean).join(' و') + '.'}`)) return;
     }
   }
   // user_id is deliberately not sent: if the person linked their account while this dialog was open,
@@ -2511,10 +2527,22 @@ function openPayInfo(){
   f.card_number.value = cardFmt(i.card_number); f.card_holder.value = i.card_holder; f.bank.value = i.bank; f.sheba.value = i.sheba;
   f.default_amount.value = i.default_amount ? fmt(i.default_amount) : ''; f.deadline.value = i.deadline; f.note.value = i.note;
   f.guest_amount.value = i.guest_amount ? fmt(i.guest_amount) : ''; $('#guestAmtWrap').hidden = !hasGuestCols;
-  ['plaque_amount','statue_amount','album_amount','catering_amount'].forEach(k => { f[k].value = i[k] ? fmt(i[k]) : ''; }); $('#extraAmtWrap').hidden = !hasExtraCols; $('#albumAmtWrap').hidden = !hasAlbumCols;
+  f.catering_amount.value = i.catering_amount ? fmt(i.catering_amount) : ''; $('#extraAmtWrap').hidden = !hasExtraCols;
+  $('#addonRows').innerHTML = ''; ADDONS().forEach(addonRow);
   lockForm(payInfoForm); payInfoDlg.showModal();
 }
 payInfoForm.addEventListener('input', liveFormat);
+// one row per item: name, price, part of the main share; a removed item is dropped from the list (people who chose it
+// keep its id, which no longer counts)
+function addonRow(a = {}){
+  const row = document.createElement('div'); row.className = 'addon-row'; row.dataset.id = a.id || newId().slice(0, 8);
+  row.innerHTML = `<input class="field" data-k="name" maxlength="40" placeholder="اسم قلم" aria-label="اسم قلم" value="${esc(a.name || '')}">
+    <input class="field" data-k="price" inputmode="numeric" placeholder="قیمت" aria-label="قیمت" value="${a.price ? fmt(a.price) : ''}">
+    <label class="check"><input type="checkbox" data-k="main"${a.main ? ' checked' : ''}> جزو سهم</label>
+    <button class="icon-btn need-edit" type="button" data-act="addon-del" aria-label="حذف قلم">×</button>`;
+  $('#addonRows').appendChild(row); lockForm(payInfoForm);
+  return row;
+}
 payInfoForm.addEventListener('submit', async e => {
   e.preventDefault();
   const f = payInfoForm.elements, card = toLatin(f.card_number.value).replace(/\D/g, '');
@@ -2522,8 +2550,11 @@ payInfoForm.addEventListener('submit', async e => {
   const fields = {card_number:card, card_holder:f.card_holder.value.trim(), bank:f.bank.value.trim(),
     sheba:toLatin(f.sheba.value).replace(/\s/g, '').toUpperCase(), default_amount:parseNum(f.default_amount.value), deadline:f.deadline.value.trim(), note:f.note.value.trim()};
   if (hasGuestCols) fields.guest_amount = parseNum(f.guest_amount.value);
-  if (hasExtraCols) ['plaque_amount','statue_amount','catering_amount'].forEach(k => { fields[k] = parseNum(f[k].value); });
-  if (hasAlbumCols) fields.album_amount = parseNum(f.album_amount.value);
+  if (hasExtraCols){
+    fields.catering_amount = parseNum(f.catering_amount.value);
+    fields.addons = [...$('#addonRows').querySelectorAll('.addon-row')].map(r => ({id:r.dataset.id, name:r.querySelector('[data-k="name"]').value.trim(),
+      price:parseNum(r.querySelector('[data-k="price"]').value), main:r.querySelector('[data-k="main"]').checked})).filter(a => a.name);
+  }
   payInfoDlg.close(); S.payInfo = {...S.payInfo, ...fields}; render();
   const { error } = await sb.from('payment_info').update(fields).eq('id', 1);
   if (error){ fail(error, 'payment_info'); await loadPayInfo(); render(); } else toast('اطلاعات پرداخت ذخیره شد');
@@ -2615,7 +2646,7 @@ async function readSheet(file){
       const taken = new Set(ex.map(p => p.student_no));
       names.forEach(nn => { if (!keys.has(nn)){ const k = freeKey(base, taken); taken.add(k); keys.set(nn, k); } });
       list.forEach(x => keyOf.set(x, keys.get(x.nn)));
-      if (names.length > 1) shared.push(`${base}: ${[...new Set(list.map(x => x.row.full_name || '—'))].join(' و ')}`);
+      if (names.length > 1) shared.push(`${base}: ${[...new Set(list.map(x => x.row.full_name || '—'))].join(tr(' و '))}`);
     });
   }
   const seen = new Map(), dups = [], known = new Set(Object.values(S.participants).map(p => p.student_no));
@@ -2695,11 +2726,12 @@ tabs.forEach(b => {
   });
 });
 tabs.forEach(b => { const p = $('#panel-' + b.dataset.tab); p.setAttribute('role', 'tabpanel'); p.setAttribute('aria-labelledby', b.id); });
-// arrow keys move between tabs (the page is RTL, so ArrowLeft goes to the next tab)
+// arrow keys move between tabs (in RTL, ArrowLeft goes to the next tab)
 $('.tabs').addEventListener('keydown', e => {
   const shown = tabs.filter(t => !t.hidden && t.offsetParent), i = shown.indexOf(document.activeElement);
   if (i < 0) return;
-  const next = {ArrowLeft:i + 1, ArrowRight:i - 1, Home:0, End:shown.length - 1}[e.key];
+  const fwd = document.documentElement.dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight', back = fwd === 'ArrowLeft' ? 'ArrowRight' : 'ArrowLeft';
+  const next = {[fwd]:i + 1, [back]:i - 1, Home:0, End:shown.length - 1}[e.key];
   if (next === undefined) return;
   e.preventDefault();
   const t = shown[(next + shown.length) % shown.length]; t.focus(); t.click();
@@ -2720,7 +2752,7 @@ document.addEventListener('focusin', e => { if (e.target.matches && e.target.mat
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('div.row[data-person]')){ e.preventDefault(); openPerson(e.target.dataset.person); } });
 
 /* ---------- item dialog ---------- */
-$('#catSelect').innerHTML = CATS.map(c => `<option>${c}</option>`).join('');
+$('#catSelect').innerHTML = CATS.map(c => `<option value="${c}">${c}</option>`).join('');
 const itemDlg = $('#itemDlg'), itemForm = $('#itemForm'); let editingItem = null;
 function numField(el, v){ el.value = v ? fmt(v) : ''; }
 function liveFormat(e){
@@ -2744,7 +2776,7 @@ function openItem(id, preset){
   if (!ready || (!id && !canEdit)) return;
   editingItem = id ? S.items[id] : null;
   const it = editingItem ? {...editingItem} : {title:'', reason:'', type:'must', category:CATS[0], vendor:'', unit:0, qty:1, paid:false, actual:0, payer:''};
-  if (preset){ it.title = preset[0]; it.category = preset[1]; it.type = preset[2]; }
+  if (preset){ it.title = tr(preset[0]); it.category = preset[1]; it.type = preset[2]; }
   const f = itemForm.elements;
   f.title.value = it.title || ''; f.reason.value = it.reason || ''; f.vendor.value = it.vendor || '';
   f.category.value = CATS.includes(it.category) ? it.category : 'سایر';
@@ -2825,6 +2857,7 @@ fileInput.addEventListener('change', () => { const files = [...fileInput.files];
 document.addEventListener('click', e => {
   const g = sel => e.target.closest(sel); let el;
   if ((el = g('[data-act]'))){ const a = el.dataset.act;
+    if (a === 'lang') return I18N.set(I18N.lang === 'fa' ? 'en' : 'fa');
     if (a === 'add-item') return openItem(); if (a === 'add-fund') return openEntry('fund'); if (a === 'add-contrib') return openEntry('contrib');
     if (a === 'upload'){ uploadTarget = null; return fileInput.click(); }
     if (a === 'export') return openXlsx();
@@ -2841,6 +2874,8 @@ document.addEventListener('click', e => {
     if (a === 'send-receipt') return sendReceipt(el);
     if (a === 'cancel-receipt'){ if (draftReceipt) URL.revokeObjectURL(draftReceipt.url); draftReceipt = null; return render(); }
     if (a === 'edit-payinfo') return openPayInfo();
+    if (a === 'addon-add'){ if (canEdit) addonRow().querySelector('input').focus(); return; }
+    if (a === 'addon-del'){ if (canEdit) el.closest('.addon-row').remove(); return; }
     if (a === 'import-people') return openImport();
     if (a === 'add-person') return openPerson(null, peopleKind);
     if (a === 'cater') return setCatering(el.dataset.id, el.dataset.v);
@@ -2911,7 +2946,7 @@ async function setupBot(btn){
   if (location.protocol !== 'https:'){ out.classList.add('bad'); out.textContent = 'این کار رو از آدرس اصلی سایت (https://…) انجام بده، نه از نسخه‌ی محلی.'; return; }
   btn.disabled = true; out.textContent = 'در حال راه‌اندازی…';
   try {
-    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{setup_bot:true, site}});
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{setup_bot:true, site, lang:I18N.lang}});
     if (error){
       let b = {}; try { b = await error.context.json(); } catch(e){}
       throw new Error(b.error === 'not_admin' ? 'فقط مدیر می‌تونه ربات رو راه‌اندازی کنه.'
@@ -2970,7 +3005,7 @@ async function botBroadcast(test){
   if (!text){ out.classList.add('bad'); out.textContent = BOT_ERRORS.empty; $('#bcText').focus(); return; }
   if (withButton && location.protocol !== 'https:'){ out.classList.add('bad'); out.textContent = BOT_ERRORS.bad_site; return; }
   const call = async body => {
-    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{broadcast:body}});
+    const { data, error } = await sb.functions.invoke('telegram-auth', {body:{broadcast:{...body, lang:I18N.lang}}});
     if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} throw b; }
     return data || {};
   };
@@ -3041,13 +3076,13 @@ function ntPeople(){
 const ntAudience = () => { const f = (NT_AUD.find(a => a[0] === NT.aud) || NT_AUD[0])[2]; return ntPeople().filter(f); };
 const ntChosen = () => ntAudience().filter(r => r.route !== 'none' && !NT.off.has(r.p.id));
 function ntFill(text, r){
-  const cur = S.settings.currency || 'تومان', money2 = n => fmt(n) + ' ' + cur;
+  const cur = curName(), money2 = n => fmt(n) + ' ' + cur;
   return text.replace(/\{name\}/g, r.p.full_name || 'دوست عزیز').replace(/\{amount\}/g, money2(r.s.due))
     .replace(/\{paid\}/g, money2(r.s.approved)).replace(/\{remaining\}/g, money2(r.s.remaining)).replace(/\{link\}/g, payLinkOf(r.p) || '');
 }
 const ntBot = () => botConfigured ? cfg.telegramBot.replace(/^@/, '') : '';
 // the bot attaches an "open the site" button; a message from the personal account gets the bot's link instead
-const ntPhoneText = (text, r) => ntFill(text, r) + ($('#ntButton').checked && ntBot() ? `\n\nورود به سایت: https://t.me/${ntBot()}` : '');
+const ntPhoneText = (text, r) => ntFill(text, r) + ($('#ntButton').checked && ntBot() ? '\n\n' + tr('ورود به سایت: https://t.me/{0}', ntBot()) : '');
 function openNotify(){
   if (!canAdmin) return;
   if (!NT.running){ NT.off.clear(); NT.report = null; }
@@ -3060,7 +3095,8 @@ function renderNotify(){
   $('#ntAud').innerHTML = NT_AUD.filter(([k, , f]) => k !== 'extra' || k === NT.aud || people.some(f)).map(([k, label, f]) => `<button class="chip${k === NT.aud ? ' on' : ''}" type="button" data-nt-aud="${k}" aria-pressed="${k === NT.aud}">${label}<small>${fmt(people.filter(f).length)}</small></button>`).join('');
   $('#ntTpl').innerHTML = '<span class="sub">متن آماده:</span>' + ntTemplates().map(([l], i) => `<button class="chip" type="button" data-nt-tpl="${i}">${l}</button>`).join('');
   const n = k => chosen.filter(r => r.route === k).length, none = list.filter(r => r.route === 'none').length;
-  $('#ntSummary').textContent = `گیرنده‌ها: ${fmt(chosen.length)} نفر — ${fmt(n('bot'))} از ربات، ${fmt(n('phone'))} از حساب شخصیت` + (none ? `؛ ${fmt(none)} نفر شماره ندارن` : '') + ' (برای دیدن و برداشتن تیک بزن)';
+  $('#ntSummary').textContent = tr('گیرنده‌ها: {0} نفر — {1} از ربات، {2} از حساب شخصیت', fmt(chosen.length), fmt(n('bot')), fmt(n('phone')))
+    + (none ? tr('؛ {0} نفر شماره ندارن', fmt(none)) : '') + ' ' + tr('(برای دیدن و برداشتن تیک بزن)');
   $('#ntList').innerHTML = list.length ? list.map(r => {
     const dead = r.route === 'none', on = !dead && !NT.off.has(r.p.id);
     const route = r.route === 'phone' && !acct ? '<span class="tag warn">حساب شخصی وصل نیست</span>' : `<span class="tag${r.route === 'none' ? ' warn' : ''}">${NT_ROUTE[r.route]}</span>`;
@@ -3068,7 +3104,7 @@ function renderNotify(){
       <b>${esc(r.p.full_name || shownNo(r.p.student_no) || '—')}</b><span class="tag">${STATE_LABEL[r.s.key]}</span>${route}</label>`;
   }).join('') : '<p class="sub">کسی توی این گروه نیست.</p>';
   const first = chosen[0], text = $('#ntText').value.trim();
-  $('#ntPreview').innerHTML = first && text ? `<b>پیش‌نمایش برای ${esc(first.p.full_name || '')}:</b><br>${esc(ntFill(text, first)).replace(/\n/g, '<br>')}` : '';
+  $('#ntPreview').innerHTML = first && text ? `<b>پیش‌نمایش برای ${esc(first.p.full_name || '')}:</b><br><span translate="no">${esc(ntFill(text, first)).replace(/\n/g, '<br>')}</span>` : '';
   const phoneNoAcct = n('phone') && !acct;
   const pr = $('#ntProgress');
   if (NT.running) pr.innerHTML = `<p class="sub">${esc(NT.status || '')}</p>`;
@@ -3088,7 +3124,7 @@ const ntErr = b => ({unknown_recipient:'یکی از گیرنده‌ها رو ت�
   start_bot_first:'اول خودت ربات رو توی تلگرام Start کن، بعد دوباره امتحان کن.', bad_site:BOT_ERRORS.bad_site, telegram_failed:'تلگرام پیام رو قبول نکرد.'}[b && b.error]
   || 'تابع telegram-auth جواب درست نداد؛ مطمئن شو نسخه‌ی جدیدش Deploy شده.');
 async function ntCall(body){
-  const { data, error } = await sb.functions.invoke('telegram-auth', {body:{notify:body}});
+  const { data, error } = await sb.functions.invoke('telegram-auth', {body:{notify:{...body, lang:I18N.lang}}});
   if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} throw b; }
   return data || {};
 }
@@ -3155,7 +3191,7 @@ async function ntSend(){
 notifyDlg.addEventListener('click', e => {
   if (e.target === notifyDlg && !NT.running) return notifyDlg.close();
   const a = e.target.closest('[data-nt-aud]'); if (a && !NT.running){ NT.aud = a.dataset.ntAud; NT.off.clear(); NT.report = null; return renderNotify(); }
-  const t = e.target.closest('[data-nt-tpl]'); if (t){ $('#ntText').value = ntTemplates()[+t.dataset.ntTpl][1]; return renderNotify(); }
+  const t = e.target.closest('[data-nt-tpl]'); if (t){ $('#ntText').value = tr(ntTemplates()[+t.dataset.ntTpl][1]); return renderNotify(); }
   const act = e.target.closest('[data-act]') && e.target.closest('[data-act]').dataset.act;
   if (act === 'nt-send') return ntSend();
   if (act === 'nt-test') return ntTest();
@@ -3362,12 +3398,15 @@ document.addEventListener('keydown', e => {
 function tgReset(){ TG.step = null; TG.err = ''; TG.note = ''; tgDrop(); TG.state = 'off'; $('#tgAcctBody').innerHTML = ''; delete $('#tgAcctBody').dataset.key; }
 
 /* ---------- excel ---------- */
-const faDay = v => v ? new Date(v).toLocaleDateString('fa-IR') : '';
+// file names carry the date in Latin digits (the Persian calendar in Persian)
+const FILE_DATE = I18N.lang === 'fa' ? 'fa-IR-u-nu-latn' : 'en-GB';
+const faDay = v => v ? new Date(v).toLocaleDateString(I18N.dateLocale) : '';
 /* ---------- Excel export ----------
    «خروجی اکسل» opens a checklist and the file holds only the ticked sheets. Plain sheets (SheetJS): the header in the
    first row, column widths, thousands separators, right to left. The choice is remembered in this browser. */
+const addSheet = (wb, ws, name) => XLSX.utils.book_append_sheet(wb, ws, tr(name));
 function sheetFrom(aoa, widths, numCols){
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const ws = XLSX.utils.aoa_to_sheet(aoa.map(r => r.map(c => typeof c === 'string' ? tr(c) : c)));
   ws['!cols'] = widths.map(w => ({wch:w}));
   const range = XLSX.utils.decode_range(ws['!ref']);
   for (let R = 1; R <= range.e.r; R++) numCols.forEach(C => { const cell = ws[XLSX.utils.encode_cell({r:R, c:C})]; if (cell && cell.t === 'n') cell.z = '#,##0'; });
@@ -3383,7 +3422,7 @@ function xlChoices(){
     ['invoices', 'فاکتورها', 'فاکتورهای آپلودشده', Object.keys(S.invoices).length],
     ['funds', 'بودجه و سهم‌ها', 'واریزی‌ها، منابع و سهم نفرات', Object.keys(S.funds).length],
     ['main', 'شرکت‌کننده‌های اصلی', 'سهم، پرداخت و وضعیت هر نفر' + (canAdmin && VC.status ? '، با کد رأی' : ''), main],
-    ['extra', 'شرکت‌کننده‌های جدید', 'لوح، تندیس، آلبوم، پذیرایی و پرداخت' + (canAdmin && VC.status ? '، با کد رأی' : ''), extra],
+    ['extra', 'شرکت‌کننده‌های جدید', 'اقلامی که خواستن، پذیرایی و پرداخت' + (canAdmin && VC.status ? '، با کد رأی' : ''), extra],
     ['payments', 'فیش‌ها', 'همه‌ی فیش‌ها با وضعیت، تاریخ و اینکه از کجا اومده', Object.keys(S.payments).length],
     ...(canAdmin && VC.status ? [['codes', 'کدهای رأی', 'نام و کد هر نفر، برای چاپ یا دادن دستی', all.filter(p => myCodes.get(p.id)).length]] : []),
   ];
@@ -3413,7 +3452,7 @@ function xlBuild(){
   try { exportXlsx(new Set(picked)); } catch(e){ console.error('export', e); toast('ساخت فایل اکسل انجام نشد'); }
 }
 function exportXlsx(want){
-  const t = totals(), st = S.settings, cur = st.currency || 'تومان', head = Number(st.headcount)||0;
+  const t = totals(), st = S.settings, cur = curName(), head = Number(st.headcount)||0;
   const items = Object.values(S.items).sort((a,b) => (TYPES[a.type]?.order??0) - (TYPES[b.type]?.order??0) || cost(b) - cost(a));
   const wb = XLSX.utils.book_new(); wb.Workbook = {Views:[{RTL:true}]};
   const everyone = Object.values(S.participants).sort((a,b) => (a.full_name||'').localeCompare(b.full_name||'','fa'));
@@ -3444,8 +3483,7 @@ function exportXlsx(want){
       a.push([], ['حضور و پذیرایی', 'تعداد'], ['شرکت‌کننده‌های اصلی', parts.length]);
       if (guests) a.push(['  مهمان‌هاشون', guests]);
       if (xs){
-        a.push(['شرکت‌کننده‌های جدید', xs], ['  لوح', n(p => p.wants_plaque)], ['  تندیس', n(p => p.wants_statue)]);
-        if (hasAlbumCols) a.push(['  آلبوم عکس', n(p => p.wants_album)]);
+        a.push(['شرکت‌کننده‌های جدید', xs], ...ADDONS().map(ad => ['  ' + ad.name, n(p => (p.addons || []).includes(ad.id))]));
         a.push(['  با پذیرایی', yes], ['  بدون پذیرایی', n(p => p.catering === 'no')], ['  پذیرایی تصمیم‌نشده', n(p => (p.catering || 'undecided') === 'undecided')]);
       }
       a.push(['کل پذیرایی', parts.length + guests + yes]);
@@ -3453,20 +3491,20 @@ function exportXlsx(want){
     if (withCodes){ const s = VC.status; a.push([], ['کدهای رأی', 'تعداد'], ['کدهای فعال', s.total], ['تخصیص‌داده', s.assigned], ['آزاد', s.free], ['شرکت‌کننده‌های اصلی بدون کد', parts.filter(p => !codeOf(p.id)).length]); }
     const byCat = {}; items.forEach(it => { const k = it.category||'سایر'; byCat[k] = (byCat[k]||0) + cost(it); });
     if (items.length){ a.push([], ['دسته', 'جمع']); Object.entries(byCat).sort((x,y) => y[1]-x[1]).forEach(([k,v]) => a.push([k, v])); }
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [30,18,16], [1,2]), 'خلاصه');
+    addSheet(wb, sheetFrom(a, [30,18,16], [1,2]), 'خلاصه');
   }
   if (want.has('items')){
     const a = [['ردیف','عنوان','دلیل / توضیح','نوع','دسته','فروشنده / تماس','قیمت واحد','تعداد','برآورد','وضعیت','مبلغ واقعی','مبلغ نهایی','پرداخت از','تعداد فاکتور','جمع فاکتورها','ثبت‌کننده','آخرین تغییر']];
     items.forEach((it,i) => a.push([i+1, it.title, it.reason||'', (TYPES[it.type]||TYPES.must).l, it.category||'', it.vendor||'', Number(it.unit)||0, Number(it.qty)||1, estimate(it), it.paid ? 'پرداخت شد' : 'پرداخت‌نشده', it.paid && it.actual ? Number(it.actual) : '', cost(it), it.paid ? (it.payer||FUND) : '', invOf(it.id).length, invSum(it.id) || '', who(it.created_by), who(it.updated_by)]));
     a.push([], ['','جمع کل','','','','','','', sum(items, estimate),'','', t.max]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,26,40,10,16,20,14,7,14,13,14,14,14,10,14,14,14], [6,7,8,10,11,14]), 'هزینه‌ها');
+    addSheet(wb, sheetFrom(a, [6,26,40,10,16,20,14,7,14,13,14,14,14,10,14,14,14], [6,7,8,10,11,14]), 'هزینه‌ها');
   }
   if (want.has('invoices')){
     const invs = Object.values(S.invoices).sort((a,b) => ts(a.created_at) - ts(b.created_at));
     const a = [['ردیف','فروشنده','تاریخ فاکتور','مبلغ','مربوط به خرج','نوع خرج','یادداشت','نام فایل','تاریخ آپلود','آپلودکننده']];
     invs.forEach((v,i) => { const it = S.items[v.item_id]; a.push([i+1, v.vendor||'', v.invoice_date||'', Number(v.total)||0, it ? it.title : 'وصل‌نشده', it ? (TYPES[it.type]||TYPES.must).l : '', v.note||'', v.file_name||'', faDay(v.created_at), who(v.created_by)]); });
     a.push([], ['','جمع','', sum(invs, v => v.total)]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,22,14,14,24,10,34,24,12,14], [3]), 'فاکتورها');
+    addSheet(wb, sheetFrom(a, [6,22,14,14,24,10,34,24,12,14], [3]), 'فاکتورها');
   }
   if (want.has('funds')){
     const a = [['ردیف','نوع','منبع / نام','مبلغ','وضعیت','یادداشت','تاریخ ثبت','ثبت‌کننده']];
@@ -3474,7 +3512,7 @@ function exportXlsx(want){
     fundsOnly().forEach(f => a.push([++r, 'واریزی / منبع', f.name, Number(f.amount)||0, f.paid ? 'دریافت شد' : 'در راه', f.note||'', faDay(f.created_at), who(f.created_by)]));
     contribs().forEach(c => a.push([++r, 'سهم نفر', c.name, Number(c.amount)||0, c.paid ? 'واریز کرده' : 'هنوز نداده', c.note||'', faDay(c.created_at), who(c.created_by)]));
     a.push([], ['','','دریافت‌شده', t.income], ['','','در راه', t.incoming]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,14,24,16,14,34,12,14], [3]), 'بودجه و سهم‌ها');
+    addSheet(wb, sheetFrom(a, [6,14,24,16,14,34,12,14], [3]), 'بودجه و سهم‌ها');
   }
   if (want.has('main') && parts.length){
     const ss = parts.map(payState);
@@ -3482,17 +3520,19 @@ function exportXlsx(want){
     parts.forEach((p,i) => { const s = ss[i]; a.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', guestsOf(p), s.due, s.approved, s.pending, left(s), STATE_LABEL[s.key], p.user_id ? 'بله' : 'خیر', s.count, p.note||'', ...(withCodes ? [codeText(p)] : [])]); });
     a.push([], ['','','جمع','', guests, sum(ss, s => s.due), sum(ss, s => s.approved), sum(ss, s => s.pending), sum(ss, left)]);
     a.push(['','','کل حضور (نفرات + مهمان‌ها)','', parts.length + guests]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,16,24,18,10,14,14,14,14,18,10,10,30,10], [4,5,6,7,8]), 'شرکت‌کننده‌ها');
+    addSheet(wb, sheetFrom(a, [6,16,24,18,10,14,14,14,14,18,10,10,30,10], [4,5,6,7,8]), 'شرکت‌کننده‌ها');
   }
   if (want.has('extra') && extras.length){
     const ss = extras.map(payState), yn = v => v ? 'بله' : '—', n = f => extras.filter(f).length;
-    const a = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش','لوح','تندیس','آلبوم عکس','پذیرایی','مبلغ','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت', ...(withCodes ? ['کد رأی'] : [])]];
-    extras.forEach((p,i) => { const s = ss[i]; a.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', yn(p.wants_plaque), yn(p.wants_statue), yn(p.wants_album), {yes:'بله', no:'خیر'}[p.catering] || 'تصمیم نشده', s.due, s.approved, s.pending, left(s), STATE_LABEL[s.key], p.user_id ? 'بله' : 'خیر', s.count, p.note||'', ...(withCodes ? [codeText(p)] : [])]); });
+    const items = ADDONS(), has = (p, ad) => (p.addons || []).includes(ad.id), k = items.length, money = 5 + k; // first money column
+    const a = [['ردیف','موبایل / شماره دانشجویی','نام','گرایش', ...items.map(ad => ad.name),'پذیرایی','مبلغ','تأییدشده','در انتظار بررسی','مانده','وضعیت','حساب وصل','تعداد فیش','یادداشت', ...(withCodes ? ['کد رأی'] : [])]];
+    extras.forEach((p,i) => { const s = ss[i]; a.push([i+1, shownNo(p.student_no) || 'بدون شماره', p.full_name||'', p.major||'', ...items.map(ad => yn(has(p, ad))), {yes:'بله', no:'خیر'}[p.catering] || 'تصمیم نشده', s.due, s.approved, s.pending, left(s), STATE_LABEL[s.key], p.user_id ? 'بله' : 'خیر', s.count, p.note||'', ...(withCodes ? [codeText(p)] : [])]); });
     const yes = n(p => p.catering === 'yes'), no = n(p => p.catering === 'no');
-    a.push([], ['','','جمع','', n(p => p.wants_plaque), n(p => p.wants_statue), n(p => p.wants_album), yes, sum(ss, s => s.due), sum(ss, s => s.approved), sum(ss, s => s.pending), sum(ss, left)]);
-    a.push(['','','پذیرایی','', '', '', '', `بله ${yes} · خیر ${no} · تصمیم‌نشده ${extras.length - yes - no}`]);
-    a.push(['','','کل پذیرایی (اصلی‌ها + مهمان‌ها + جدیدهای با پذیرایی)','', '', '', '', parts.length + guests + yes]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,16,24,18,8,8,10,12,14,14,14,14,18,10,10,30,10], [8,9,10,11]), 'شرکت‌کننده‌های جدید');
+    const pad = Array(k).fill('');
+    a.push([], ['','','جمع','', ...items.map(ad => n(p => has(p, ad))), yes, sum(ss, s => s.due), sum(ss, s => s.approved), sum(ss, s => s.pending), sum(ss, left)]);
+    a.push(['','','پذیرایی','', ...pad, `بله ${yes} · خیر ${no} · تصمیم‌نشده ${extras.length - yes - no}`]);
+    a.push(['','','کل پذیرایی (اصلی‌ها + مهمان‌ها + جدیدهای با پذیرایی)','', ...pad, parts.length + guests + yes]);
+    addSheet(wb, sheetFrom(a, [6,16,24,18, ...items.map(() => 10),12,14,14,14,14,18,10,10,30,10], [money, money + 1, money + 2, money + 3]), 'شرکت‌کننده‌های جدید');
   }
   if (want.has('payments')){
     const pays = Object.values(S.payments).sort((a,b) => ts(a.created_at) - ts(b.created_at));
@@ -3500,16 +3540,16 @@ function exportXlsx(want){
     const a = [['ردیف','نام','موبایل / شماره','لیست','مبلغ','وضعیت','کد پیگیری','تاریخ','از طریق','بررسی‌کننده','یادداشت بررسی']];
     pays.forEach((x,i) => { const p = S.participants[x.participant_id] || {}; a.push([i+1, p.full_name||'', shownNo(p.student_no)||'', isExtra(p) ? 'جدید' : 'اصلی', Number(x.amount)||0, PAY_STATUS[x.status] || x.status, x.tracking_code||'', faDay(x.created_at), via(x), x.reviewed_by||'', x.review_note||'']); });
     a.push([], ['','تأییدشده','','', sum(pays.filter(x => x.status === 'approved'), x => x.amount)], ['','در انتظار بررسی','','', sum(pays.filter(x => x.status === 'submitted'), x => x.amount)]);
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,24,16,8,14,14,16,12,12,14,28], [4]), 'فیش‌ها');
+    addSheet(wb, sheetFrom(a, [6,24,16,8,14,14,16,12,12,14,28], [4]), 'فیش‌ها');
   }
   if (want.has('codes') && withCodes){
     const a = [['ردیف','نام','موبایل / شماره','لیست','کد رأی']];
     everyone.filter(p => myCodes.get(p.id)).forEach((p,i) => a.push([i+1, p.full_name||'', shownNo(p.student_no)||'', isExtra(p) ? 'جدید' : 'اصلی', myCodes.get(p.id)]));
-    XLSX.utils.book_append_sheet(wb, sheetFrom(a, [6,26,16,8,12], []), 'کدهای رأی');
+    addSheet(wb, sheetFrom(a, [6,26,16,8,12], []), 'کدهای رأی');
   }
   if (!wb.SheetNames.length){ toast('برای موارد انتخاب‌شده چیزی ثبت نشده'); return; }
 
-  const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
+  const d = new Intl.DateTimeFormat(FILE_DATE, {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
   const ds = ['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-');
   const name = `grad-finance-${ds}.xlsx`; // a plain Latin name: Persian ones get mangled by some apps
   // inside Telegram a download goes nowhere, so the bot sends the file to the person instead
@@ -3521,7 +3561,7 @@ const XL_BOT_ERR = {no_telegram:'حسابت به تلگرام وصل نیست؛ 
 async function xlToBot(wb, name, sheets){
   toast('در حال فرستادن فایل در ربات…');
   const data = XLSX.write(wb, {bookType:'xlsx', type:'base64'});
-  const caption = `📊 خروجی اکسل · ${new Intl.DateTimeFormat('fa-IR', {dateStyle:'medium', timeStyle:'short'}).format(new Date())}` + (sheets.length ? `\n${sheets.join('، ')}` : '');
+  const caption = tr('📊 خروجی اکسل · {0}', new Intl.DateTimeFormat(I18N.dateLocale, {dateStyle:'medium', timeStyle:'short'}).format(new Date())) + (sheets.length ? `\n${sheets.map(x => tr(x)).join(tr('، '))}` : '');
   const { error } = await sb.functions.invoke('telegram-auth', {body:{send_file:{name, data, caption}}});
   if (!error){ toast('فایل اکسل توی ربات برات فرستاده شد'); return; }
   let b = {}; try { b = await error.context.json(); } catch(e){}
@@ -3600,16 +3640,18 @@ async function fullBackup(btn){
       files:{receipts:receipts.length - r1.missing.length, invoices:invoices.length - r2.missing.length}, missing_files:{receipts:r1.missing, invoices:r2.missing}};
     const enc = new TextEncoder();
     const head = [{name:'data.json', data:enc.encode(JSON.stringify(data, null, 1))},
-      {name:'README.txt', data:enc.encode(`پشتیبان کامل «${S.settings.title || 'جشن'}» — ${stamp.toLocaleString('fa-IR')}\n\ndata.json: همه‌ی جدول‌ها (هر جدول یک فهرست از ردیف‌ها).\nreceipts/ و invoices/: عکس فیش‌ها و فاکتورها با همون مسیری که در Storage سوپابیس دارن.\nبرای برگرداندن: schema.sql رو در پروژه‌ی تازه اجرا کن، بعد ردیف‌ها رو از data.json وارد کن و پوشه‌ها رو در سطل‌های receipts و invoices آپلود کن.\n`)}];
+      {name:'README.txt', data:enc.encode([tr('پشتیبان کامل «{0}» — {1}', tr(S.settings.title || 'جشن'), stamp.toLocaleString(I18N.dateLocale)), '',
+        tr('data.json: همه‌ی جدول‌ها (هر جدول یک فهرست از ردیف‌ها).'), tr('receipts/ و invoices/: عکس فیش‌ها و فاکتورها با همون مسیری که در Storage سوپابیس دارن.'),
+        tr('برای برگرداندن: schema.sql رو در پروژه‌ی تازه اجرا کن، بعد ردیف‌ها رو از data.json وارد کن و پوشه‌ها رو در سطل‌های receipts و invoices آپلود کن.'), ''].join('\n'))}];
     const files = [...head, ...r1.out, ...r2.out];
-    const d = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(stamp);
+    const d = new Intl.DateTimeFormat(FILE_DATE, {year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(stamp);
     const base = `grad-finance-backup-${['year','month','day'].map(k => d.find(p => p.type === k)?.value).join('-')}`;
     const problems = Object.keys(errors).length + r1.missing.length + r2.missing.length;
-    const tail = `${fmt(Object.values(tables).reduce((a, r) => a + r.length, 0))} ردیف، ${fmt(r1.out.length + r2.out.length)} عکس` + (problems ? ` (${fmt(problems)} مورد خوانده نشد؛ فهرستش در data.json هست)` : '');
+    const tail = tr('{0} ردیف، {1} عکس', fmt(Object.values(tables).reduce((a, r) => a + r.length, 0)), fmt(r1.out.length + r2.out.length)) + (problems ? ' ' + tr('({0} مورد خوانده نشد؛ فهرستش در data.json هست)', fmt(problems)) : '');
     if (!tgWA){
       const a = document.createElement('a'); a.href = URL.createObjectURL(makeZip(files)); a.download = base + '.zip';
       document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
-      say('پشتیبان دانلود شد: ' + tail, problems ? 'bad' : 'pos'); return;
+      say(tr('پشتیبان دانلود شد:') + ' ' + tail, problems ? 'bad' : 'pos'); return;
     }
     // inside Telegram: the bot sends it, in parts small enough to upload
     const groups = [[]]; let size = 0;
@@ -3618,10 +3660,10 @@ async function fullBackup(btn){
       say(`در حال فرستادن در ربات: بخش ${fmt(i + 1)} از ${fmt(groups.length)}…`);
       const zip = new Uint8Array(await makeZip(groups[i]).arrayBuffer());
       const name = groups.length > 1 ? `${base}-part${i + 1}of${groups.length}.zip` : base + '.zip';
-      const { error } = await sb.functions.invoke('telegram-auth', {body:{send_file:{name, data:u8ToB64(zip), caption:`🗄 پشتیبان کامل${groups.length > 1 ? ` · بخش ${i + 1} از ${groups.length}` : ''}\n${tail}`}}});
+      const { error } = await sb.functions.invoke('telegram-auth', {body:{send_file:{name, data:u8ToB64(zip), caption:tr('🗄 پشتیبان کامل{0} {1}', groups.length > 1 ? tr('· بخش {0} از {1}', fmt(i + 1), fmt(groups.length)) : '', '\n' + tail)}}});
       if (error){ let b = {}; try { b = await error.context.json(); } catch(e){} say(XL_BOT_ERR[b.error] || 'فرستادن در ربات نشد؛ مطمئن شو تابع telegram-auth به‌روز شده، یا سایت رو در مرورگر باز کن.', 'bad'); return; }
     }
-    say(`پشتیبان در ربات برات فرستاده شد${groups.length > 1 ? ` (${fmt(groups.length)} بخش)` : ''}: ` + tail, problems ? 'bad' : 'pos');
+    say(tr('پشتیبان در ربات برات فرستاده شد{0}:', groups.length > 1 ? ' ' + tr('({0} بخش)', fmt(groups.length)) : '') + ' ' + tail, problems ? 'bad' : 'pos');
   } catch(e){ console.error('backup', e); say('ساخت پشتیبان انجام نشد؛ دوباره امتحان کن.', 'bad'); }
   finally { bkBusy = false; btn.disabled = false; }
 }

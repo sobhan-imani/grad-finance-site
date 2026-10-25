@@ -1,257 +1,281 @@
-# حساب و کتاب جشن فارغ‌التحصیلی
+# Graduation Party Finance
 
-سایتی ساده و رایگان برای مدیریت مالی یک جشن یا رویداد جمعی. تیم مالی هزینه‌ها، فاکتورها و بودجه را در آن ثبت می‌کند. شرکت‌کننده‌ها از داخل تلگرام وارد می‌شوند، سهم خود را می‌بینند و عکس فیش واریزی‌شان را می‌فرستند.
+**English** · [فارسی](README.fa.md)
 
-![صفحه‌ی اصلی سایت، با داده‌ی نمونه](docs/screenshot.png)
+A simple, free website for running the money side of a graduation party or any group event. The finance team records expenses, invoices and the budget. Participants sign in from inside Telegram, see their share and send a picture of their payment receipt. The site and its Telegram bot work in English and Persian.
 
-<sub>تصویر بالا با داده‌ی ساختگی تهیه شده است.</sub>
+![The main page, with sample data](docs/screenshot-en.png)
 
-## امکانات
+<sub>The screenshot uses made-up data.</sub>
 
-- **برآورد هزینه در برابر بودجه:** هر هزینه «قطعی»، «احتمالی» یا «انتخابی» است. صفحه‌ی اصلی سه برآورد (حداقل، محتمل، کامل) را کنار سقف بودجه و سهم هر نفر نشان می‌دهد.
-- **صندوق:** بودجه‌ی دریافت‌شده، پول در راه، خرج‌شده و موجودی، و هشدار وقتی نقدینگی برای هزینه‌های قطعی باقی‌مانده کافی نیست.
-- **فاکتورها:** عکس یا PDF فاکتور به هزینه‌ی مربوط وصل می‌شود. هزینه‌های پرداخت‌شده‌ی بدون فاکتور مشخص می‌شوند.
-- **شرکت‌کننده‌ها و پرداخت سهم:**
-  - لیست ثبت‌نام از فایل Excel یا CSV وارد می‌شود.
-  - هر نفر با شماره‌ای که تلگرام تأیید می‌کند وارد صفحه‌ی پرداخت خودش می‌شود و عکس فیش را می‌فرستد.
-  - تیم مالی فیش‌ها را تأیید یا رد می‌کند.
-  - کسی که وارد سایت نمی‌شود، با یک لینک اختصاصی ربات مبلغ و شماره کارت را می‌بیند و عکس رسید را همان‌جا می‌فرستد.
-- **شرکت‌کننده‌های جدید:** کسانی که بعد از قطعی شدن لیست فقط لوح، تندیس و/یا آلبوم عکس (Yearbook) می‌خواهند، جدا ثبت و حساب می‌شوند. پذیرایی‌شان جدا تصمیم گرفته می‌شود.
-- **کد ورود رأی‌گیری:** هر شرکت‌کننده‌ی اصلی یک کد یکتا می‌گیرد که خودش در سایت و ربات می‌بیند. مدیرها هم کد هر نفر را می‌بینند تا به کسی که از ربات استفاده نمی‌کند بدهند.
-- **نقش‌ها و تاریخچه:** هر کس فقط کارهایی را انجام می‌دهد که نقشش اجازه می‌دهد. هر تغییر با نام انجام‌دهنده و مقدار قبلی ثبت می‌شود.
-- **ربات تلگرام (فقط مدیر):** متن پیام خوش‌آمد ربات از داخل سایت عوض می‌شود. از همان‌جا می‌شود برای همه‌ی کسانی که ربات را Start کرده‌اند پیام همگانی فرستاد.
-- **پیام به گروه‌های شرکت‌کننده‌ها (فقط مدیر):** پیام شخصی‌شده به بدهکارها، پرداخت‌نکرده‌ها، تسویه‌شده‌ها و … . پیام از ربات می‌رود و به کسانی که ربات به آن‌ها نمی‌رسد، از حساب تلگرام شخصی مدیر (اختیاری) با شماره‌شان.
-- **همگام‌سازی زنده و خروجی اکسل:** با زدن «خروجی اکسل» فهرستی می‌آید و فقط برگه‌هایی که تیک خورده‌اند در فایل می‌آیند: خلاصه، هزینه‌ها، فاکتورها، بودجه و سهم‌ها، شرکت‌کننده‌های اصلی، شرکت‌کننده‌های جدید، فیش‌ها و (فقط برای مدیر) کدهای رأی. انتخاب آخر در همان مرورگر یادش می‌ماند. فونت‌ها و کتابخانه‌ها همراه سایت هستند و سایت به CDN وابسته نیست.
+## Features
 
-## ساختار فایل‌ها
+- **Cost estimate against the budget:** every expense is a "must-have", a "maybe" or a "nice-to-have". The main page shows three estimates (minimum, likely, full) next to the budget cap and each person's share.
+- **Fund:** money received, money on the way, spent so far and the balance, with a warning when there isn't enough cash for the remaining must-haves.
+- **Invoices:** a picture or PDF of each invoice is linked to its expense. Paid expenses without an invoice are flagged.
+- **Participants and shares:**
+  - The registration list is imported from an Excel or CSV file.
+  - Each person opens their own payment page with the phone number Telegram confirms, and sends a picture of their receipt.
+  - The finance team approves or rejects receipts.
+  - People who never sign in get a personal bot link: the bot shows their amount and the card number, and takes the receipt picture right there.
+- **Items:** the admin defines a list of items (for example a plaque, a statue, a yearbook), each with a price. Items marked "in the share" come with the main share. **New participants** who join after the list is final pay only for the items they pick, plus catering once that's decided.
+- **Voting codes (optional):** each main participant gets a unique code to sign in to a vote, shown on their payment page and in the bot. Turned on with `votingCodes: true` in `config.js`.
+- **Roles and history:** everyone can only do what their role allows. Every change is recorded with who made it and the previous value.
+- **Telegram bot (admins):** the bot's welcome message is edited from the site, and a broadcast can be sent to everyone who started the bot.
+- **Messages to groups of participants (admins):** personalised messages to people who owe money, haven't paid, have settled and so on. They go out through the bot, and to people the bot can't reach, from the admin's own Telegram account (optional) by phone number.
+- **Two languages:** every visitor can switch between English and Persian; the bot answers each person in their language.
+- **Live sync and Excel export:** "Excel export" shows a checklist, and only the ticked sheets go into the file: summary, expenses, invoices, budget and shares, main participants, new participants, receipts and (admins only) voting codes. Fonts and libraries ship with the site, so it doesn't depend on a CDN.
+
+## Files
 
 ```
-index.html                                  کل سایت (یک فایل)
-config.js                                   آدرس Supabase، کلید عمومی و نام ربات تلگرام
-schema.sql                                  ساختار دیتابیس، قوانین دسترسی، تاریخچه و فضای فایل‌ها
-supabase/functions/telegram-auth/index.ts   تابع ورود با تلگرام و پاسخ‌گوی ربات (Edge Function)
-vendor/ , fonts/                            کتابخانه‌ها و فونت‌ها (gramjs.js فقط وقتی بارگذاری می‌شود که مدیری حساب تلگرامش را وصل کند)
-docs/                                       تصویر همین راهنما
+index.html                                  the whole site (one file)
+i18n.js                                     English translation of the site and the language choice
+config.js                                   Supabase address, public key, bot name and options
+schema.sql                                  database, access rules, history and file storage
+supabase/functions/telegram-auth/index.ts   Telegram sign-in and the bot (Edge Function)
+vendor/ , fonts/                            libraries and fonts (gramjs.js loads only when an admin connects their Telegram account)
+docs/                                       screenshots for this guide
 ```
 
-## نقش‌ها
+## Roles
 
-| نقش | دیدن و خروجی اکسل | افزودن و ویرایش | حذف | مدیریت اعضا |
+| Role | View and export | Add and edit | Delete | Manage members |
 |---|:-:|:-:|:-:|:-:|
-| مدیر | ✓ | ✓ | ✓ | ✓ |
-| ویرایشگر | ✓ | ✓ | ✗ | ✗ |
-| بیننده | ✓ | ✗ | ✗ | ✗ |
-| شرکت‌کننده | فقط صفحه‌ی پرداخت خودش | فقط فرستادن فیش | ✗ | ✗ |
-| در انتظار تأیید | ✗ | ✗ | ✗ | ✗ |
-| ردشده / مسدود | ✗ | ✗ | ✗ | ✗ |
+| Admin | ✓ | ✓ | ✓ | ✓ |
+| Editor | ✓ | ✓ | ✗ | ✗ |
+| Viewer | ✓ | ✗ | ✗ | ✗ |
+| Participant | their own payment page | sending receipts | ✗ | ✗ |
+| Awaiting approval | ✗ | ✗ | ✗ | ✗ |
+| Rejected / blocked | ✗ | ✗ | ✗ | ✗ |
 
-- هر کسی که با تلگرام وارد شود، ابتدا «در انتظار تأیید» است.
-- اگر شماره‌اش در لیست شرکت‌کننده‌ها باشد، با تأیید شماره در تلگرام خودکار شرکت‌کننده می‌شود.
-- در غیر این صورت مدیر در تب **اعضا** نقشش را تعیین می‌کند، یا درخواستش را **رد** یا **مسدود** می‌کند.
-- **ردشده:** پیام «درخواستت تأیید نشد» را می‌بیند و می‌تواند دوباره درخواست بدهد؛ درخواستش دوباره در پنل می‌آید.
-- **مسدود:** دیگر نمی‌تواند درخواست بدهد و در پنل نمی‌آید، مگر مدیر رفع مسدودی کند.
-- ردشده و مسدود فقط به پنل تیم مالی مربوط‌اند: اگر کسی شرکت‌کننده باشد، صفحه‌ی پرداختش مثل قبل کار می‌کند.
-- این محدودیت‌ها در خود دیتابیس (Row Level Security) اعمال می‌شوند، نه فقط در ظاهر سایت.
+- Anyone who signs in with Telegram starts as "awaiting approval".
+- If their number is on the participant list, confirming it in Telegram makes them a participant automatically.
+- Otherwise an admin sets their role in the **Members** tab, or **rejects** or **blocks** the request.
+- **Rejected:** they see "your request wasn't approved" and can ask again; the request then shows up in the panel again.
+- **Blocked:** they can't ask again and don't show up in the panel, unless an admin unblocks them.
+- Rejected and blocked only concern the finance team panel: a participant's payment page keeps working.
+- These limits are enforced by the database itself (Row Level Security), not just by the page.
 
-## راه‌اندازی
+## Setup
 
-همه‌ی مراحل روی پلن رایگان Supabase و GitHub Pages انجام می‌شود.
+Everything runs on the free plans of Supabase and GitHub Pages.
 
-### ۱) دیتابیس Supabase
+### 1) Supabase database
 
-1. در [supabase.com](https://supabase.com) یک پروژه‌ی جدید بسازید.
-2. محتوای `schema.sql` را کپی کنید و در بخش ۱ آن، `me@example.com` را به ایمیل مدیر تغییر دهید. این ایمیل فقط در دیتابیس ذخیره می‌شود و لازم نیست در مخزن تغییر کند.
-3. در **SQL Editor** متن را بچسبانید و **Run** را بزنید.
+1. Create a new project at [supabase.com](https://supabase.com).
+2. Copy `schema.sql` and, in its section 1, change `me@example.com` to the admin's email. The email is stored only in the database; there's no need to change it in the repository.
+3. Paste it in the **SQL Editor** and press **Run**.
 
-### ۲) حساب مدیر
+### 2) Admin account
 
-1. در **Authentication → Users → Add user → Create new user** یک کاربر بسازید:
-   - ایمیل: همان ایمیل مرحله‌ی قبل
-   - یک رمز عبور
-   - گزینه‌ی **Auto Confirm User** روشن
+1. In **Authentication → Users → Add user → Create new user**, create a user:
+   - email: the same email as above
+   - a password
+   - **Auto Confirm User** on
 
-   این کاربر خودکار مدیر می‌شود. ترتیب این مرحله و مرحله‌ی ۱ مهم نیست.
-2. در **Authentication → Sign In / Providers** گزینه‌ی **Allow new users to sign up** را خاموش کنید. ورود با تلگرام همچنان کار می‌کند، چون کاربرهای تلگرامی را تابع ورود می‌سازد.
+   This user becomes an admin automatically. The order of this step and step 1 doesn't matter.
+2. In **Authentication → Sign In / Providers**, turn **Allow new users to sign up** off. Telegram sign-in still works, because the sign-in function creates Telegram users itself.
 
-ورود با ایمیل روی صفحه‌ی اصلی پنهان است. مدیر برای ورود با ایمیل، آدرس سایت را با `?email` در انتها باز می‌کند؛ مثلاً `https://username.github.io/grad-finance-site/?email`.
+Email sign-in is hidden on the main page. Admins open the site with `?email` at the end to see it, e.g. `https://username.github.io/grad-finance-site/?email`.
 
-### ۳) ربات تلگرام
+### 3) Telegram bot
 
-در تلگرام به [@BotFather](https://t.me/BotFather) پیام دهید:
+Message [@BotFather](https://t.me/BotFather) in Telegram:
 
-1. `/newbot` را بفرستید، سپس یک نام و یک نام کاربری (مثلاً `PartyFinanceBot`) انتخاب کنید. **توکن** ربات را محرمانه نگه دارید.
-2. `/setdomain` را بفرستید و ربات را انتخاب کنید. سپس فقط دامنه‌ی سایت را بفرستید، بدون `https://` و بدون مسیر؛ مثلاً `username.github.io`.
+1. Send `/newbot`, then choose a name and a username (e.g. `PartyFinanceBot`). Keep the bot **token** secret.
+2. Send `/setdomain`, choose the bot, then send just the site's domain, without `https://` or a path, e.g. `username.github.io`.
 
-### ۴) تابع ورود تلگرام (Edge Function)
+### 4) Telegram sign-in function (Edge Function)
 
-**از داشبورد Supabase:**
+**From the Supabase dashboard:**
 
-1. **Edge Functions → Deploy a new function → Via Editor** را بزنید.
-   - نام تابع دقیقاً `telegram-auth` باشد.
-   - محتوای `supabase/functions/telegram-auth/index.ts` را جای کد پیش‌فرض بچسبانید و **Deploy** کنید.
-2. در تنظیمات تابع، **Verify JWT** (یا Enforce JWT verification) را خاموش کنید. کاربر هنگام ورود هنوز نشستی ندارد؛ امنیت ورود با بررسی امضای تلگرام داخل تابع تأمین می‌شود.
-3. در **Edge Functions → Secrets** یک secret با نام `TELEGRAM_BOT_TOKEN` و مقدار توکن ربات اضافه کنید.
+1. Press **Edge Functions → Deploy a new function → Via Editor**.
+   - The function name must be exactly `telegram-auth`.
+   - Replace the default code with `supabase/functions/telegram-auth/index.ts` and press **Deploy**.
+2. In the function's settings, turn **Verify JWT** (or Enforce JWT verification) off. People have no session yet when they sign in; the function checks Telegram's signature itself.
+3. In **Edge Functions → Secrets**, add a secret named `TELEGRAM_BOT_TOKEN` with the bot token.
 
-**یا با Supabase CLI:**
+**Or with the Supabase CLI:**
 
 ```bash
 supabase functions deploy telegram-auth --no-verify-jwt
 supabase secrets set TELEGRAM_BOT_TOKEN=123456:ABC...
 ```
 
-هر بار که فایل تابع در مخزن تغییر می‌کند، باید دوباره Deploy شود.
+Optional secrets:
 
-### ۵) تنظیم `config.js`
-
-مقدارها را از **Project Settings → API** بردارید:
-
-| کلید | مقدار |
+| Secret | What it does |
 |---|---|
-| `supabaseUrl` | آدرس پروژه، مثل `https://abcd1234.supabase.co` |
-| `supabaseAnonKey` | کلید **anon** یا **publishable**. این کلید عمومی است. کلید `service_role` یا `secret` هرگز نباید این‌جا قرار بگیرد. |
-| `telegramBot` | نام کاربری ربات، بدون `@` |
-| `supportIds` | اختیاری: آیدی تلگرام مسئول‌های مالی، بدون `@`؛ مثلاً `['ali_finance']`. به کسی که شماره‌اش در لیست نیست، این آیدی‌ها برای پیگیری نشان داده می‌شوند. |
+| `VOTE_URL` | The voting site (`https://…`). With it, a "Go to the vote" button appears under the voting codes the bot sends. |
+| `BOT_LANG` | `en` or `fa`: the bot's language for everyone who hasn't picked one with the language button. Without it, each person gets the language of their Telegram app (Persian → Persian, anything else → English). |
 
-### ۶) انتشار روی GitHub Pages
+Deploy the function again whenever its file changes in the repository.
 
-1. مخزن را Fork کنید (یا فایل‌ها را در یک مخزن عمومی بگذارید).
-2. در **Settings → Pages** گزینه‌ی **Deploy from a branch** را با شاخه‌ی `main` و پوشه‌ی root انتخاب کنید.
+### 5) `config.js`
 
-هیچ فایلی در مخزن اطلاعات محرمانه ندارد. کلید `config.js` عمومی است و ایمیل مدیر فقط در دیتابیس ذخیره می‌شود.
+Take the values from **Project Settings → API**:
 
-### ۷) فعال کردن دکمه‌ی ربات
+| Key | Value |
+|---|---|
+| `supabaseUrl` | the project address, like `https://abcd1234.supabase.co` |
+| `supabaseAnonKey` | the **anon** or **publishable** key. It's public. Never put the `service_role` or `secret` key here. |
+| `telegramBot` | the bot's username, without `@` |
+| `supportIds` | optional: the finance team's Telegram usernames, without `@`, e.g. `['ali_finance']`. They're shown to people whose number isn't on the list. |
+| `votingCodes` | optional: `true` turns on voting codes (see below). |
+| `voteUrl` | optional: the voting site, for the "Go to the vote" button next to each code on the site. |
+| `defaultLang` | optional: `'en'` or `'fa'` for visitors who haven't picked a language. Empty: Persian for Persian browsers and Telegram apps, English for everyone else. |
 
-بعد از بالا آمدن سایت، مدیر در تب **تنظیمات** دکمه‌ی **راه‌اندازی دکمه‌ی ربات** را می‌زند. از آن به بعد:
+### 6) Publish on GitHub Pages
 
-- هر کس ربات را Start کند، پیام خوش‌آمد با دکمه‌ی «ورود به سایت» می‌گیرد.
-- دکمه‌ی منوی ربات سایت را داخل خود تلگرام (Mini App) باز می‌کند و کاربر بدون هیچ کلیکی وارد می‌شود.
+1. Fork the repository (or put the files in a public repository).
+2. In **Settings → Pages**, choose **Deploy from a branch**, with the `main` branch and the root folder.
 
-متن پیام خوش‌آمد در همان تب، در بخش **پیام خوش‌آمد ربات**، قابل تغییر است. `{name}` در متن جای اسم کوچک هر شخص قرار می‌گیرد.
+No file in the repository holds a secret. The key in `config.js` is public, and the admin's email lives only in the database.
 
-## استفاده
+### 7) Turn on the bot button
 
-### تیم مالی
+Once the site is up, an admin presses **Set up the bot button** in the **Settings** tab. From then on:
 
-- اعضای تیم با تلگرام وارد می‌شوند. مدیر در تب **اعضا** نقش هر نفر (بیننده، ویرایشگر یا مدیر) را تعیین می‌کند و همان لحظه صفحه‌ی آن فرد باز می‌شود.
-- نام نمایشی هر عضو در همان تب قابل تغییر است. همین نام در تاریخچه و برچسب‌های «ثبت‌کننده» دیده می‌شود.
-- اعضا در تب **اعضا** در این گروه‌ها دیده می‌شوند: درخواست‌های جدید، تیم مالی، شرکت‌کننده‌ها، ردشده‌ها و مسدودشده‌ها. سه گروه آخر بسته هستند و با یک کلیک باز می‌شوند.
-- نقش هر عضو تیم مالی را می‌شود به «شرکت‌کننده» تغییر داد و برعکس، از همان فهرست نقش‌ها.
-- «برداشتن دسترسی» عضو تیم را به «ردشده» می‌برد. اگر بخواهد، می‌تواند دوباره درخواست بدهد.
+- Anyone who starts the bot gets a welcome message with an "Open the site" button.
+- The bot's menu button opens the site inside Telegram (as a Mini App), and the person is signed in without another tap.
 
-### شرکت‌کننده‌ها و پرداخت سهم
+The welcome text can be changed in the same tab, under **Bot welcome message**. `{name}` is replaced with each person's first name. A custom welcome is sent as written, in one language; leave it empty to send the built-in welcome in each person's language.
 
-1. **وارد کردن لیست:** در تب **شرکت‌کننده‌ها**، با **ورود از شیت** فایل ثبت‌نام (Excel یا CSV) وارد می‌شود.
-   - ستون «شماره تماس» لازم است. «نام»، «گرایش» و «تعداد مهمان» هم خوانده می‌شوند.
-   - عنوان ستون‌ها لازم نیست دقیق باشد؛ مثلاً «شماره تماس (ترجیحاً موبایل)» هم شناخته می‌شود.
-   - تعداد مهمان می‌تواند «۲»، «۲ نفر»، «دو نفر» یا «ندارم» باشد. موارد مبهم قبل از وارد شدن برای بررسی نشان داده می‌شوند.
-   - اگر در خانه‌ی شماره چیز دیگری هم نوشته شده باشد (آیدی تلگرام، یا دو شماره که کنار یکی «تلگرام» آمده)، شماره‌ی موبایل برداشته می‌شود و متن کامل در یادداشت آن نفر می‌ماند.
-   - کسی که شماره‌ی معتبر ندارد با برچسب «بدون شماره» ثبت می‌شود. تا شماره‌اش اضافه نشود خودش نمی‌تواند وارد شود، ولی تیم مالی می‌تواند پرداختش را دستی ثبت کند.
-   - وارد کردن دوباره‌ی همان فایل آدم تکراری نمی‌سازد.
-2. **مبلغ سهم:** در **ویرایش اطلاعات پرداخت** شماره کارت، مبلغ پیش‌فرض سهم و مبلغ هر مهمان تعیین می‌شود. سهم هر نفر خودکار «سهم پیش‌فرض + تعداد مهمان × مبلغ هر مهمان» است. برای مبلغ متفاوت، «مبلغ کل» در پنجره‌ی همان نفر دستی نوشته می‌شود.
-3. **ورود شرکت‌کننده:** هر نفر سایت را از ربات باز می‌کند و **📱 تأیید شماره با تلگرام** را می‌زند.
-   - شماره از خود تلگرام گرفته و با لیست مقایسه می‌شود. شماره در هیچ‌جای سایت تایپ نمی‌شود.
-   - کسی که سایت را در مرورگر باز کند، فقط دکمه‌ی باز کردن ربات را می‌بیند.
-   - اگر شماره در لیست نباشد، به پیام دادن به مسئول‌های مالی راهنمایی می‌شود.
-   - پس از تأیید، مبلغ سهم (با جزئیات مهمان‌ها) و اطلاعات کارت را می‌بیند و عکس فیش را می‌فرستد. عکس روی گوشی خودش فشرده می‌شود.
-   - **اضافه کردن مهمان:** خودش می‌تواند به تعداد مهمان‌هایش اضافه کند. قبل از ثبت، سهم جدید را می‌بیند و تأیید می‌دهد. کم کردن مهمان فقط از طریق تیم مالی است. اگر برای او «مبلغ کل» دستی تعیین شده باشد، هزینه‌ی مهمان‌های جدید به همان اضافه می‌شود. هر تغییر در **تاریخچه** ثبت می‌شود.
-   - **چیزهایی که دریافت خواهید کرد:** در صفحه‌ی هر نفر کارتی هست که نشان می‌دهد چه چیزهایی به او می‌رسد: برای شرکت‌کننده‌های اصلی آلبوم عکس (Yearbook)، تندیس و پذیرایی برای خودش و مهمان‌هایش؛ برای شرکت‌کننده‌های جدید فقط همان‌هایی که خواسته (و پذیرایی، وقتی تصمیمش گرفته شد).
-   - **پرداخت اضافه:** بعد از تسویه هم می‌تواند «فیش پرداخت اضافه» بفرستد. این فیش مثل بقیه بررسی می‌شود. مبلغ بیشتر از سهم، هم برای خودش و هم در فهرست شرکت‌کننده‌ها («+X اضافه») دیده می‌شود.
-4. **بررسی فیش:** فیش‌ها در تب **شرکت‌کننده‌ها**، زیر «فیش‌های در انتظار بررسی» می‌آیند.
-   - با **تأیید**، مبلغ به «سهم نفرات» در بودجه اضافه می‌شود.
-   - با **رد**، دلیل رد به خود فرد نشان داده می‌شود.
-   - برگرداندن فیش تأییدشده فقط کار مدیر است.
-   - مدیر می‌تواند فیش (مثلاً فیش تکراری یا آزمایشی) را با **حذف فیش** کامل پاک کند. اگر فیش تأیید شده باشد، مبلغش هم از «سهم نفرات» کم می‌شود.
-5. **پرداخت نقدی یا مستقیم:** برای پرداختی که مستقیم به تیم مالی رسیده، روی نام فرد بزنید و **+ ثبت پرداخت این نفر** را انتخاب کنید (عکس فیش اختیاری است). پرداخت همان لحظه تأیید می‌شود و وضعیت فرد هم درست می‌شود.
-6. **چند نفر با یک شماره:** اگر چند نفر با یک شماره ثبت‌نام کرده باشند، هر کدام جدا ثبت می‌شوند و برچسب «شماره‌ی مشترک» می‌گیرند. صاحب شماره پس از ورود بین آن‌ها جابه‌جا می‌شود و برای هر کدام جدا فیش می‌فرستد.
-7. **لینک پرداخت در ربات:** برای کسی که خودش وارد سایت نمی‌شود (مثلاً دستی اضافه شده)، در پنجره‌ی همان نفر **کپی لینک** را بزنید و لینک را برایش بفرستید. در پیام گروهی هم `{link}` جای لینک هر نفر می‌نشیند.
-   - با باز کردن لینک، ربات مبلغ سهم، باقی‌مانده و شماره کارت را با دو دکمه‌ی **کپی مبلغ (ریال)** و **کپی شماره کارت** نشان می‌دهد.
-   - بعد از واریز، دکمه‌ی **🧾 ثبت پرداخت** را می‌زند و عکس رسید (یا اسکرین‌شات) را می‌فرستد. اگر مبلغ واریزی با باقی‌مانده فرق دارد، عددش را زیر عکس (کپشن) می‌نویسد. رسید با برچسب «از ربات تلگرام» در صف بررسی می‌آید.
-   - اگر بعد از زدن دکمه به‌جای عکس پیام دیگری بفرستد (یا ۳۰ دقیقه بگذرد)، ثبت رسید لغو می‌شود و باید دوباره دکمه را بزند. عکسی که بدون زدن دکمه فرستاده شود ثبت نمی‌شود.
-   - باز کردن دوباره‌ی لینک، جزئیات پرداخت را دوباره نشان می‌دهد. پیام‌های دیگر (حتی `/start`) همان جواب همیشگی ربات را می‌گیرند.
-   - برای فعال شدن دکمه‌ی **ثبت پرداخت** در رباتی که قبلاً راه‌اندازی شده، یک بار دیگر **راه‌اندازی دکمه‌ی ربات** را در تب **تنظیمات** بزنید.
-   - هر کس لینک را داشته باشد می‌تواند برای آن نفر رسید بفرستد (رسیدها به‌هرحال بررسی می‌شوند). **لینک جدید** لینک قبلی را باطل می‌کند.
+## Using it
 
-### شرکت‌کننده‌های جدید (لوح، تندیس و آلبوم عکس)
+### Finance team
 
-کسانی که بعد از قطعی شدن لیست اصلی اضافه می‌شوند و فقط لوح، تندیس، آلبوم عکس (Yearbook) یا چندتایشان را می‌خواهند:
+- Team members sign in with Telegram. An admin sets each person's role (viewer, editor or admin) in the **Members** tab, and their panel opens right away.
+- Each member's display name can be changed in the same tab. That name shows in the history and on "created by" labels.
+- The **Members** tab groups people into new requests, finance team, participants, rejected and blocked. The last three are collapsed and open with a click.
+- A finance team member's role can be changed to "participant" and back, from the same role list.
+- "Remove access" moves a team member to "rejected". They can ask again if they want.
 
-- **ثبت:** در تب **شرکت‌کننده‌ها**، **جدید (لوح و تندیس)** را بزنید و **+ شرکت‌کننده** را انتخاب کنید (یا در پنجره‌ی هر نفر نوع را «جدید» کنید). لوح، تندیس، آلبوم عکس و وضعیت پذیرایی همان‌جا تعیین می‌شود.
-- **مبلغ:** در **ویرایش اطلاعات پرداخت** مبلغ لوح، تندیس، آلبوم عکس و پذیرایی هر نفر تعیین می‌شود. مبلغ هر نفر جمع چیزهایی است که خواسته، به‌اضافه‌ی پذیرایی اگر «بله» باشد. مهمان ندارند و خودکار کد رأی نمی‌گیرند (مدیر می‌تواند به هر کدام که بخواهد دستی کد بدهد).
-- **تصمیم پذیرایی:** کنار هر نفر سه دکمه‌ی **بله / نه / ؟** هست. بالای فهرست هم می‌شود همه‌ی تصمیم‌نشده‌ها را یک‌جا «با پذیرایی» یا «بدون پذیرایی» کرد. خلاصه‌ی بالای فهرست تعداد لوح، تندیس، آلبوم عکس، پذیرایی و «کل پذیرایی» (اصلی‌ها و مهمان‌هایشان، به‌اضافه‌ی جدیدهای با پذیرایی) را نشان می‌دهد.
-- **جدا از لیست اصلی:** در خلاصه‌ها، پیام گروهی (گروه «شرکت‌کننده‌های جدید») و خروجی اکسل (برگه‌ی جدای «شرکت‌کننده‌های جدید») جدا حساب می‌شوند.
+### Participants and payments
 
-### کدهای ورود رأی‌گیری
+1. **Import the list:** in the **Participants** tab, **Import from sheet** reads the registration file (Excel or CSV).
+   - A phone column is required. Name, major and number of guests are read too. Headers can be in English or Persian.
+   - Headers don't have to be exact; "Phone number (preferably mobile)" is recognised as well.
+   - The number of guests can be "2", "2 people" or a Persian word. Unclear ones are shown for checking before importing.
+   - If the number cell holds something else too (a Telegram username, or two numbers with "Telegram" next to one), the mobile number is taken and the full text stays in that person's note.
+   - People without a valid number are imported tagged "No number". They can't sign in until a number is added, but the finance team can record their payments by hand.
+   - Importing the same file again doesn't create duplicates.
+2. **The share:** in **Edit payment details**, set the card number, the default share and the amount per guest. Each person's share is "default share + guests × amount per guest". For a different amount, write a "Total amount" in that person's window.
+3. **Signing in:** each person opens the site from the bot and taps **📱 Verify my number with Telegram**.
+   - The number comes from Telegram itself and is checked against the list. Nobody types their number on the site.
+   - Someone who opens the site in a browser only sees a button that opens the bot.
+   - If the number isn't on the list, they're pointed to the finance team.
+   - Once verified, they see their share (with the guests) and the card details, and send a picture of the receipt. The picture is compressed on their phone.
+   - **Adding guests:** they can add guests themselves. They see the new share before confirming. Only the finance team can remove guests. If a "Total amount" was set for them, the new guests are added to it. Every change shows in the **History**.
+   - **What you'll receive:** a card on each person's page lists what they get: for main participants, the items marked "in the share" and catering for them and their guests; for new participants, the items they asked for that are marked "in the share" (and catering, once decided).
+   - **Extra payments:** after settling, they can still send an "Extra payment receipt". It's reviewed like the others. Anything above the share is shown to them and in the participant list ("+X extra").
+4. **Reviewing receipts:** receipts show up in the **Participants** tab under "Receipts awaiting review".
+   - **Approve** adds the amount to "Personal shares" in the budget.
+   - **Reject** shows the reason to the person.
+   - Only admins can reopen an approved receipt.
+   - An admin can remove a receipt for good (a duplicate or a test, say) with **Delete receipt**. If it was approved, its amount is taken off "Personal shares" too.
+5. **Cash or direct payments:** for money handed straight to the finance team, tap the person's name and choose **+ Record a payment for this person** (the receipt picture is optional). It's approved at once and the person's status updates.
+6. **Several people on one number:** if several people registered with the same number, each is saved separately and tagged "Number shared". The number's owner switches between them after signing in and sends a receipt for each.
+7. **Bot payment link:** for someone who doesn't sign in to the site (e.g. added by hand), press **Copy link** in their window and send it to them. In group messages, `{link}` is replaced with each person's link.
+   - When they open it, the bot shows their share, what's left and the card number, with **Copy amount** and **Copy card number** buttons. (With the currency set to toman, the amount is copied in rials, as Iranian banks expect.)
+   - After paying, they tap **🧾 Record payment** and send the receipt picture (or a screenshot). If they paid a different amount, they write it under the picture (as the caption). The receipt lands in the review queue tagged "via the Telegram bot".
+   - If they send anything other than a picture after tapping the button (or 30 minutes pass), recording is cancelled and they tap the button again. A picture sent without tapping the button isn't recorded.
+   - Opening the link again shows the payment details again. Other messages (even `/start`) get the bot's usual answer.
+   - For the **Record payment** button to work in a bot that was set up earlier, press **Set up the bot button** in the **Settings** tab once more.
+   - Anyone who has the link can send a receipt for that person (receipts are reviewed anyway). **New link** cancels the old one.
 
-هر شرکت‌کننده‌ی اصلی یک کد یکتا برای ورود به رأی‌گیری دارد. هر نفر کد خودش (و کسانی که با همان شماره ثبت‌نام کرده‌اند) را در صفحه‌ی پرداخت سایت و هر بار که ربات را باز می‌کند می‌بیند. مدیرها کد هر نفر را در فهرست شرکت‌کننده‌ها، پنجره‌ی همان نفر و خروجی اکسل می‌بینند تا به کسی که از ربات و سایت استفاده نمی‌کند بدهند. بیننده‌ها و ویرایشگرها کدها را نمی‌بینند.
+### Items and new participants
 
-در تب **شرکت‌کننده‌ها**، دکمه‌ی **کد رأی** بالای فهرست (فقط مدیر):
+In **Edit payment details**, under **Items**, add a row per item: its name, its price and whether it's **in the share** (main participants get it as part of their share; it shows on their "What you'll receive" card). Removing an item takes it off everyone's list.
 
-1. **اضافه کردن کدها:** فایل CSV یا اکسل کدها را انتخاب کنید (هر کد در یک خانه، حرف بزرگ انگلیسی و رقم). کدهای تکراری نادیده گرفته می‌شوند.
-2. **تخصیص به همه‌ی بدون‌کدها:** به هر شرکت‌کننده‌ی اصلی بدون کد، یک کد آزاد تصادفی داده می‌شود. کسی که بعداً به لیست اصلی اضافه شود خودکار کد می‌گیرد.
-3. **ارسال کد هر نفر از ربات (اختیاری):** ربات کد هر نفر را برای خودش می‌فرستد؛ برای کسانی که با تلگرام وارد سایت شده‌اند. زیر این پیام دکمه‌ی ورود به سایت نیست.
+New participants are people added after the main list was final who only want some of the items:
 
-- **دکمه‌ی ورود به رأی‌گیری:** کنار کد هر نفر (در سایت و پیام‌های ربات) دکمه‌ی **🗳 ورود به رأی‌گیری** می‌آید که سایت رأی‌گیری را در مرورگر باز می‌کند. آدرسش در `config.js` (`voteUrl`) و برای ربات در secret اختیاری `VOTE_URL` تابع است (پیش‌فرض `https://armo.fun/`).
-- **دیدن و کپی کد:** کد هر نفر کنار نامش در فهرست، و با دکمه‌ی کپی در پنجره‌ی همان نفر دیده می‌شود. جستجو با کد هم کار می‌کند.
-- **کد برای شرکت‌کننده‌های جدید:** خودکار کد نمی‌گیرند. در پنجره‌ی هر کدام که بخواهید، **یه کد بهش بده** را بزنید؛ کد از کدهای آزاد داده می‌شود و مثل بقیه در سایت، ربات و اکسل دیده می‌شود.
-- **پس گرفتن کد:** در پنجره‌ی هر نفر، **پس گرفتن کد** کدش را باطل می‌کند (به کس دیگری داده نمی‌شود).
-- **کد جدید:** در پنجره‌ی هر نفر، **کد جدید بده** کد فعلی را باطل می‌کند و یک کد آزاد دیگر به او می‌دهد.
-- **حذف یا انتقال:** کد کسی که حذف می‌شود یا به «شرکت‌کننده‌های جدید» منتقل می‌شود باطل می‌شود و به کس دیگری داده نمی‌شود.
-- **محدودیت:** کسی که به داشبورد Supabase دسترسی دارد (صاحب پروژه) کدها را در جدول `voting_codes` می‌بیند. لینک پرداخت ربات کد را نشان نمی‌دهد، چون هر کس لینک را داشته باشد آن را می‌بیند.
+- **Adding them:** in the **Participants** tab, choose **New (items only)** and press **+ Participant** (or switch a person's type to "New" in their window). Their items and catering are set right there.
+- **Amount:** the sum of the items they picked, plus the catering price per person (also in **Edit payment details**) if catering is "yes". They have no guests and don't get a voting code automatically (an admin can give one by hand).
+- **Catering:** each row has **Yes / No / ?** buttons, and all undecided people can be set at once from above the list. The summary above the list shows how many want each item, the catering answers and the total catering count (main participants and their guests, plus new participants with catering).
+- **Kept apart:** summaries, group messages (the "New participants" group) and the Excel export (its own "New participants" sheet) count them separately.
 
-### پیام همگانی از طرف ربات
+### Voting codes (optional)
 
-در تب **تنظیمات**، بخش **پیام همگانی از طرف ربات** (فقط مدیر):
+Turned on with `votingCodes: true` in `config.js`. Each main participant gets a unique code to sign in to a vote. Each person sees their own code (and those of people registered with the same number) on their payment page and every time they open the bot. Admins see each person's code in the participant list, in that person's window and in the Excel export, to hand it to someone who uses neither the bot nor the site. Viewers and editors don't see codes.
 
-1. متن پیام را بنویسید. می‌توانید دکمه‌ی «ورود به سایت» را زیر پیام بگذارید.
-2. **ارسال آزمایشی برای خودم** را بزنید تا پیام فقط برای خودتان برود و ببینید چطور دیده می‌شود. برای این کار باید خودتان ربات را Start کرده باشید.
-3. **ارسال برای همه** را بزنید. سایت تعداد گیرنده‌ها را می‌گوید و تأیید می‌گیرد.
+In the **Participants** tab, the **Voting codes** button above the list (admins only):
 
-- **گیرنده‌ها:** همه‌ی کسانی که ربات را Start کرده‌اند یا با تلگرام وارد سایت شده‌اند.
-- **بدون پیام:** کسی که ربات را بلاک کرده یا هیچ‌وقت Start نکرده، پیامی نمی‌گیرد و در نتیجه‌ی ارسال جدا شمرده می‌شود.
-- **سابقه:** هر پیام همگانی با نام فرستنده و تعداد گیرنده‌ها در تب **تاریخچه** ثبت می‌شود.
+1. **Add codes:** choose a CSV or Excel file of codes (one per cell, capital letters and digits). Duplicates are skipped.
+2. **Assign to everyone without one:** every main participant without a code gets a random free one. Anyone added to the main list later gets one automatically.
+3. **Send everyone their code from the bot (optional):** the bot sends each person their code, to those who signed in with Telegram. These messages have no "Open the site" button.
 
-### پیام به گروه‌های شرکت‌کننده‌ها
+- **Vote button:** with `voteUrl` in `config.js` (and the `VOTE_URL` secret for the bot), a **🗳 Go to the vote** button next to each code opens the voting site in the browser.
+- **Seeing and copying:** each code shows next to the name in the list, and with a copy button in the person's window. Searching by code works too.
+- **Codes for new participants:** they don't get one automatically. In the window of anyone you choose, press **Give a code**; it comes from the free codes and shows on the site, in the bot and in Excel like the others.
+- **Taking a code back:** **Take the code back** in a person's window cancels it (it's never given to anyone else).
+- **New code:** **Give a new code** cancels the current code and gives another free one.
+- **Deleting or moving:** the code of someone deleted or moved to "new participants" is cancelled and never given to anyone else.
+- **Limits:** whoever has access to the Supabase dashboard (the project owner) can see the codes in the `voting_codes` table. The bot payment link doesn't show the code, because anyone with the link would see it.
 
-در تب **شرکت‌کننده‌ها**، دکمه‌ی **پیام به شرکت‌کننده‌ها** (فقط مدیر):
+### Broadcasts from the bot
 
-1. **گروه را انتخاب کنید:** همه‌ی بدهکارها، پرداخت نکرده، بخشی پرداخت کرده، فیش در انتظار بررسی، تسویه، هنوز وارد سایت نشده، شرکت‌کننده‌های جدید، یا همه. کنار هر گروه تعدادش می‌آید.
-2. **متن را بنویسید یا یکی از متن‌های آماده را بزنید:** یادآوری پرداخت، تشکر، دعوت به ورود، لینک پرداخت. جای `{name}`، `{amount}`، `{paid}`، `{remaining}` و `{link}` اسم، سهم، پرداخت‌شده، باقی‌مانده و لینک پرداخت ربات هر نفر می‌نشیند. پیش‌نمایش پیام اولین نفر نشان داده می‌شود.
-3. **گیرنده‌ها را ببینید:** در فهرست گیرنده‌ها کنار هر نفر می‌آید که پیامش از کدام راه می‌رود، و می‌شود تیک هر کسی را برداشت.
-4. **ارسال آزمایشی برای خودم** را بزنید تا پیام از ربات برای خودتان بیاید، بعد **ارسال**.
+In the **Settings** tab, under **Broadcast from the bot** (admins only):
 
-پیام هر نفر از یکی از این راه‌ها می‌رود:
+1. Write the message. You can add an "Open the site" button under it.
+2. Press **Send a test to me** to get it yourself first and see how it looks. You need to have started the bot yourself.
+3. Press **Send to everyone**. The site tells you how many people will get it and asks to confirm.
 
-- **ربات:** برای کسی که با تلگرام وارد سایت شده (یا صاحب شماره‌ی مشترکش وارد شده). دکمه‌ی «ورود به سایت» زیر پیام می‌آید.
-- **حساب تلگرام شخصی مدیر:** برای بقیه، و کسانی که ربات را بلاک کرده‌اند، با شماره‌شان. پیام‌ها یکی‌یکی و با چند ثانیه فاصله می‌روند تا حساب محدود نشود، و به‌جای دکمه، لینک ربات زیر پیام می‌آید. می‌شود وسط کار **توقف** را زد. اگر تلگرام حساب را محدود کند، ارسال خودش می‌ایستد.
+- **Recipients:** everyone who started the bot or signed in to the site with Telegram.
+- **Not delivered:** people who blocked the bot or never started it get nothing, and are counted separately in the result.
+- **History:** each broadcast is recorded in the **History** tab with the sender and the number of recipients.
 
-در آخر فهرست کسانی که پیام به آن‌ها نرسید، با دلیلش، نشان داده می‌شود. هر ارسال با نام مدیر در **تاریخچه** ثبت می‌شود.
+### Messages to groups of participants
 
-### حساب تلگرام شخصی مدیر (اختیاری)
+In the **Participants** tab, **Message participants** (admins only):
 
-ربات فقط به کسانی پیام می‌دهد که با تلگرام وارد سایت شده‌اند. برای رسیدن پیام به بقیه، مدیر حساب تلگرام خودش را وصل می‌کند (تب **تنظیمات** ← **حساب تلگرام شخصی من**):
+1. **Pick a group:** everyone who owes, not paid, partly paid, receipt awaiting review, settled, not signed in yet, new participants, or everyone. Each group shows its size.
+2. **Write the message or pick a template:** payment reminder, thank you, invite to sign in, payment link. `{name}`, `{amount}`, `{paid}`, `{remaining}` and `{link}` are replaced with each person's name, share, amount paid, amount left and bot payment link. A preview shows the first person's message.
+3. **Check the recipients:** the list shows how each person will be reached, and anyone can be unticked.
+4. Press **Send a test to me** to get the message from the bot yourself, then **Send**.
 
-1. در [my.telegram.org](https://my.telegram.org/apps) وارد شوید و از **API development tools** مقدارهای `api_id` و `api_hash` را بردارید. این‌ها همان مقدارهایی هستند که کتابخانه‌هایی مثل Telethon هم استفاده می‌کنند.
-2. این دو مقدار و شماره‌ی حساب تلگرام‌تان را وارد کنید و **ارسال کد ورود** را بزنید.
-3. کدی را که تلگرام فرستاده وارد کنید. اگر رمز دو مرحله‌ای دارید، آن را هم وارد کنید.
+Each message goes one of two ways:
 
-نکته‌های امنیتی و فنی:
+- **The bot:** for people who signed in to the site with Telegram (or whose shared number's owner did). An "Open the site" button goes under the message, in the recipient's language.
+- **The admin's personal Telegram account:** for everyone else, and people who blocked the bot, by their phone number. Messages go one by one, a few seconds apart, so the account isn't limited, and a link to the bot replaces the button. **Stop** works mid-way. If Telegram limits the account, sending stops by itself.
 
-- **ذخیره‌ی نشست:** فقط در همان مرورگر ذخیره می‌شود، نه در دیتابیس. هر کس آن را داشته باشد به کل حساب دسترسی دارد. روی دستگاه مشترک از آن استفاده نکنید و بعد از کار **قطع اتصال** را بزنید. نشست در تلگرام ← تنظیمات ← دستگاه‌ها هم با نام «Party finance panel (web)» دیده و بسته می‌شود.
-- **VPN:** حساب فقط موقع ارسال پیام (یا با **بررسی اتصال**) به تلگرام وصل می‌شود، مستقیم از مرورگر. تلگرام در ایران فیلتر است، پس این کار VPN لازم دارد. بقیه‌ی سایت VPN لازم ندارد.
-- **پیدا شدن با شماره:** شخص فقط وقتی پیدا می‌شود که تنظیمات حریم خصوصی‌اش اجازه‌ی پیدا شدن با شماره را بدهد.
-- **محدود شدن حساب:** پیام زیاد به کسانی که مخاطب شما نیستند ممکن است حساب را موقتاً محدود کند.
-- **کتابخانه:** `vendor/gramjs.js` نسخه‌ی مرورگری کتابخانه‌ی [GramJS](https://github.com/gram-js/gramjs) (۲.۲۶.۲۲، مجوز MIT) است.
+At the end, the people who weren't reached are listed with the reason. Each send is recorded in the **History** with the admin's name.
 
-## نکته‌ها
+### The admin's personal Telegram account (optional)
 
-- **کاربرهای تلگرامی:** در Supabase با ایمیل ساختگی مثل `tg123456@telegram.local` ذخیره می‌شوند. این ایمیل واقعی نیست و چیزی به آن ارسال نمی‌شود.
-- **دکمه‌ی ورود تلگرام در مرورگر:** فقط روی دامنه‌ای کار می‌کند که با `/setdomain` ثبت شده است (روی `localhost` یا با باز کردن مستقیم فایل کار نمی‌کند).
-- **اسکریپت تلگرام:** اسکریپت Mini App تلگرام در `vendor/telegram-web-app.js` همراه سایت است. دلیلش این است که telegram.org در برخی شبکه‌ها در دسترس نیست و صفحه‌ی داخل تلگرام فایل‌ها را با اینترنت معمولی دستگاه بارگذاری می‌کند، نه از مسیر اتصال خود تلگرام.
-- **پشتیبان کامل (فقط مدیر):** در تب **تنظیمات**، «گرفتن پشتیبان کامل» یک فایل zip می‌سازد: `data.json` با همه‌ی جدول‌ها (شرکت‌کننده‌ها، فیش‌ها، کدهای رأی، هزینه‌ها، فاکتورها، واریزی‌ها، اعضا، تاریخچه و جدول‌های ربات) و پوشه‌های `receipts/` و `invoices/` با عکس همه‌ی فیش‌ها و فاکتورها. داخل تلگرام، ربات فایل را می‌فرستد (اگر بزرگ باشد، در چند بخش). برای برگرداندن: `schema.sql` را در پروژه‌ی تازه اجرا کنید، ردیف‌ها را از `data.json` وارد کنید و پوشه‌ها را در سطل‌های هم‌نام آپلود کنید.
-- **خروجی اکسل داخل تلگرام:** چون داخل تلگرام دانلود فایل کار نمی‌کند، وقتی سایت از داخل تلگرام باز شده باشد، فایل اکسل را ربات به‌صورت سند برای خود همان عضو تیم مالی می‌فرستد (باید ربات را Start کرده باشد). در مرورگر، فایل مثل همیشه دانلود می‌شود.
-- **توقف پروژه‌ی رایگان:** پروژه‌ی رایگان Supabase پس از حدود یک هفته بی‌استفاده ماندن متوقف می‌شود. داده‌ها حفظ می‌شوند و با **Restore** برمی‌گردند.
-- **اجرای دوباره‌ی `schema.sql`:** روی پروژه‌ای که با همین فایل ساخته شده بی‌خطر است. داده‌ها پاک نمی‌شوند و فقط تابع‌ها و قوانین دسترسی دوباره ساخته می‌شوند.
+The bot can only message people who signed in to the site with Telegram. To reach everyone else, an admin connects their own Telegram account (**Settings** tab → **My personal Telegram account**):
 
-## مجوز
+1. Sign in at [my.telegram.org](https://my.telegram.org/apps) and copy `api_id` and `api_hash` from **API development tools** (the same values libraries like Telethon use).
+2. Enter them and your Telegram account's number, and press **Send sign-in code**.
+3. Enter the code Telegram sends you, and your two-step password if you have one.
+
+Security and technical notes:
+
+- **The session:** it's kept only in that browser, not in the database. Anyone who has it has full access to the account. Don't use it on a shared device, and press **Disconnect** when you're done. The session also shows (and can be ended) in Telegram → Settings → Devices as "Party finance panel (web)".
+- **VPN:** the account connects to Telegram straight from the browser, only while sending (or on **Check connection**). Where Telegram is blocked (as in Iran), this needs a VPN. The rest of the site doesn't.
+- **Finding people by number:** a person is found only if their privacy settings allow being found by phone number.
+- **Limits:** many messages to people who aren't your contacts can get the account limited for a while.
+- **Library:** `vendor/gramjs.js` is the browser build of [GramJS](https://github.com/gram-js/gramjs) (2.26.22, MIT licence).
+
+### Languages
+
+- **The site:** English or Persian, with a language button on the sign-in page, in the panel's header and on the payment page; each visitor's choice is remembered in their browser. Before anyone chooses, the site follows `defaultLang` in `config.js`, else the browser's or Telegram's language (Persian → Persian, anything else → English). In English the page reads left to right and numbers and dates are in English; in Persian it reads right to left, with Persian digits and the Persian calendar. Excel files and backups follow the language of whoever makes them.
+- **The bot:** each person gets the bot in their language: their own choice with the 🌐 button under the welcome message, else the `BOT_LANG` secret, else their Telegram app's language. Voting codes and group messages go out in each recipient's language.
+- **What isn't translated:** what people type — names, notes, item names, the party title, a custom welcome message, group message texts — stays as typed. The built-in expense categories are stored in Persian and shown in the visitor's language.
+- **Translating more text:** the page is written in Persian, and `i18n.js` holds the English text for each Persian string. A string that isn't in that table stays in Persian in the English page, so new text on the site needs a line there.
+
+## Notes
+
+- **Telegram users:** they're stored in Supabase with a made-up email like `tg123456@telegram.local`. It isn't a real address and nothing is sent to it.
+- **The Telegram sign-in button in a browser:** works only on the domain set with `/setdomain` (not on `localhost` or a file opened directly).
+- **Telegram's script:** the Telegram Mini App script ships with the site in `vendor/telegram-web-app.js`, because telegram.org is unreachable on some networks and a page inside Telegram loads its files over the device's normal connection, not through Telegram's.
+- **Full backup (admins):** in the **Settings** tab, "Make a full backup" builds a zip: `data.json` with every table (participants, receipts, voting codes, expenses, invoices, deposits, members, history and the bot tables) and `receipts/` and `invoices/` folders with every receipt and invoice picture. Inside Telegram, the bot sends the file (in several parts if it's large). To restore: run `schema.sql` in a new project, import the rows from `data.json` and upload the folders to the buckets with the same names.
+- **Excel export inside Telegram:** file downloads don't work inside Telegram, so when the site is open there, the bot sends the Excel file as a document to that team member (who must have started the bot). In a browser, the file downloads as usual.
+- **Paused free projects:** a free Supabase project pauses after about a week without use. The data is kept and comes back with **Restore**.
+- **Running `schema.sql` again:** safe on a project built from this file. No data is removed; functions and access rules are recreated, and older databases are upgraded (e.g. fixed plaque/statue/yearbook columns from earlier versions become items).
+- **Built for Iran so far:** phone numbers are matched in the Iranian mobile format (`09…`, `+98…`), card numbers have 16 digits, and with the currency set to toman the bot and the site copy amounts in rials.
+
+## Licence
 
 [MIT](LICENSE)
