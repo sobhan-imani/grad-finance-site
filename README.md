@@ -29,7 +29,9 @@ A simple, free website for running the money side of a graduation party or any g
 ## Files
 
 ```
-index.html                                  the whole site (one file)
+index.html                                  the page markup
+app.js                                      the site's logic
+styles.css                                  the site's styles and fonts
 i18n.js                                     English translation of the site and the language choice
 config.js                                   Supabase address, public key, bot name and options
 schema.sql                                  database, access rules, history and file storage
